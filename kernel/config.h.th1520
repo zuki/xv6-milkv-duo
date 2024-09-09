@@ -1,0 +1,21 @@
+/* Copyright (C) 2023 Jisheng Zhang <jszhang@kernel.org> */
+
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
+
+#define THEAD_PTE
+
+#define NCPU          4  // maximum number of CPUs
+
+#define UART0 0x3fe7014000UL
+#define UART0_PHY 0xffe7014000UL
+#define UART0_IRQ 36
+#define REG_SHIFT 2
+#define UART_CLK 100000000UL
+#define BAUD_RATE 1500000UL
+#define PLIC 0x3fd8000000UL
+#define PLIC_PHY 0xffd8000000UL
+
+#define INTERVAL     30000UL
+
+#endif

@@ -1,0 +1,210 @@
+/dts-v1/;
+
+/ {
+	#address-cells = <0x01>;
+	#size-cells = <0x01>;
+	compatible = "milkv,duo\0sophgo,cv1800b";
+	model = "Milk-V Duo";
+
+	cpus {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		timebase-frequency = <0x17d7840>;
+
+		cpu@0 {
+			compatible = "thead,c906\0riscv";
+			device_type = "cpu";
+			reg = <0x00>;
+			d-cache-block-size = <0x40>;
+			d-cache-sets = <0x200>;
+			d-cache-size = <0x10000>;
+			i-cache-block-size = <0x40>;
+			i-cache-sets = <0x80>;
+			i-cache-size = <0x8000>;
+			mmu-type = "riscv,sv39";
+			riscv,isa = "rv64imafdc";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i\0m\0a\0f\0d\0c\0zicntr\0zicsr\0zifencei\0zihpm";
+
+			interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+				#interrupt-cells = <0x01>;
+				phandle = <0x03>;
+			};
+		};
+	};
+
+	oscillator {
+		compatible = "fixed-clock";
+		clock-output-names = "osc_25m";
+		#clock-cells = <0x00>;
+		clock-frequency = <0x17d7840>;
+		phandle = <0x02>;
+	};
+
+	soc {
+		compatible = "simple-bus";
+		interrupt-parent = <0x01>;
+		#address-cells = <0x01>;
+		#size-cells = <0x01>;
+		dma-noncoherent;
+		ranges;
+
+		gpio@3020000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x3020000 0x1000>;
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+			gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <0x02>;
+				ngpios = <0x20>;
+				reg = <0x00>;
+				interrupt-controller;
+				#interrupt-cells = <0x02>;
+				interrupts = <0x3c 0x04>;
+			};
+		};
+
+		gpio@3021000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x3021000 0x1000>;
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+			gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <0x02>;
+				ngpios = <0x20>;
+				reg = <0x00>;
+				interrupt-controller;
+				#interrupt-cells = <0x02>;
+				interrupts = <0x3d 0x04>;
+			};
+		};
+
+		gpio@3022000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x3022000 0x1000>;
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+			gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <0x02>;
+				ngpios = <0x20>;
+				reg = <0x00>;
+				interrupt-controller;
+				#interrupt-cells = <0x02>;
+				interrupts = <0x3e 0x04>;
+			};
+		};
+
+		gpio@3023000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x3023000 0x1000>;
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+			gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <0x02>;
+				ngpios = <0x20>;
+				reg = <0x00>;
+				interrupt-controller;
+				#interrupt-cells = <0x02>;
+				interrupts = <0x3f 0x04>;
+			};
+		};
+
+		serial@4140000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x4140000 0x100>;
+			interrupts = <0x2c 0x04>;
+			clocks = <0x02>;
+			reg-shift = <0x02>;
+			reg-io-width = <0x04>;
+			status = "okay";
+		};
+
+		serial@4150000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x4150000 0x100>;
+			interrupts = <0x2d 0x04>;
+			clocks = <0x02>;
+			reg-shift = <0x02>;
+			reg-io-width = <0x04>;
+			status = "disabled";
+		};
+
+		serial@4160000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x4160000 0x100>;
+			interrupts = <0x2e 0x04>;
+			clocks = <0x02>;
+			reg-shift = <0x02>;
+			reg-io-width = <0x04>;
+			status = "disabled";
+		};
+
+		serial@4170000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x4170000 0x100>;
+			interrupts = <0x2f 0x04>;
+			clocks = <0x02>;
+			reg-shift = <0x02>;
+			reg-io-width = <0x04>;
+			status = "disabled";
+		};
+
+		serial@41c0000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x41c0000 0x100>;
+			interrupts = <0x30 0x04>;
+			clocks = <0x02>;
+			reg-shift = <0x02>;
+			reg-io-width = <0x04>;
+			status = "disabled";
+		};
+
+		interrupt-controller@70000000 {
+			reg = <0x70000000 0x4000000>;
+			interrupts-extended = <0x03 0x0b 0x03 0x09>;
+			interrupt-controller;
+			#address-cells = <0x00>;
+			#interrupt-cells = <0x02>;
+			riscv,ndev = <0x65>;
+			compatible = "sophgo,cv1800b-plic\0thead,c900-plic";
+			phandle = <0x01>;
+		};
+
+		timer@74000000 {
+			reg = <0x74000000 0x10000>;
+			interrupts-extended = <0x03 0x03 0x03 0x07>;
+			compatible = "sophgo,cv1800b-clint\0thead,c900-clint";
+		};
+	};
+
+	aliases {
+		serial0 = "/soc/serial@4140000";
+		serial1 = "/soc/serial@4150000";
+		serial2 = "/soc/serial@4160000";
+		serial3 = "/soc/serial@4170000";
+		serial4 = "/soc/serial@41c0000";
+	};
+
+	chosen {
+		stdout-path = "serial0:230400n8";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x3f40000>;
+	};
+};
