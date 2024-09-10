@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${default}"
+            ],
+            "defines": [
+
+            ],
+            "compilerPath": "/usr/local/opt/llvm/bin/clang",
+            "cStandard": "c17",
+            "intelliSenseMode": "macos-clang-x64"
+        }
+    ],
+    "version": 4
+}

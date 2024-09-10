@@ -1,0 +1,8 @@
+{
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+        "kernel/**"
+    ],
+    "C_Cpp.errorSquiggles": "disabled",
+    "cmake.configureOnOpen": true
+}
