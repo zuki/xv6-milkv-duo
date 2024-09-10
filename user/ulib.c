@@ -44,7 +44,7 @@ strlen(const char *s)
 }
 
 void*
-memset(void *dst, int c, uint n)
+memset(void *dst, int c, uint32_t n)
 {
   char *cdst = (char *) dst;
   int i;
@@ -127,7 +127,7 @@ memmove(void *vdst, const void *vsrc, int n)
 }
 
 int
-memcmp(const void *s1, const void *s2, uint n)
+memcmp(const void *s1, const void *s2, uint32_t n)
 {
   const char *p1 = s1, *p2 = s2;
   while (n-- > 0) {
@@ -141,7 +141,7 @@ memcmp(const void *s1, const void *s2, uint n)
 }
 
 void *
-memcpy(void *dst, const void *src, uint n)
+memcpy(void *dst, const void *src, uint32_t n)
 {
   return memmove(dst, src, n);
 }

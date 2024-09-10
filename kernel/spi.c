@@ -29,11 +29,7 @@
 
 #ifdef I2C_DRIVER
 
-
 #define BIT(nr)		(1 << (nr))
-typedef unsigned int	u32;
-typedef unsigned short	u16;
-typedef unsigned char	u8;
 
 /*
  * min()/max()/clamp() macros that also do
@@ -136,27 +132,27 @@ static struct dw_spi_priv {
 	const void *tx_end;
 	void *rx;
 	void *rx_end;
-	u32 fifo_len;			/* depth of the FIFO buffer */
-	u32 max_xfer;			/* Maximum transfer size (in bits) */
+	uint32_t fifo_len;			/* depth of the FIFO buffer */
+	uint32_t max_xfer;			/* Maximum transfer size (in bits) */
 
 	int bits_per_word;
 	int len;
-	u8 cs;				/* chip select pin */
-	u8 tmode;			/* TR/TO/RO/EEPROM */
-	u8 type;			/* SPI/SSP/MicroWire */
+	uint8_t cs;				/* chip select pin */
+	uint8_t tmode;			/* TR/TO/RO/EEPROM */
+	uint8_t type;			/* SPI/SSP/MicroWire */
 } dw_spi_priv;
 
-static inline u32 dw_read(struct dw_spi_priv *priv, u32 offset)
+static inline uint32_t dw_read(struct dw_spi_priv *priv, uint32_t offset)
 {
 	return read32(priv->regs + offset);
 }
 
-static inline void dw_write(struct dw_spi_priv *priv, u32 offset, u32 val)
+static inline void dw_write(struct dw_spi_priv *priv, uint32_t offset, uint32_t val)
 {
 	write32(priv->regs + offset, val);
 }
 
-static u32 dw_spi_dw16_update_cr0(struct dw_spi_priv *priv)
+static uint32_t dw_spi_dw16_update_cr0(struct dw_spi_priv *priv)
 {
 	return ((priv->bits_per_word - 1) << 0) |
 		(priv->type << 4) |
@@ -176,7 +172,7 @@ static void spi_hw_init(struct dw_spi_priv *priv)
 	 * the depth could be from 2 to 256 from HW spec
 	 */
 	if (!priv->fifo_len) {
-		u32 fifo;
+		uint32_t fifo;
 
 		for (fifo = 1; fifo < 256; fifo++) {
 			dw_write(priv, DW_SPI_TXFTLR, fifo);
@@ -210,9 +206,9 @@ static int dw_spi_probe(struct dw_spi_priv *priv)
 }
 
 /* Return the max entries we can fill into tx fifo */
-static inline u32 tx_max(struct dw_spi_priv *priv)
+static inline uint32_t tx_max(struct dw_spi_priv *priv)
 {
-	u32 tx_left, tx_room, rxtx_gap;
+	uint32_t tx_left, tx_room, rxtx_gap;
 
 	tx_left = (priv->tx_end - priv->tx) / (priv->bits_per_word >> 3);
 	tx_room = priv->fifo_len - dw_read(priv, DW_SPI_TXFLR);
@@ -228,29 +224,29 @@ static inline u32 tx_max(struct dw_spi_priv *priv)
 	rxtx_gap = ((priv->rx_end - priv->rx) - (priv->tx_end - priv->tx)) /
 		(priv->bits_per_word >> 3);
 
-	return min3(tx_left, tx_room, (u32)(priv->fifo_len - rxtx_gap));
+	return min3(tx_left, tx_room, (uint32_t)(priv->fifo_len - rxtx_gap));
 }
 
 /* Return the max entries we should read out of rx fifo */
-static inline u32 rx_max(struct dw_spi_priv *priv)
+static inline uint32_t rx_max(struct dw_spi_priv *priv)
 {
-	u32 rx_left = (priv->rx_end - priv->rx) / (priv->bits_per_word >> 3);
+	uint32_t rx_left = (priv->rx_end - priv->rx) / (priv->bits_per_word >> 3);
 
-	return min_t(u32, rx_left, dw_read(priv, DW_SPI_RXFLR));
+	return min_t(uint32_t, rx_left, dw_read(priv, DW_SPI_RXFLR));
 }
 
 static void dw_writer(struct dw_spi_priv *priv)
 {
-	u32 max = tx_max(priv);
-	u32 txw = 0xFFFFFFFF;
+	uint32_t max = tx_max(priv);
+	uint32_t txw = 0xFFFFFFFF;
 
 	while (max--) {
 		/* Set the tx word if the transfer's original "tx" is not null */
 		if (priv->tx_end - priv->len) {
 			if (priv->bits_per_word == 8)
-				txw = *(u8 *)(priv->tx);
+				txw = *(uint8_t *)(priv->tx);
 			else
-				txw = *(u16 *)(priv->tx);
+				txw = *(uint16_t *)(priv->tx);
 		}
 		dw_write(priv, DW_SPI_DR, txw);
 		//printf("tx=0x%02x\n", txw);
@@ -260,8 +256,8 @@ static void dw_writer(struct dw_spi_priv *priv)
 
 static void dw_reader(struct dw_spi_priv *priv)
 {
-	u32 max = rx_max(priv);
-	u16 rxw;
+	uint32_t max = rx_max(priv);
+	uint16_t rxw;
 
 	while (max--) {
 		rxw = dw_read(priv, DW_SPI_DR);
@@ -270,9 +266,9 @@ static void dw_reader(struct dw_spi_priv *priv)
 		/* Care about rx if the transfer's original "rx" is not null */
 		if (priv->rx_end - priv->len) {
 			if (priv->bits_per_word == 8)
-				*(u8 *)(priv->rx) = rxw;
+				*(uint8_t *)(priv->rx) = rxw;
 			else
-				*(u16 *)(priv->rx) = rxw;
+				*(uint16_t *)(priv->rx) = rxw;
 		}
 		priv->rx += priv->bits_per_word >> 3;
 	}
@@ -291,12 +287,12 @@ static int poll_transfer(struct dw_spi_priv *priv)
 static int dw_spi_xfer(struct dw_spi_priv *priv, unsigned int bitlen,
 		       const void *dout, void *din)
 {
-	const u8 *tx = dout;
-	u8 *rx = din;
+	const uint8_t *tx = dout;
+	uint8_t *rx = din;
 	int ret = 0;
-	u32 cr0 = 0;
-	u32 val;
-	u32 cs;
+	uint32_t cr0 = 0;
+	uint32_t val;
+	uint32_t cs;
 	int timeout = 1000000;
 
 	/* spi core configured to do 8 bit transfers */
@@ -370,7 +366,7 @@ static int dw_spi_xfer(struct dw_spi_priv *priv, unsigned int bitlen,
 
 static int dw_spi_set_speed(struct dw_spi_priv *priv, unsigned int speed)
 {
-	u16 clk_div;
+	uint16_t clk_div;
 
 	if (speed > priv->max_freq)
 		speed = priv->max_freq;
@@ -409,9 +405,9 @@ static int spi_xfer(struct dw_spi_priv *priv, struct spi_msg *argp)
 	int ret;
 	struct spi_msg msg;
 	struct proc *p = myproc();
-	u8 txbuf[32], rxbuf[32];
+	uint8_t txbuf[32], rxbuf[32];
 
-	ret = copyin(p->pagetable, (char *)&msg, (uint64)argp, sizeof(*argp));
+	ret = copyin(p->pagetable, (char *)&msg, (uint64_t)argp, sizeof(*argp));
 	if (ret < 0)
 		return ret;
 
@@ -421,7 +417,7 @@ static int spi_xfer(struct dw_spi_priv *priv, struct spi_msg *argp)
 		return -1;
 
 	if (msg.tx_buf) {
-		ret = copyin(p->pagetable, (char *)&txbuf, (uint64)msg.tx_buf, msg.len);
+		ret = copyin(p->pagetable, (char *)&txbuf, (uint64_t)msg.tx_buf, msg.len);
 		if (ret < 0)
 			return ret;
 	}
@@ -431,7 +427,7 @@ static int spi_xfer(struct dw_spi_priv *priv, struct spi_msg *argp)
 		return ret;
 
 	if (msg.rx_buf) {
-		ret = copyout(p->pagetable, (uint64)msg.rx_buf, (char *)&rxbuf, msg.len);
+		ret = copyout(p->pagetable, (uint64_t)msg.rx_buf, (char *)&rxbuf, msg.len);
 		if (ret < 0)
 			return ret;
 	}

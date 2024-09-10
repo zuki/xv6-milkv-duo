@@ -23,15 +23,6 @@
 
 #ifdef I2C_DRIVER
 
-typedef unsigned int		u32;
-typedef unsigned char		u8;
-typedef int			bool;
-typedef unsigned int		uint32_t;
-typedef unsigned short		uint16_t;
-typedef unsigned char		uint8_t;
-typedef int			int32_t;
-typedef unsigned long		uintptr_t;
-
 #define CONFIG_SYS_HZ		1000
 
 #define BIT_I2C_CMD_DATA_READ_BIT           (0x01 << 8)
@@ -63,48 +54,48 @@ typedef unsigned long		uintptr_t;
 #define BIT_I2C_INT_GEN_ALL                  (0x01 << 11)
 
 struct i2c_regs {
-	u32 ic_con;			/* 0x00 */
-	u32 ic_tar;			/* 0x04 */
-	u32 ic_sar;			/* 0x08 */
-	u32 ic_hs_maddr;		/* 0x0c */
-	u32 ic_cmd_data;		/* 0x10 */
-	u32 ic_ss_scl_hcnt;		/* 0x14 */
-	u32 ic_ss_scl_lcnt;		/* 0x18 */
-	u32 ic_fs_scl_hcnt;		/* 0x1c */
-	u32 ic_fs_scl_lcnt;		/* 0x20 */
-	u32 ic_hs_scl_hcnt;		/* 0x24 */
-	u32 ic_hs_scl_lcnt;		/* 0x28 */
-	u32 ic_intr_stat;		/* 0x2c */
-	u32 ic_intr_mask;		/* 0x30 */
-	u32 ic_raw_intr_stat;		/* 0x34 */
-	u32 ic_rx_tl;			/* 0x38 */
-	u32 ic_tx_tl;			/* 0x3c */
-	u32 ic_clr_intr;		/* 0x40 */
-	u32 ic_clr_rx_under;		/* 0x44 */
-	u32 ic_clr_rx_over;		/* 0x48 */
-	u32 ic_clr_tx_over;		/* 0x4c */
-	u32 ic_clr_rd_req;		/* 0x50 */
-	u32 ic_clr_tx_abrt;		/* 0x54 */
-	u32 ic_clr_rx_done;		/* 0x58 */
-	u32 ic_clr_activity;		/* 0x5c */
-	u32 ic_clr_stop_det;		/* 0x60 */
-	u32 ic_clr_start_det;		/* 0x64 */
-	u32 ic_clr_gen_call;		/* 0x68 */
-	u32 ic_enable;			/* 0x6c */
-	u32 ic_status;			/* 0x70 */
-	u32 ic_txflr;			/* 0x74 */
-	u32 ic_rxflr;			/* 0x78 */
-	u32 ic_sda_hold;		/* 0x7c */
-	u32 ic_tx_abrt_source;		/* 0x80 */
-	u32 ic_slv_dat_nack_only;	/* 0x84 */
-	u32 ic_dma_cr;			/* 0x88 */
-	u32 ic_dma_tdlr;		/* 0x8c */
-	u32 ic_dma_rdlr;		/* 0x90 */
-	u32 ic_sda_setup;		/* 0x94 */
-	u32 ic_ack_general_call;	/* 0x98 */
-	u32 ic_enable_status;		/* 0x9c */
-	u32 ic_fs_spklen;		/* 0xa0 */
-	u32 ic_hs_spklen;		/* 0xa4 */
+	uint32_t ic_con;			/* 0x00 */
+	uint32_t ic_tar;			/* 0x04 */
+	uint32_t ic_sar;			/* 0x08 */
+	uint32_t ic_hs_maddr;		/* 0x0c */
+	uint32_t ic_cmd_data;		/* 0x10 */
+	uint32_t ic_ss_scl_hcnt;		/* 0x14 */
+	uint32_t ic_ss_scl_lcnt;		/* 0x18 */
+	uint32_t ic_fs_scl_hcnt;		/* 0x1c */
+	uint32_t ic_fs_scl_lcnt;		/* 0x20 */
+	uint32_t ic_hs_scl_hcnt;		/* 0x24 */
+	uint32_t ic_hs_scl_lcnt;		/* 0x28 */
+	uint32_t ic_intr_stat;		/* 0x2c */
+	uint32_t ic_intr_mask;		/* 0x30 */
+	uint32_t ic_raw_intr_stat;		/* 0x34 */
+	uint32_t ic_rx_tl;			/* 0x38 */
+	uint32_t ic_tx_tl;			/* 0x3c */
+	uint32_t ic_clr_intr;		/* 0x40 */
+	uint32_t ic_clr_rx_under;		/* 0x44 */
+	uint32_t ic_clr_rx_over;		/* 0x48 */
+	uint32_t ic_clr_tx_over;		/* 0x4c */
+	uint32_t ic_clr_rd_req;		/* 0x50 */
+	uint32_t ic_clr_tx_abrt;		/* 0x54 */
+	uint32_t ic_clr_rx_done;		/* 0x58 */
+	uint32_t ic_clr_activity;		/* 0x5c */
+	uint32_t ic_clr_stop_det;		/* 0x60 */
+	uint32_t ic_clr_start_det;		/* 0x64 */
+	uint32_t ic_clr_gen_call;		/* 0x68 */
+	uint32_t ic_enable;			/* 0x6c */
+	uint32_t ic_status;			/* 0x70 */
+	uint32_t ic_txflr;			/* 0x74 */
+	uint32_t ic_rxflr;			/* 0x78 */
+	uint32_t ic_sda_hold;		/* 0x7c */
+	uint32_t ic_tx_abrt_source;		/* 0x80 */
+	uint32_t ic_slv_dat_nack_only;	/* 0x84 */
+	uint32_t ic_dma_cr;			/* 0x88 */
+	uint32_t ic_dma_tdlr;		/* 0x8c */
+	uint32_t ic_dma_rdlr;		/* 0x90 */
+	uint32_t ic_sda_setup;		/* 0x94 */
+	uint32_t ic_ack_general_call;	/* 0x98 */
+	uint32_t ic_enable_status;		/* 0x9c */
+	uint32_t ic_fs_spklen;		/* 0xa0 */
+	uint32_t ic_hs_spklen;		/* 0xa4 */
 };
 
 #define IC_CLK			100
@@ -308,7 +299,7 @@ int dw_i2c_read(uint8_t i2c_id, uint8_t dev, uint16_t addr, uint16_t alen, uint8
 	unsigned int time_count = 0;
 	struct i2c_regs *i2c;
 	int ret = 0;
-	u32 val;
+	uint32_t val;
 
 	i2c = get_i2c_base(i2c_id);
 
@@ -445,9 +436,9 @@ static int i2c_read(struct i2c_msg *argp)
 	int ret;
 	struct i2c_msg msg;
 	struct proc *p = myproc();
-	u8 buf[64];
+	uint8_t buf[64];
 
-	ret = copyin(p->pagetable, (char *)&msg, (uint64)argp, sizeof(*argp));
+	ret = copyin(p->pagetable, (char *)&msg, (uint64_t)argp, sizeof(*argp));
 	if (ret < 0)
 		return ret;
 
@@ -460,7 +451,7 @@ static int i2c_read(struct i2c_msg *argp)
 	if (ret < 0)
 		return ret;
 
-	return copyout(p->pagetable, (uint64)msg.buf, (char *)&buf, msg.len);
+	return copyout(p->pagetable, (uint64_t)msg.buf, (char *)&buf, msg.len);
 }
 
 static int i2c_write(struct i2c_msg *argp)
@@ -468,9 +459,9 @@ static int i2c_write(struct i2c_msg *argp)
 	int ret;
 	struct i2c_msg msg;
 	struct proc *p = myproc();
-	u8 buf[64];
+	uint8_t buf[64];
 
-	ret = copyin(p->pagetable, (char *)&msg, (uint64)argp, sizeof(*argp));
+	ret = copyin(p->pagetable, (char *)&msg, (uint64_t)argp, sizeof(*argp));
 	if (ret < 0)
 		return ret;
 
@@ -479,7 +470,7 @@ static int i2c_write(struct i2c_msg *argp)
 	if (!msg.buf)
 		return -1;
 
-	ret = copyin(p->pagetable, (char *)&buf, (uint64)msg.buf, msg.len);
+	ret = copyin(p->pagetable, (char *)&buf, (uint64_t)msg.buf, msg.len);
 	if (ret < 0)
 		return ret;
 

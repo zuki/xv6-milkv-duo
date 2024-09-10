@@ -32,11 +32,11 @@ char buf[BUFSZ];
 void
 copyin(char *s)
 {
-  uint64 addrs[] = { KERNBASE, 0xffffffffffffffff };
+  uint64_t addrs[] = { KERNBASE, 0xffffffffffffffff };
 
   for(int ai = 0; ai < 2; ai++){
-    uint64 addr = addrs[ai];
-    
+    uint64_t addr = addrs[ai];
+
     int fd = open("copyin1", O_CREATE|O_WRONLY);
     if(fd < 0){
       printf("open(copyin1) failed\n");
@@ -49,13 +49,13 @@ copyin(char *s)
     }
     close(fd);
     unlink("copyin1");
-    
+
     n = write(1, (char*)addr, 8192);
     if(n > 0){
       printf("write(1, %p, 8192) returned %d, not -1 or 0\n", addr, n);
       exit(1);
     }
-    
+
     int fds[2];
     if(pipe(fds) < 0){
       printf("pipe() failed\n");
@@ -76,10 +76,10 @@ copyin(char *s)
 void
 copyout(char *s)
 {
-  uint64 addrs[] = { KERNBASE, 0xffffffffffffffff };
+  uint64_t addrs[] = { KERNBASE, 0xffffffffffffffff };
 
   for(int ai = 0; ai < 2; ai++){
-    uint64 addr = addrs[ai];
+    uint64_t addr = addrs[ai];
 
     int fd = open("README", 0);
     if(fd < 0){
@@ -117,10 +117,10 @@ copyout(char *s)
 void
 copyinstr1(char *s)
 {
-  uint64 addrs[] = { KERNBASE, 0xffffffffffffffff };
+  uint64_t addrs[] = { KERNBASE, 0xffffffffffffffff };
 
   for(int ai = 0; ai < 2; ai++){
-    uint64 addr = addrs[ai];
+    uint64_t addr = addrs[ai];
 
     int fd = open((char *)addr, O_CREATE|O_WRONLY);
     if(fd >= 0){
@@ -141,7 +141,7 @@ copyinstr2(char *s)
   for(int i = 0; i < MAXPATH; i++)
     b[i] = 'x';
   b[MAXPATH] = '\0';
-  
+
   int ret = unlink(b);
   if(ret != -1){
     printf("unlink(%s) returned %d, not -1\n", b, ret);
@@ -199,11 +199,11 @@ void
 copyinstr3(char *s)
 {
   sbrk(8192);
-  uint64 top = (uint64) sbrk(0);
+  uint64_t top = (uint64_t) sbrk(0);
   if((top % PGSIZE) != 0){
     sbrk(PGSIZE - (top % PGSIZE));
   }
-  top = (uint64) sbrk(0);
+  top = (uint64_t) sbrk(0);
   if(top % PGSIZE){
     printf("oops\n");
     exit(1);
@@ -244,15 +244,15 @@ void
 rwsbrk()
 {
   int fd, n;
-  
-  uint64 a = (uint64) sbrk(8192);
+
+  uint64_t a = (uint64_t) sbrk(8192);
 
   if(a == 0xffffffffffffffffLL) {
     printf("sbrk(rwsbrk) failed\n");
     exit(1);
   }
-  
-  if ((uint64) sbrk(-8192) ==  0xffffffffffffffffLL) {
+
+  if ((uint64_t) sbrk(-8192) ==  0xffffffffffffffffLL) {
     printf("sbrk(rwsbrk) shrink failed\n");
     exit(1);
   }
@@ -281,7 +281,7 @@ rwsbrk()
     exit(1);
   }
   close(fd);
-  
+
   exit(0);
 }
 
@@ -290,7 +290,7 @@ void
 truncate1(char *s)
 {
   char buf[32];
-  
+
   unlink("truncfile");
   int fd1 = open("truncfile", O_CREATE|O_WRONLY|O_TRUNC);
   write(fd1, "abcd", 4);
@@ -319,7 +319,7 @@ truncate1(char *s)
     printf("%s: read %d bytes, wanted 0\n", s, n);
     exit(1);
   }
-  
+
   write(fd1, "abcdef", 6);
 
   n = read(fd3, buf, sizeof(buf));
@@ -372,7 +372,7 @@ truncate3(char *s)
   int pid, xstatus;
 
   close(open("truncfile", O_CREATE|O_TRUNC|O_WRONLY));
-  
+
   pid = fork();
   if(pid < 0){
     printf("%s: fork failed\n", s);
@@ -418,7 +418,7 @@ truncate3(char *s)
   unlink("truncfile");
   exit(xstatus);
 }
-  
+
 
 // does chdir() call iput(p->cwd) in a transaction?
 void
@@ -540,7 +540,7 @@ writetest(char *s)
   int fd;
   int i;
   enum { N=100, SZ=10 };
-  
+
   fd = open("small", O_CREATE|O_RDWR);
   if(fd < 0){
     printf("%s: error: creat small failed!\n", s);
@@ -738,7 +738,7 @@ pipe1(char *s)
   int fds[2], pid, xstatus;
   int seq, i, n, cc, total;
   enum { N=5, SZ=1033 };
-  
+
   if(pipe(fds) != 0){
     printf("%s: pipe() failed\n", s);
     exit(1);
@@ -791,7 +791,7 @@ void
 killstatus(char *s)
 {
   int xst;
-  
+
   for(int i = 0; i < 100; i++){
     int pid1 = fork();
     if(pid1 < 0){
@@ -962,7 +962,7 @@ void
 forkfork(char *s)
 {
   enum { N=2 };
-  
+
   for(int i = 0; i < N; i++){
     int pid = fork();
     if(pid < 0){
@@ -1119,7 +1119,7 @@ sharedfd(char *s)
     if(xstatus != 0)
       exit(xstatus);
   }
-  
+
   close(fd);
   fd = open("sharedfd", 0);
   if(fd < 0){
@@ -1154,7 +1154,7 @@ fourfiles(char *s)
   char *names[] = { "f0", "f1", "f2", "f3" };
   char *fname;
   enum { N=12, NCHILD=4, SZ=500 };
-  
+
   for(pi = 0; pi < NCHILD; pi++){
     fname = names[pi];
     unlink(fname);
@@ -2012,11 +2012,11 @@ sbrkbasic(char *s)
       // it's OK if this fails.
       exit(0);
     }
-    
+
     for(b = a; b < a+TOOMUCH; b += 4096){
       *b = 99;
     }
-    
+
     // we should not get here! either sbrk(TOOMUCH)
     // should have failed, or (with lazy allocation)
     // a pagefault should have killed this process.
@@ -2062,13 +2062,13 @@ sbrkmuch(char *s)
 {
   enum { BIG=50*1024*1024 };
   char *c, *oldbrk, *a, *lastaddr, *p;
-  uint64 amt;
+  uint64_t amt;
 
   oldbrk = sbrk(0);
 
   // can one grow address space to something big?
   a = sbrk(0);
-  amt = BIG - (uint64)a;
+  amt = BIG - (uint64_t)a;
   p = sbrk(amt);
   if (p != a) {
     printf("%s: sbrk test failed to grow big address space; enough phys mem?\n", s);
@@ -2145,7 +2145,7 @@ kernmem(char *s)
 void
 MAXVAplus(char *s)
 {
-  volatile uint64 a = MAXVA;
+  volatile uint64_t a = MAXVA;
   for( ; a != 0; a <<= 1){
     int pid;
     pid = fork();
@@ -2177,7 +2177,7 @@ sbrkfail(char *s)
   char *c, *a;
   int pids[10];
   int pid;
- 
+
   if(pipe(fds) != 0){
     printf("%s: pipe() failed\n", s);
     exit(1);
@@ -2185,7 +2185,7 @@ sbrkfail(char *s)
   for(i = 0; i < sizeof(pids)/sizeof(pids[0]); i++){
     if((pids[i] = fork()) == 0){
       // allocate a lot of memory
-      sbrk(BIG - (uint64)sbrk(0));
+      sbrk(BIG - (uint64_t)sbrk(0));
       write(fds[1], "x", 1);
       // sit around until killed
       for(;;) sleep(1000);
@@ -2208,7 +2208,7 @@ sbrkfail(char *s)
     exit(1);
   }
 
-  // test running fork with the above allocated page 
+  // test running fork with the above allocated page
   pid = fork();
   if(pid < 0){
     printf("%s: fork failed\n", s);
@@ -2234,7 +2234,7 @@ sbrkfail(char *s)
     exit(1);
 }
 
-  
+
 // test reads/writes from/to allocated memory
 void
 sbrkarg(char *s)
@@ -2260,14 +2260,14 @@ sbrkarg(char *s)
   if(pipe((int *) a) != 0){
     printf("%s: pipe() failed\n", s);
     exit(1);
-  } 
+  }
 }
 
 void
 validatetest(char *s)
 {
   int hi;
-  uint64 p;
+  uint64_t p;
 
   hi = 1100*1024;
   for(p = 0; p <= (uint)hi; p += PGSIZE){
@@ -2318,7 +2318,7 @@ bigargtest(char *s)
     printf("%s: bigargtest: fork failed\n", s);
     exit(1);
   }
-  
+
   wait(&xstatus);
   if(xstatus != 0)
     exit(xstatus);
@@ -2402,7 +2402,7 @@ stacktest(char *s)
 {
   int pid;
   int xstatus;
-  
+
   pid = fork();
   if(pid == 0) {
     char *sp = (char *) r_sp();
@@ -2427,7 +2427,7 @@ textwrite(char *s)
 {
   int pid;
   int xstatus;
-  
+
   pid = fork();
   if(pid == 0) {
     volatile int *addr = (int *) 0;
@@ -2471,7 +2471,7 @@ sbrkbugs(char *s)
     exit(1);
   }
   if(pid == 0){
-    int sz = (uint64) sbrk(0);
+    int sz = (uint64_t) sbrk(0);
     // free all user memory; there used to be a bug that
     // would not adjust p->sz correctly in this case,
     // causing exit() to panic.
@@ -2487,7 +2487,7 @@ sbrkbugs(char *s)
     exit(1);
   }
   if(pid == 0){
-    int sz = (uint64) sbrk(0);
+    int sz = (uint64_t) sbrk(0);
     // set the break to somewhere in the very first
     // page; there used to be a bug that would incorrectly
     // free the first page.
@@ -2503,7 +2503,7 @@ sbrkbugs(char *s)
   }
   if(pid == 0){
     // set the break in the middle of a page.
-    sbrk((10*4096 + 2048) - (uint64)sbrk(0));
+    sbrk((10*4096 + 2048) - (uint64_t)sbrk(0));
 
     // reduce the break a bit, but not enough to
     // cause a page to be freed. this used to cause
@@ -2523,13 +2523,13 @@ sbrkbugs(char *s)
 void
 sbrklast(char *s)
 {
-  uint64 top = (uint64) sbrk(0);
+  uint64_t top = (uint64_t) sbrk(0);
   if((top % 4096) != 0)
     sbrk(4096 - (top % 4096));
   sbrk(4096);
   sbrk(10);
   sbrk(-20);
-  top = (uint64) sbrk(0);
+  top = (uint64_t) sbrk(0);
   char *p = (char *) (top - 64);
   p[0] = 'x';
   p[1] = '\0';
@@ -2567,7 +2567,7 @@ badarg(char *s)
     argv[1] = 0;
     exec("echo", argv);
   }
-  
+
   exit(0);
 }
 
@@ -2691,7 +2691,7 @@ manywrites(char *s)
 {
   int nchildren = 4;
   int howmany = 30; // increase to look for deadlock
-  
+
   for(int ci = 0; ci < nchildren; ci++){
     int pid = fork();
     if(pid < 0){
@@ -2705,7 +2705,7 @@ manywrites(char *s)
       name[1] = 'a' + ci;
       name[2] = '\0';
       unlink(name);
-      
+
       for(int iters = 0; iters < howmany; iters++){
         for(int i = 0; i < ci+1; i++){
           int fd = open(name, O_CREATE | O_RDWR);
@@ -2747,7 +2747,7 @@ void
 badwrite(char *s)
 {
   int assumed_free = 600;
-  
+
   unlink("junk");
   for(int i = 0; i < assumed_free; i++){
     int fd = open("junk", O_CREATE|O_WRONLY);
@@ -2789,7 +2789,7 @@ execout(char *s)
     } else if(pid == 0){
       // allocate all of memory.
       while(1){
-        uint64 a = (uint64) sbrk(4096);
+        uint64_t a = (uint64_t) sbrk(4096);
         if(a == 0xffffffffffffffffLL)
           break;
         *(char*)(a + 4096 - 1) = 1;
@@ -2799,7 +2799,7 @@ execout(char *s)
       // progress.
       for(int i = 0; i < avail; i++)
         sbrk(-4096);
-      
+
       close(1);
       char *args[] = { "echo", "x", 0 };
       exec("echo", args);
@@ -2820,7 +2820,7 @@ diskfull(char *s)
   int done = 0;
 
   unlink("diskfulldir");
-  
+
   for(fi = 0; done == 0; fi++){
     char name[32];
     name[0] = 'b';
@@ -2931,7 +2931,7 @@ struct test slowtests[] = {
   {execout, "execout"},
   {diskfull, "diskfull"},
   {outofinodes, "outofinodes"},
-    
+
   { 0, 0},
 };
 
@@ -2956,7 +2956,7 @@ run(void f(char *), char *s) {
     exit(0);
   } else {
     wait(&xstatus);
-    if(xstatus != 0) 
+    if(xstatus != 0)
       printf("FAILED\n");
     else
       printf("OK\n");
@@ -2993,7 +2993,7 @@ countfree()
     printf("pipe() failed in countfree()\n");
     exit(1);
   }
-  
+
   int pid = fork();
 
   if(pid < 0){
@@ -3003,9 +3003,9 @@ countfree()
 
   if(pid == 0){
     close(fds[0]);
-    
+
     while(1){
-      uint64 a = (uint64) sbrk(4096);
+      uint64_t a = (uint64_t) sbrk(4096);
       if(a == 0xffffffffffffffff){
         break;
       }
@@ -3040,7 +3040,7 @@ countfree()
 
   close(fds[0]);
   wait((int*)0);
-  
+
   return n;
 }
 

@@ -31,11 +31,11 @@ struct gpio {
 static int gpio_config(struct gpio_config *argp)
 {
   int ret, pin, port;
-  uint32 val;
+  uint32_t val;
   struct gpio_config conf;
   struct proc *p = myproc();
 
-  ret = copyin(p->pagetable, (char *)&conf, (uint64)argp, sizeof(*argp));
+  ret = copyin(p->pagetable, (char *)&conf, (uint64_t)argp, sizeof(*argp));
   if (ret < 0)
     return ret;
 
@@ -66,7 +66,7 @@ err:
 static int gpio_set(unsigned long arg)
 {
   int pin, port;
-  uint32 val;
+  uint32_t val;
 
   pin = arg & 0xff;
   port = (arg >> GPIO_PORT_SFT) & 0xff;
@@ -90,7 +90,7 @@ static int gpio_set(unsigned long arg)
 static int gpio_get(unsigned long arg)
 {
   int pin, port;
-  uint32 val;
+  uint32_t val;
 
   pin = arg & 0xff;
   port = (arg >> GPIO_PORT_SFT) & 0xff;

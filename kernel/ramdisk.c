@@ -28,7 +28,7 @@ ramdiskrw(struct buf *b, int write)
   if(b->blockno >= FSSIZE)
     panic("ramdiskrw: blockno too big");
 
-  uint64 diskaddr = b->blockno * BSIZE;
+  uint64_t diskaddr = b->blockno * BSIZE;
   char *addr = (char *)__ramdisk_start + diskaddr;
 
   if(write){

@@ -53,7 +53,7 @@ go(int which_child)
   int fd = -1;
   static char buf[999];
   char *break0 = sbrk(0);
-  uint64 iters = 0;
+  uint64_t iters = 0;
 
   mkdir("grindir");
   if(chdir("grindir") != 0){
@@ -61,7 +61,7 @@ go(int which_child)
     exit(1);
   }
   chdir("/");
-  
+
   while(1){
     iters++;
     if((iters % 500) == 0)
@@ -298,7 +298,7 @@ iter()
 {
   unlink("a");
   unlink("b");
-  
+
   int pid1 = fork();
   if(pid1 < 0){
     printf("grind: fork failed\n");

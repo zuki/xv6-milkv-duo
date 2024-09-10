@@ -37,11 +37,11 @@ struct pwm {
 static int pwm_config(struct pwm_config *argp)
 {
   int ret, chip, chan;
-  uint32 val, duty, start;
+  uint32_t val, duty, start;
   struct pwm_config conf;
   struct proc *p = myproc();
 
-  ret = copyin(p->pagetable, (char *)&conf, (uint64)argp, sizeof(*argp));
+  ret = copyin(p->pagetable, (char *)&conf, (uint64_t)argp, sizeof(*argp));
   if (ret < 0)
     return ret;
 

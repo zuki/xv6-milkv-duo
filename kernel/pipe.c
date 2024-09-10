@@ -13,8 +13,8 @@
 struct pipe {
   struct spinlock lock;
   char data[PIPESIZE];
-  uint nread;     // number of bytes read
-  uint nwrite;    // number of bytes written
+  uint32_t nread;     // number of bytes read
+  uint32_t nwrite;    // number of bytes written
   int readopen;   // read fd is still open
   int writeopen;  // write fd is still open
 };
@@ -74,7 +74,7 @@ pipeclose(struct pipe *pi, int writable)
 }
 
 int
-pipewrite(struct pipe *pi, uint64 addr, int n)
+pipewrite(struct pipe *pi, uint64_t addr, int n)
 {
   int i = 0;
   struct proc *pr = myproc();
@@ -103,7 +103,7 @@ pipewrite(struct pipe *pi, uint64 addr, int n)
 }
 
 int
-piperead(struct pipe *pi, uint64 addr, int n)
+piperead(struct pipe *pi, uint64_t addr, int n)
 {
   int i;
   struct proc *pr = myproc();

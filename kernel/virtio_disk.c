@@ -17,7 +17,7 @@
 #include "virtio.h"
 
 // the address of virtio mmio register r.
-#define R(r) ((volatile uint32 *)(VIRTIO0 + (r)))
+#define R(r) ((volatile uint32_t *)(VIRTIO0 + (r)))
 
 static struct disk {
   // a set (not a ring) of DMA descriptors, with which the
@@ -40,7 +40,7 @@ static struct disk {
 
   // our own book-keeping.
   char free[NUM];  // is a descriptor free?
-  uint16 used_idx; // we've looked this far in used[2..NUM].
+  uint16_t used_idx; // we've looked this far in used[2..NUM].
 
   // track info about in-flight operations,
   // for use when completion interrupt arrives.
@@ -53,15 +53,15 @@ static struct disk {
   // disk command headers.
   // one-for-one with descriptors, for convenience.
   struct virtio_blk_req ops[NUM];
-  
+
   struct spinlock vdisk_lock;
-  
+
 } disk;
 
 void
 virtio_disk_init(void)
 {
-  uint32 status = 0;
+  uint32_t status = 0;
 
   initlock(&disk.vdisk_lock, "virtio_disk");
 
@@ -71,7 +71,7 @@ virtio_disk_init(void)
      *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551){
     panic("could not find virtio disk");
   }
-  
+
   // reset device
   *R(VIRTIO_MMIO_STATUS) = status;
 
@@ -84,7 +84,7 @@ virtio_disk_init(void)
   *R(VIRTIO_MMIO_STATUS) = status;
 
   // negotiate features
-  uint64 features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
+  uint64_t features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
   features &= ~(1 << VIRTIO_BLK_F_RO);
   features &= ~(1 << VIRTIO_BLK_F_SCSI);
   features &= ~(1 << VIRTIO_BLK_F_CONFIG_WCE);
@@ -111,7 +111,7 @@ virtio_disk_init(void)
     panic("virtio disk should not be ready");
 
   // check maximum queue size.
-  uint32 max = *R(VIRTIO_MMIO_QUEUE_NUM_MAX);
+  uint32_t max = *R(VIRTIO_MMIO_QUEUE_NUM_MAX);
   if(max == 0)
     panic("virtio disk has no queue 0");
   if(max < NUM)
@@ -131,12 +131,12 @@ virtio_disk_init(void)
   *R(VIRTIO_MMIO_QUEUE_NUM) = NUM;
 
   // write physical addresses.
-  *R(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)disk.desc;
-  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)disk.desc >> 32;
-  *R(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)disk.avail;
-  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)disk.avail >> 32;
-  *R(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)disk.used;
-  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)disk.used >> 32;
+  *R(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64_t)disk.desc;
+  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64_t)disk.desc >> 32;
+  *R(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64_t)disk.avail;
+  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64_t)disk.avail >> 32;
+  *R(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64_t)disk.used;
+  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64_t)disk.used >> 32;
 
   // queue is ready.
   *R(VIRTIO_MMIO_QUEUE_READY) = 0x1;
@@ -215,7 +215,7 @@ alloc3_desc(int *idx)
 void
 virtio_disk_rw(struct buf *b, int write)
 {
-  uint64 sector = b->blockno * (BSIZE / 512);
+  uint64_t sector = b->blockno * (BSIZE / 512);
 
   acquire(&disk.vdisk_lock);
 
@@ -244,12 +244,12 @@ virtio_disk_rw(struct buf *b, int write)
   buf0->reserved = 0;
   buf0->sector = sector;
 
-  disk.desc[idx[0]].addr = (uint64) buf0;
+  disk.desc[idx[0]].addr = (uint64_t) buf0;
   disk.desc[idx[0]].len = sizeof(struct virtio_blk_req);
   disk.desc[idx[0]].flags = VRING_DESC_F_NEXT;
   disk.desc[idx[0]].next = idx[1];
 
-  disk.desc[idx[1]].addr = (uint64) b->data;
+  disk.desc[idx[1]].addr = (uint64_t) b->data;
   disk.desc[idx[1]].len = BSIZE;
   if(write)
     disk.desc[idx[1]].flags = 0; // device reads b->data
@@ -259,7 +259,7 @@ virtio_disk_rw(struct buf *b, int write)
   disk.desc[idx[1]].next = idx[2];
 
   disk.info[idx[0]].status = 0xff; // device writes 0 on success
-  disk.desc[idx[2]].addr = (uint64) &disk.info[idx[0]].status;
+  disk.desc[idx[2]].addr = (uint64_t) &disk.info[idx[0]].status;
   disk.desc[idx[2]].len = 1;
   disk.desc[idx[2]].flags = VRING_DESC_F_WRITE; // device writes the status
   disk.desc[idx[2]].next = 0;

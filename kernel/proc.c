@@ -33,13 +33,13 @@ void
 proc_mapstacks(pagetable_t kpgtbl)
 {
   struct proc *p;
-  
+
   for(p = proc; p < &proc[NPROC]; p++) {
     char *pa = kalloc();
     if(pa == 0)
       panic("kalloc");
-    uint64 va = KSTACK((int) (p - proc));
-    kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_NORMAL);
+    uint64_t va = KSTACK((int) (p - proc));
+    kvmmap(kpgtbl, va, (uint64_t)pa, PGSIZE, PTE_NORMAL);
   }
 }
 
@@ -48,7 +48,7 @@ void
 procinit(void)
 {
   struct proc *p;
-  
+
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
@@ -93,7 +93,7 @@ int
 allocpid()
 {
   int pid;
-  
+
   acquire(&pid_lock);
   pid = nextpid;
   nextpid = nextpid + 1;
@@ -143,7 +143,7 @@ found:
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
-  p->context.ra = (uint64)forkret;
+  p->context.ra = (uint64_t)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
   return p;
@@ -188,7 +188,7 @@ proc_pagetable(struct proc *p)
   // only the supervisor uses it, on the way
   // to/from user space, so not PTE_U.
   if(mappages(pagetable, TRAMPOLINE, PGSIZE,
-              (uint64)trampoline, PTE_EXEC) < 0){
+              (uint64_t)trampoline, PTE_EXEC) < 0){
     uvmfree(pagetable, 0);
     return 0;
   }
@@ -196,7 +196,7 @@ proc_pagetable(struct proc *p)
   // map the trapframe page just below the trampoline page, for
   // trampoline.S.
   if(mappages(pagetable, TRAPFRAME, PGSIZE,
-              (uint64)(p->trapframe), PTE_NORMAL) < 0){
+              (uint64_t)(p->trapframe), PTE_NORMAL) < 0){
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmfree(pagetable, 0);
     return 0;
@@ -208,7 +208,7 @@ proc_pagetable(struct proc *p)
 // Free a process's page table, and free the
 // physical memory it refers to.
 void
-proc_freepagetable(pagetable_t pagetable, uint64 sz)
+proc_freepagetable(pagetable_t pagetable, uint64_t sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
@@ -236,7 +236,7 @@ userinit(void)
 
   p = allocproc();
   initproc = p;
-  
+
   // allocate one user page and copy initcode's instructions
   // and data into it.
   uvmfirst(p->pagetable, initcode, sizeof(initcode));
@@ -259,7 +259,7 @@ userinit(void)
 int
 growproc(int n)
 {
-  uint64 sz;
+  uint64_t sz;
   struct proc *p = myproc();
 
   sz = p->sz;
@@ -372,7 +372,7 @@ exit(int status)
 
   // Parent might be sleeping in wait().
   wakeup(p->parent);
-  
+
   acquire(&p->lock);
 
   p->xstate = status;
@@ -388,7 +388,7 @@ exit(int status)
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-wait(uint64 addr)
+wait(uint64_t addr)
 {
   struct proc *pp;
   int havekids, pid;
@@ -428,7 +428,7 @@ wait(uint64 addr)
       release(&wait_lock);
       return -1;
     }
-    
+
     // Wait for a child to exit.
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
@@ -447,7 +447,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   int found;
-  
+
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
@@ -546,7 +546,7 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
+
   // Must acquire p->lock in order to
   // change p->state and then call sched.
   // Once we hold p->lock, we can be
@@ -625,7 +625,7 @@ int
 killed(struct proc *p)
 {
   int k;
-  
+
   acquire(&p->lock);
   k = p->killed;
   release(&p->lock);
@@ -636,7 +636,7 @@ killed(struct proc *p)
 // depending on usr_dst.
 // Returns 0 on success, -1 on error.
 int
-either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
+either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len)
 {
   struct proc *p = myproc();
   if(user_dst){
@@ -651,7 +651,7 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 // depending on usr_src.
 // Returns 0 on success, -1 on error.
 int
-either_copyin(void *dst, int user_src, uint64 src, uint64 len)
+either_copyin(void *dst, int user_src, uint64_t src, uint64_t len)
 {
   struct proc *p = myproc();
   if(user_src){
@@ -695,7 +695,7 @@ procdump(void)
 void
 kdelay(unsigned long n)
 {
-  uint64 t0 = r_time();
+  uint64_t t0 = r_time();
 
   while(r_time() - t0 < n * INTERVAL){
     asm volatile("pause");

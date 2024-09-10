@@ -18,8 +18,8 @@
 #define ADC_CTRL		0x04
 #define  ADC_CTRL_EN		(1 << 0)  // 1: 測定開始
 #define  ADC_CTRL_SEL_SFT	4       // チャネル選択
-#define ADC_CYC_SET		0xc     
-#define  ADC_CYC_CLKDIV_SFT	12    // 
+#define ADC_CYC_SET		0xc
+#define  ADC_CYC_CLKDIV_SFT	12    //
 #define  ADC_CYC_CLKDIV_MSK	0xf
 #define ADC_CH_RESULT(n)	((n - 1) * 4 + 0x14)
 #define  ADC_CH_RESULT_VALID	(1 << 15)
@@ -39,7 +39,7 @@ struct adc {
 static int adc_get(unsigned long arg)
 {
   int chan, chip, ret, timeout = 1000;
-  uint32 val;
+  uint32_t val;
 
   // arg = [15:8]: chip | [7:0] chan
   chan = (arg >> ADC_CHAN_SFT) & 0xff;
@@ -87,7 +87,7 @@ static int adc_ioctl(int user_dst, unsigned long req, void *argp)
 
 void adcinit(void)
 {
-  uint32 val;
+  uint32_t val;
 
   // 利用できるのはチャネル１のみ
   initlock(&adc.chip[0].lock, "adc0");
