@@ -704,13 +704,13 @@ kdelay(unsigned long n)
 }
 
 void
-msdelay(unsigned long n)
+delayms(unsigned long n)
 {
-  usdelay(n * 1000UL);
+  delayus(n * 1000UL);
 }
 
 void
-usdelay(unsigned long n)
+delayus(unsigned long n)
 {
   uint64_t t0 = r_time();
 

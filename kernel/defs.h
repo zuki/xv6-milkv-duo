@@ -1,3 +1,6 @@
+#ifndef INC_DEFS_H
+#define INC_DEFS_H
+
 struct buf;
 struct context;
 struct file;
@@ -8,6 +11,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct emmc;
 
 // bio.c
 void            binit(void);
@@ -108,8 +112,8 @@ int             either_copyout(int user_dst, uint64_t dst, void *src, uint64_t l
 int             either_copyin(void *dst, int user_src, uint64_t src, uint64_t len);
 void            procdump(void);
 void            kdelay(unsigned long n);
-void            msdelay(unsigned long n);
-void            usdelay(unsigned long n);
+void            delayms(unsigned long n);
+void            delayus(unsigned long n);
 // sbi.c
 #ifndef CONFIG_RISCV_M_MODE
 void            sbiinit(void);
@@ -211,5 +215,21 @@ void            i2cinit(void);
 // spi.c
 void            spiinit(void);
 
+// emmc.c
+
+void emmc_clear_interrupt();
+void emmc_intr(struct emmc *self);
+int emmc_init(struct emmc *self, void (*sleep_fn)(void *), void *sleep_arg);
+size_t emmc_read(struct emmc *self, void *buf, size_t cnt);
+size_t emmc_write(struct emmc *self, void *buf, size_t cnt);
+uint64_t emmc_seek(struct emmc *self, uint64_t off);
+
+// sd.c
+void sd_init(void);
+void sd_intr(void *params);
+void sd_rw(struct buf *);
+
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+#endif
