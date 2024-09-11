@@ -52,6 +52,15 @@ main()
 #ifdef SPI_DRIVER
     spiinit();
 #endif
+/*
+    printf("s %llu\n", r_time());
+    msdelay(1000);  // 1秒
+    printf("e: %llu\n", r_time());
+    msdelay(100);
+    printf("s %llu\n", r_time());
+    usdelay(1000000);  // 1秒
+    printf("e: %llu\n", r_time());
+  */
     userinit();      // first user process
     __sync_synchronize();
     started = 1;
@@ -65,5 +74,5 @@ main()
     printf("hart %d started\n", cpuid());
   }
 
-  scheduler();        
+  scheduler();
 }

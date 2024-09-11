@@ -17,5 +17,5 @@
 #define PLIC_PHY 0xffd8000000UL
 
 #define INTERVAL     30000UL
-
+#define US_INTERVAL  3UL
 #endif

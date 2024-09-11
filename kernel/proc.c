@@ -692,12 +692,29 @@ procdump(void)
   }
 }
 
+// 10ミリ秒単位のdelay
 void
 kdelay(unsigned long n)
 {
   uint64_t t0 = r_time();
 
   while(r_time() - t0 < n * INTERVAL){
+    asm volatile("pause");
+  }
+}
+
+void
+msdelay(unsigned long n)
+{
+  usdelay(n * 1000UL);
+}
+
+void
+usdelay(unsigned long n)
+{
+  uint64_t t0 = r_time();
+
+  while(r_time() - t0 < n * US_INTERVAL){
     asm volatile("pause");
   }
 }
