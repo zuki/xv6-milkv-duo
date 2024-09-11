@@ -1,3 +1,6 @@
+#ifndef INC_FILE_H
+#define INC_FILE_H
+
 struct file {
   enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
   int ref; // reference count
@@ -44,3 +47,5 @@ extern struct devsw devsw[];
 #define ADC 4
 #define I2C 5
 #define SPI 6
+
+#endif

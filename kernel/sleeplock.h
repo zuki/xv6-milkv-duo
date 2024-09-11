@@ -1,3 +1,6 @@
+#ifndef INC_SLEEPLOCK_H
+#define INC_SLEEPLOCK_H
+
 // Long-term locks for processes
 struct sleeplock {
   uint32_t locked;       // Is the lock held?
@@ -7,3 +10,5 @@ struct sleeplock {
   char *name;        // Name of lock.
   int pid;           // Process holding lock
 };
+
+#endif

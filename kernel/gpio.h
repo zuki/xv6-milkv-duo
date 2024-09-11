@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 Jisheng Zhang <jszhang@kernel.org> */
 
-#ifndef _GPIO_H_
-#define _GPIO_H_
+#ifndef INC_GPIO_H
+#define INC_GPIO_H
 
 #define GPIO_IN		(1 << 0)
 #define GPIO_OUT	(1 << 1)

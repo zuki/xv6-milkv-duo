@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 Jisheng Zhang <jszhang@kernel.org> */
 
-#ifndef _PWM_H_
-#define _PWM_H_
+#ifndef INC_PWM_H
+#define INC_PWM_H
 
 #define PWM_IOCTL_CONFIG	0
 

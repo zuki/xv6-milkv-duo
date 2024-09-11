@@ -1,3 +1,6 @@
+#ifndef INC_TYPES_H
+#define INC_TYPES_H
+
 typedef unsigned int   uint;
 typedef unsigned short ushort;
 typedef unsigned char  uchar;
@@ -15,3 +18,5 @@ typedef long int64_t;
 
 typedef uint64_t pde_t;
 typedef int boot;
+
+#endif

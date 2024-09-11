@@ -18,4 +18,7 @@
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
+#define INTERVAL     1000000UL  // QEMU: 1ppps = 100MHz
+#define US_INTERVAL  10UL
+
 #endif

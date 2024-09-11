@@ -1,3 +1,6 @@
+#ifndef INC_SBI_H
+#define INC_SBI_H
+
 /* SBI Base Extension */
 #define SBI_EXT_ID_BASE              0x10
 #define SBI_BASE_GET_SPEC_VERSION    0
@@ -65,3 +68,5 @@ struct sbiret {
 	long error;
 	long value;
 };
+
+#endif

@@ -1,3 +1,5 @@
+#ifndef INC_VIRTIO_H
+#define INC_VIRTIO_H
 //
 // virtio device definitions.
 // for both the mmio interface, and virtio descriptors.
@@ -94,3 +96,5 @@ struct virtio_blk_req {
   uint32_t reserved;
   uint64_t sector;
 };
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef INC_PARAM_H
+#define INC_PARAM_H
+
 #include "config.h"
 #define NPROC        64  // maximum number of processes
 #define NOFILE       16  // open files per process
@@ -11,7 +14,10 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1500  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
+
 #ifndef INTERVAL
 #define INTERVAL     1000000UL  // QEMU: 1ppps = 100MHz
 #define US_INTERVAL  10UL
+#endif
+
 #endif

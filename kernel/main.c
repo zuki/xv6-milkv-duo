@@ -37,6 +37,7 @@ main()
     fileinit();      // file table
     //virtio_disk_init(); // emulated hard disk
     ramdiskinit();
+    sd_init();
 #ifdef GPIO_DRIVER
     gpioinit();
 #endif
@@ -54,11 +55,11 @@ main()
 #endif
 /*
     printf("s %llu\n", r_time());
-    msdelay(1000);  // 1秒
+    delayms(1000);  // 1秒
     printf("e: %llu\n", r_time());
-    msdelay(100);
+    delayms(100);
     printf("s %llu\n", r_time());
-    usdelay(1000000);  // 1秒
+    delayus(1000000);  // 1秒
     printf("e: %llu\n", r_time());
   */
     userinit();      // first user process

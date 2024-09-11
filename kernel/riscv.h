@@ -1,4 +1,9 @@
+#ifndef INC_RISCV_H
+#define INC_RISCV_H
+
 #ifndef __ASSEMBLER__
+
+#include "types.h"
 
 // which hart (core) is this?
 static inline uint64_t
@@ -433,3 +438,5 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PTE_RO		(PTE_R)
 #endif
 #define PTE_NORMAL	(PTE_RO | PTE_W)
+
+#endif

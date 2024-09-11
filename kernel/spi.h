@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 Jisheng Zhang <jszhang@kernel.org> */
 
-#ifndef _SPI_H_
-#define _SPI_H_
+#ifndef INC_SPI_H
+#define INC_SPI_H
 
 #define SPI_IOCTL_SET_SPEED 0
 #define SPI_IOCTL_SET_MODE 1
