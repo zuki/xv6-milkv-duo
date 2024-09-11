@@ -4,5 +4,14 @@
         "kernel/**"
     ],
     "C_Cpp.errorSquiggles": "disabled",
-    "cmake.configureOnOpen": true
+    "cmake.configureOnOpen": true,
+    "files.associations": {
+        "*.h": "c",
+        "*.ld": "editorconfig",
+        "*.c": "c",
+        "array": "c",
+        "vector": "c",
+        "string": "c",
+        "string_view": "c"
+    }
 }
