@@ -35,8 +35,9 @@ OBJS = \
   $K/pwm.o \
   $K/adc.o \
   $K/i2c.o \
-  $K/spi.o
-#  $K/emmc.o
+  $K/spi.o \
+  $K/sdhci.o
+#  $K/sd.o
 
 $K/ramdisk_data.o: fs.img
 
@@ -180,7 +181,7 @@ endif
 
 QEMUOPTS = -machine virt -kernel $K/kernel.bin -m 128M -smp $(CPUS) -nographic
 #QEMUOPTS += -global virtio-mmio.force-legacy=false
-#QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
+QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 #QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 qemu: $K/kernel.bin fs.img

@@ -6,7 +6,7 @@
                 "${default}"
             ],
             "defines": [
-
+                "CV180X=1"
             ],
             "compilerPath": "/usr/local/opt/llvm/bin/clang",
             "cStandard": "c17",

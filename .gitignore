@@ -18,3 +18,5 @@ kernel/kernel.bin
 user/usys.S
 .gdbinit
 milkv-duo_sdcard.img
+kernel/emmc.c
+kernel/emmc.h

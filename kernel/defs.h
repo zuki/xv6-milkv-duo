@@ -1,6 +1,8 @@
 #ifndef INC_DEFS_H
 #define INC_DEFS_H
 
+#include "riscv.h"
+
 struct buf;
 struct context;
 struct file;
@@ -226,8 +228,11 @@ uint64_t emmc_seek(struct emmc *self, uint64_t off);
 
 // sd.c
 void sd_init(void);
-void sd_intr(void *params);
+void sd_intr(void);
 void sd_rw(struct buf *);
+
+// sdhci.c
+int sdhci_init(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

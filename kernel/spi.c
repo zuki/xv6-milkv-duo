@@ -29,8 +29,6 @@
 
 #ifdef I2C_DRIVER
 
-#define BIT(nr)		(1 << (nr))
-
 /*
  * min()/max()/clamp() macros that also do
  * strict type-checking.. See the

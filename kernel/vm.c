@@ -5,6 +5,12 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "sd.h"
+#include "config.h"
+
+#ifdef CV180X
+#include "cv180x_reg.h"
+#endif
 
 /*
  * the kernel's page table.
@@ -19,17 +25,30 @@ extern char trampoline[]; // trampoline.S
 pagetable_t
 kvmmake(void)
 {
-  pagetable_t kpgtbl;
+    pagetable_t kpgtbl;
 
-  kpgtbl = (pagetable_t) kalloc();
-  memset(kpgtbl, 0, PGSIZE);
+    kpgtbl = (pagetable_t) kalloc();
+    memset(kpgtbl, 0, PGSIZE);
 
-  // uart registers
-  kvmmap(kpgtbl, UART0, UART0_PHY, PGSIZE, PTE_DEVICE);
+    // uart registers
+    kvmmap(kpgtbl, UART0, UART0_PHY, PGSIZE, PTE_DEVICE);
 
   // virtio mmio disk interface
 #ifdef VIRTIO0
   kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_DEVICE);
+#endif
+
+#ifdef CV180X
+    kvmmap(kpgtbl, MMIO_BASE, MMIO_BASE, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, CLKGEN_BASE, CLKGEN_BASE, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, PINMUX_BASE, PINMUX_BASE, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, RESET_BASE, RESET_BASE, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_DEVICE);
+    kvmmap(kpgtbl, SD0, SD0, 16*PGSIZE, PTE_DEVICE);
+#endif
+
+#ifdef SD1
+  kvmmap(kpgtbl, SD1, SD1, 16*PGSIZE, PTE_DEVICE);
 #endif
 
 #ifdef GPIO0
@@ -46,54 +65,51 @@ kvmmake(void)
 #endif
 
 #ifdef PWM0
-  kvmmap(kpgtbl, PWM0, PWM0, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, PWM0, PWM0, PGSIZE, PTE_DEVICE);
 #endif
 #ifdef PWM1
-  kvmmap(kpgtbl, PWM1, PWM1, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, PWM1, PWM1, PGSIZE, PTE_DEVICE);
 #endif
 #ifdef PWM2
-  kvmmap(kpgtbl, PWM2, PWM2, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, PWM2, PWM2, PGSIZE, PTE_DEVICE);
 #endif
 #ifdef PWM3
-  kvmmap(kpgtbl, PWM3, PWM3, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, PWM3, PWM3, PGSIZE, PTE_DEVICE);
 #endif
 
 #ifdef ADC0
-  kvmmap(kpgtbl, ADC0, ADC0, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, ADC0, ADC0, PGSIZE, PTE_DEVICE);
 #endif
 
 #ifdef I2C0
-  kvmmap(kpgtbl, I2C0, I2C0, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, I2C0, I2C0, PGSIZE, PTE_DEVICE);
 #endif
 
 #ifdef SPI0
-  kvmmap(kpgtbl, SPI0, SPI0, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, SPI0, SPI0, PGSIZE, PTE_DEVICE);
 #endif
 
-  // PLIC
-  kvmmap(kpgtbl, PLIC, PLIC_PHY, 0x400000, PTE_DEVICE);
+    // map kernel text executable and read-only.
+    kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64_t)etext-KERNBASE, PTE_EXEC);
 
-  // map kernel text executable and read-only.
-  kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64_t)etext-KERNBASE, PTE_EXEC);
+    // map kernel data and the physical RAM we'll make use of.
+    kvmmap(kpgtbl, (uint64_t)etext, (uint64_t)etext, PHYSTOP-(uint64_t)etext, PTE_NORMAL);
 
-  // map kernel data and the physical RAM we'll make use of.
-  kvmmap(kpgtbl, (uint64_t)etext, (uint64_t)etext, PHYSTOP-(uint64_t)etext, PTE_NORMAL);
+    // map the trampoline for trap entry/exit to
+    // the highest virtual address in the kernel.
+    kvmmap(kpgtbl, TRAMPOLINE, (uint64_t)trampoline, PGSIZE, PTE_EXEC);
 
-  // map the trampoline for trap entry/exit to
-  // the highest virtual address in the kernel.
-  kvmmap(kpgtbl, TRAMPOLINE, (uint64_t)trampoline, PGSIZE, PTE_EXEC);
+    // allocate and map a kernel stack for each process.
+    proc_mapstacks(kpgtbl);
 
-  // allocate and map a kernel stack for each process.
-  proc_mapstacks(kpgtbl);
-
-  return kpgtbl;
+    return kpgtbl;
 }
 
 // Initialize the one kernel_pagetable
 void
 kvminit(void)
 {
-  kernel_pagetable = kvmmake();
+    kernel_pagetable = kvmmake();
 }
 
 // Switch h/w page table register to the kernel's page table,
@@ -101,14 +117,14 @@ kvminit(void)
 void
 kvminithart()
 {
-  // wait for any previous writes to the page table memory to finish.
-  asm volatile("fence rw, rw");
-  sfence_vma();
+    // wait for any previous writes to the page table memory to finish.
+    asm volatile("fence rw, rw");
+    sfence_vma();
 
-  w_satp(MAKE_SATP(kernel_pagetable));
+    w_satp(MAKE_SATP(kernel_pagetable));
 
-  // flush stale entries from the TLB.
-  sfence_vma();
+    // flush stale entries from the TLB.
+    sfence_vma();
 }
 
 // Return the address of the PTE in page table pagetable

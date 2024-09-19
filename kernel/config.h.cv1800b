@@ -1,11 +1,16 @@
 /* Copyright (C) 2023 Jisheng Zhang <jszhang@kernel.org> */
 
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#ifndef INC_CONFIG_H_
+#define INC_CONFIG_H_
+
+/* config for CV1800b */
+#define CV180X
+#define LOG_DEBUG
 
 #define THEAD_PTE
 
-#define NCPU          1  // maximum number of CPUs
+/* maximum number of CPUs */
+#define NCPU          1
 
 #define UART0 0x04140000UL
 #define UART0_PHY UART0
@@ -13,8 +18,11 @@
 #define REG_SHIFT 2
 #define UART_CLK 25000000UL
 #define BAUD_RATE 115200UL
+
 #define PLIC 0x70000000UL
-#define PLIC_PHY PLIC
+
+/* core local interruptor (CLINT), which contains the timer. */
+#define CLINT 0x74000000L
 
 #define GPIO_DRIVER
 #define GPIO_NUM 4
@@ -43,6 +51,12 @@
 #define SPI0_MAX_FREQ 500000
 #define SPI0_CLK_FREQ 100000000UL
 
+#define SD0_DRIVER
+#define SD0 0x04310000
+#define SD0_IRQ     36
+
 #define INTERVAL     250000UL
 #define US_INTERVAL  25UL
+
+
 #endif

@@ -10,7 +10,7 @@ indent_style = space
 trim_trailing_whitespace = ture
 
 [*.{c,h}]
-indent_size = 2
+indent_size = 4
 
 [*.S]
 indent_size = 2

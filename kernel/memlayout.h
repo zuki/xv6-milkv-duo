@@ -1,5 +1,5 @@
-#ifndef NC_MEMLAYOUT_H
-#define NC_MEMLAYOUT_H
+#ifndef INC_MEMLAYOUT_H
+#define INC_MEMLAYOUT_H
 /* Physical memory layout
  *
  * qemu -machine virt is set up like this,
@@ -36,20 +36,26 @@
 
 #include "config.h"
 
-/* core local interruptor (CLINT), which contains the timer. */
-#define CLINT 0x2000000L
 #define CLINT_MTIMECMP(hartid) (CLINT + 0x4000 + 8*(hartid))
 #define CLINT_MTIME (CLINT + 0xBFF8) /* cycles since boot. */
 
 /* qemu puts platform-level interrupt controller (PLIC) here. */
-#define PLIC_PRIORITY (PLIC + 0x0)
-#define PLIC_PENDING (PLIC + 0x1000)
+#define PLIC_PRIORITY   (PLIC + 0x0)
+#define PLIC_PENDING    (PLIC + 0x1000)
 #define PLIC_MENABLE(hart) (PLIC + 0x2000 + (hart)*0x100)
-#define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100)
+/* #define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100) */
+#define PLIC_SENABLE0(hart) (PLIC + 0x2080 + (hart)*0x100)
+#define PLIC_SENABLE1(hart) (PLIC + 0x2084 + (hart)*0x100)
+#define PLIC_SENABLE2(hart) (PLIC + 0x2088 + (hart)*0x100)
+#define PLIC_SENABLE3(hart) (PLIC + 0x208c + (hart)*0x100)
+
 #define PLIC_MPRIORITY(hart) (PLIC + 0x200000 + (hart)*0x2000)
 #define PLIC_SPRIORITY(hart) (PLIC + 0x201000 + (hart)*0x2000)
+
 #define PLIC_MCLAIM(hart) (PLIC + 0x200004 + (hart)*0x2000)
 #define PLIC_SCLAIM(hart) (PLIC + 0x201004 + (hart)*0x2000)
+
+#define PLIC_CTRL (PLIC + 0x1FFFFC)
 
 /* the kernel expects there to be RAM
  * for use by the kernel and user pages

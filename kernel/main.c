@@ -37,7 +37,7 @@ main()
     fileinit();      // file table
     //virtio_disk_init(); // emulated hard disk
     ramdiskinit();
-    sd_init();
+    sdhci_init();
 #ifdef GPIO_DRIVER
     gpioinit();
 #endif
