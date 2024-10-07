@@ -116,6 +116,7 @@ void            procdump(void);
 void            kdelay(unsigned long n);
 void            delayms(unsigned long n);
 void            delayus(unsigned long n);
+uint64_t        get_timer(uint64_t start);
 // sbi.c
 #ifndef CONFIG_RISCV_M_MODE
 void            sbiinit(void);
@@ -144,6 +145,7 @@ void            initsleeplock(struct sleeplock*, char*);
 // string.c
 int             memcmp(const void*, const void*, uint32_t);
 void*           memmove(void*, const void*, uint32_t);
+void*           memcpy(void *, const void *, uint32_t);
 void*           memset(void*, int, uint32_t);
 char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
@@ -218,10 +220,9 @@ void            i2cinit(void);
 void            spiinit(void);
 
 // emmc.c
-
-void emmc_clear_interrupt();
+void emmc_clear_interrupt(void);
 void emmc_intr(struct emmc *self);
-int emmc_init(struct emmc *self, void (*sleep_fn)(void *), void *sleep_arg);
+int emmc_init(struct emmc *self);
 size_t emmc_read(struct emmc *self, void *buf, size_t cnt);
 size_t emmc_write(struct emmc *self, void *buf, size_t cnt);
 uint64_t emmc_seek(struct emmc *self, uint64_t off);
@@ -231,8 +232,27 @@ void sd_init(void);
 void sd_intr(void);
 void sd_rw(struct buf *);
 
+/*
 // sdhci.c
-int sdhci_init(void);
+int sdhci_init(struct mmc *mmc);
+int sdhci_get_cd(struct sdhci_host *host);
+int sdhci_set_ios(struct mmc *mmc);
+int sdhci_execute_tuning(struct mmc *mmc, uint8_t opcode);
+int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data);
+int sdhci_set_voltage(struct mmc *mmc);
+int sdhci_card_busy(struct mmc *mmc, int state, int timeout_us);
+*/
+
+/*
+// mmc.c
+int mmc_init(struct mmc *mmc);
+size_t mmc_read(struct mmc *mmc, void *buf, size_t cnt);
+size_t mmc_write(struct mmc *mmc, void *buf, size_t cnt);
+uint64_t mmc_seek(struct mmc *mmc, uint64_t offset);
+
+int mmc_send_tuning(struct mmc *mmc, uint32_t opcode, int *cmd_error);
+int mmc_poll_for_busy(struct mmc *mmc, int timeout_ms);
+*/
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

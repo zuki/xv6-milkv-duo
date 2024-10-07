@@ -5,9 +5,6 @@
 
 #include "types.h"
 
-#define BIT(nr)         (1UL << (nr))
-#define MMC_CAP(mode)   (1 << mode)
-
 static inline void write8(unsigned long addr, uint8_t value)
 {
   *(volatile uint8_t *)addr = value;

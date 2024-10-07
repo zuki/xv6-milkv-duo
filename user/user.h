@@ -1,4 +1,9 @@
+#ifndef USER_INC_USER_H
+#define USER_INC_USER_H
+
+#ifndef NULL
 #define NULL ((void *) 0)
+#endif
 
 struct stat;
 
@@ -45,3 +50,5 @@ void *memcpy(void *, const void *, uint32_t);
 
 // strtoul.c
 unsigned long strtoul(const char *nptr, char **endptr, int base);
+
+#endif

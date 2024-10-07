@@ -7,7 +7,7 @@
 #define QEMU
 #define LOG_DEBUG
 
-// maximum number of CPUs
+/* maximum number of CPUs */
 #define NCPU          1
 
 #define UART0 0x10000000UL
@@ -25,7 +25,8 @@
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
-#define INTERVAL     1000000UL  // QEMU: 1ppps = 100MHz
+/* QEMU: 1ppps = 100MHz */
+#define INTERVAL     1000000UL
 #define US_INTERVAL  10UL
 
 #endif

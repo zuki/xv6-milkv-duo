@@ -43,7 +43,7 @@
 #define PLIC_PRIORITY   (PLIC + 0x0)
 #define PLIC_PENDING    (PLIC + 0x1000)
 #define PLIC_MENABLE(hart) (PLIC + 0x2000 + (hart)*0x100)
-/* #define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100) */
+/*#define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100) */
 #define PLIC_SENABLE0(hart) (PLIC + 0x2080 + (hart)*0x100)
 #define PLIC_SENABLE1(hart) (PLIC + 0x2084 + (hart)*0x100)
 #define PLIC_SENABLE2(hart) (PLIC + 0x2088 + (hart)*0x100)

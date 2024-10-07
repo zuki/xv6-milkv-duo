@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "emmc.h"
 
 volatile static int started = 0;
 volatile static unsigned long main_hartid = ~0UL;
@@ -10,6 +11,8 @@ volatile static unsigned long main_hartid = ~0UL;
 extern volatile unsigned long uart_base;
 extern char _bss_start[], _bss_end[];
 // start() jumps here in supervisor mode on all CPUs.
+
+//static struct mmc mmc;
 void
 main()
 {
@@ -37,7 +40,7 @@ main()
     fileinit();      // file table
     //virtio_disk_init(); // emulated hard disk
     ramdiskinit();
-    sdhci_init();
+    sd_init();
 #ifdef GPIO_DRIVER
     gpioinit();
 #endif

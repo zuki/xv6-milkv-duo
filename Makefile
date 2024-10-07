@@ -36,8 +36,8 @@ OBJS = \
   $K/adc.o \
   $K/i2c.o \
   $K/spi.o \
-  $K/sdhci.o
-#  $K/sd.o
+  $K/emmc.o \
+  $K/sd.o
 
 $K/ramdisk_data.o: fs.img
 

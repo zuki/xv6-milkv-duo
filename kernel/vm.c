@@ -5,12 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
-#include "sd.h"
 #include "config.h"
-
-#ifdef CV180X
-#include "cv180x_reg.h"
-#endif
+#include "emmc.h"
 
 /*
  * the kernel's page table.
@@ -44,7 +40,7 @@ kvmmake(void)
     kvmmap(kpgtbl, PINMUX_BASE, PINMUX_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, RESET_BASE, RESET_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_DEVICE);
-    kvmmap(kpgtbl, SD0, SD0, 16*PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, SD0_BASE, SD0_BASE, 16*PGSIZE, PTE_DEVICE);
 #endif
 
 #ifdef SD1

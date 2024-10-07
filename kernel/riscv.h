@@ -261,7 +261,7 @@ r_mcounteren()
   return x;
 }
 
-// machine-mode cycle counter
+// r_time() / US_INTERVAL がマイクロ秒
 static inline uint64_t
 r_time()
 {

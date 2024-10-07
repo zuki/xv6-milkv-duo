@@ -21,6 +21,9 @@
         "ratio": "c",
         "__locale": "c",
         "system_error": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "__string": "c",
+        "atomic": "c",
+        "cstring": "c"
     }
 }

@@ -4,6 +4,8 @@
 #define INC_CONFIG_H_
 
 /* config for CV1800b */
+#define CV180X
+#define LOG_DEBUG
 
 #define THEAD_PTE
 
@@ -18,7 +20,6 @@
 #define BAUD_RATE 115200UL
 
 #define PLIC 0x70000000UL
-#define PLIC_PHY PLIC
 
 /* core local interruptor (CLINT), which contains the timer. */
 #define CLINT 0x74000000L
@@ -57,12 +58,5 @@
 #define INTERVAL     250000UL
 #define US_INTERVAL  25UL
 
-#define RESET_BASE  0x03003000
-#define SOFT_RSTN_0         (RESET_BASE + 0x00)
-#define SOFT_RSTN_1         (RESET_BASE + 0x04)
-#define SOFT_RSTN_2         (RESET_BASE + 0x08)
-#define SOFT_RSTN_3         (RESET_BASE + 0x0c)
-#define SOFT_CPUAC_RSTN     (RESET_BASE + 0x20)
-#define SOFT_CPU_RSTN       (RESET_BASE + 0x24)
 
 #endif

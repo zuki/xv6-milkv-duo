@@ -53,8 +53,8 @@ static int unsigned_num_print(unsigned long int unum, unsigned int radix,
                   char padc, int padn)
 {
     /* Just need enough space to store 64 bit decimal integer */
-    char num_buf[20];
-    int i = 0, count = 0;
+    char num_buf[100];
+    int i = 0, count = 0, bc=0;
     unsigned int rem;
 
     do {
@@ -64,14 +64,31 @@ static int unsigned_num_print(unsigned long int unum, unsigned int radix,
         else
             num_buf[i] = 'a' + (rem - 0xa);
         i++;
+        if (radix == 2) {
+            if (++bc % 4 == 0) {
+                num_buf[i] = '_';
+                i++;
+            }
+        }
         unum /= radix;
     } while (unum > 0U);
 
     if (padn > 0) {
-        while (i < padn) {
-            (void)putchar(padc);
-            count++;
-            padn--;
+        if (radix == 2) {
+            while (bc < padn) {
+                (void)putchar(padc);
+                count++;
+                padn--;
+                if (padn % 4 == 0) {
+                    (void)putchar('_');
+                }
+            }
+        } else {
+            while (i < padn) {
+                (void)putchar(padc);
+                count++;
+                padn--;
+            }
         }
     }
 
@@ -155,6 +172,11 @@ loop:
             case 'x':
                 unum = get_unum_va_args(args, l_count);
                 count += unsigned_num_print(unum, 16,
+                                padc, padn);
+                break;
+            case 'b':
+                unum = get_unum_va_args(args, l_count);
+                count += unsigned_num_print(unum, 2,
                                 padc, padn);
                 break;
             case 'z':

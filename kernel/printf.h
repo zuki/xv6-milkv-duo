@@ -7,15 +7,16 @@
 #define assert(x)                                                   \
 ({                                                                  \
     if (!(x)) {                                                     \
-        panic("%s:%d: assertion failed.\n", __FILE__, __LINE__);    \
+        printf("%s:%d: assertion failed.\n", __FILE__, __LINE__);   \
+        panic("");                                                  \
     }                                                               \
 })
 
 #define asserts(x, ...)                                             \
 ({                                                                  \
     if (!(x)) {                                                     \
-        cprintf("%s:%d: assertion failed.\n", __FILE__, __LINE__);  \
-        panic(__VA_ARGS__);                                         \
+        printf("%s:%d: assertion failed.\n", __FILE__, __LINE__);   \
+        panic("");                                                  \
     }                                                               \
 })
 

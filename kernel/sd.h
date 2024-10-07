@@ -11,14 +11,15 @@
 #define FATMINOR        0                   // FAT partition [0,0]
 #define EXT2MINOR       1                   // Ext2 partition [0.1]
 
-typedef struct ptable_entry {
+struct ptable_entry {
   char      flag;         // ブートフラグ
   char      chs1[3];      // 最初のセクタ: CHS方式
   char      type;         // 種別
   char      chs2[3];      // 最後のセクタ: CHS方式
   uint32_t  lba;          // 最初のセクタ: LBA青色
   uint32_t  nsecs;        // 全セクタ数
-} __attribute__((packed)) ptentry_t;
+} __attribute__((packed));
+typedef struct ptable_entry ptentry_t;
 
 // マスターブートレコード
 struct mbr {
@@ -28,12 +29,13 @@ struct mbr {
 } __attribute__((packed));
 
 
-typedef struct partion_info {
+struct partition_info {
   uint32_t  lba;
   uint32_t  nsecs;
   char      type;
   uint8_t   name[23];
-} __attribute__((packed)) ptinfo_t;
+} __attribute__((packed));
+typedef struct partition_info ptinfo_t;
 
 /*
  * log_2(size): 512 = 9, 4096 = 12

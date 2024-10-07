@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "config.h"
 
 struct spinlock tickslock;
 uint32_t ticks;
@@ -190,8 +191,10 @@ devintr()
       uartintr();
     //} else if(irq == VIRTIO0_IRQ){
     //  virtio_disk_intr();
+#ifdef CV180X
     } else if (irq == SD0_IRQ) {
       //sd_intr();
+#endif
     } else if(irq){
       printf("unexpected interrupt irq=%d\n", irq);
     }

@@ -718,3 +718,9 @@ delayus(unsigned long n)
     asm volatile("pause");
   }
 }
+
+// startからの経過時間をms単位で返す
+uint64_t get_timer(uint64_t start)
+{
+    return (r_time() / US_INTERVAL) / 1000 - start;
+}

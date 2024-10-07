@@ -1,23 +1,26 @@
+#include "sd.h"
+#include "emmc.h"
+#include "defs.h"
 //#include "list.h"
 #include "riscv.h"
-#include "defs.h"
 #include "spinlock.h"
-#include "emmc.h"
 //#include "buf.h"
-#include "sd.h"
+#include "types.h"
 
-static struct emmc sd;
+static struct emmc sd0;
 //static struct list_head sdque;
 static struct spinlock sdlock;
-static ptinfo_t ptinfo[PARTITIONS];
+static struct partition_info ptinfo[PARTITIONS];
 // 使用中のパーティション数
 static int ptnum = 0;
 
+/*
 static void
 sd_sleep(void *chan)
 {
     sleep(chan, &sdlock);
 }
+*/
 
 /*
  * Initialize SD card and parse MBR.
@@ -36,12 +39,12 @@ sd_init(void)
     initlock(&sdlock, "sd");
 
     acquire(&sdlock);
-    int ret = emmc_init(&sd, sd_sleep, (void *)&sd);
+    int ret = emmc_init(&sd0);
     //assert(ret == 0);
     if (ret)
       panic("failed emmc_init\n");
-    emmc_seek(&sd, 0UL);
-    size_t bytes = emmc_read(&sd, buf, 1024);
+    emmc_seek(&sd0, 0UL);
+    size_t bytes = emmc_read(&sd0, buf, 1024);
     if (bytes != 1024)
       panic("failed emmc_read\n");
     //assert(bytes == 512);
@@ -83,9 +86,9 @@ void
 sd_intr(void)
 {
     acquire(&sdlock);
-    emmc_intr(&sd);
+    emmc_intr(&sd0);
     //disb();
-    wakeup(&sd);
+    wakeup(&sd0);
     release(&sdlock);
 }
 
@@ -106,12 +109,12 @@ sd_start(void)
         first_bno = ptinfo[b->dev].lba;
         nblocks   = ptinfo[b->dev].nsecs;
         bno = b->blockno * (blks / 512) + first_bno;
-        emmc_seek(&sd, bno * SD_BLOCK_SIZE);
+        emmc_seek(&sd0, bno * SD_BLOCK_SIZE);
 
         if (b->flags & B_DIRTY) {
-            assert(emmc_write(&sd, b->data, blks) == blks);
+            assert(emmc_write(&sd0, b->data, blks) == blks);
         } else {
-            assert(emmc_read(&sd, b->data, blks) == blks);
+            assert(emmc_read(&sd0, b->data, blks) == blks);
         }
 
         b->flags |= B_VALID;
