@@ -4,6 +4,7 @@
 #include "config.h"
 #include "io.h"
 #include "types.h"
+#include "mmc.h"
 
 #ifdef CV180X
 
@@ -245,15 +246,11 @@
 #define SDHCI_QUIRK_USE_WIDE8           (1 << 8)
 #define SDHCI_QUIRK_NO_1_8_V            (1 << 9)
 
-struct mmc_config {
-    const char      *name;
-    uint32_t        host_caps;
-    uint32_t        voltages;
-    uint32_t        f_min;
-    uint32_t        f_max;
-    uint32_t        b_max;
-    unsigned char   part_type;
-};
+/*
+ * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.
+ */
+#define SDHCI_DEFAULT_BOUNDARY_SIZE	(512 * 1024)
+#define SDHCI_DEFAULT_BOUNDARY_ARG	(7)
 
 struct sdhci_host {
     const char *name;
@@ -277,7 +274,7 @@ struct sdhci_host {
     struct mmc_config cfg;
     //void *align_buffer;
     //bool force_align_buffer;
-    //dma_addr_t start_addr;
+    dma_addr_t start_addr;
     int flags;
 #define USE_SDMA    (0x1 << 0)
 #define USE_ADMA    (0x1 << 1)
@@ -299,6 +296,10 @@ struct cvi_sdhci_host {
     uint32_t mmc_fmin_freq;
 };
 */
+
+#define SDHCI_CMD_MAX_TIMEOUT            3200
+#define SDHCI_CMD_DEFAULT_TIMEOUT        100
+#define SDHCI_READ_STATUS_TIMEOUT        1000
 
 #define CV180X_SDHCI_NAME               "cv180x_sdhci"
 #define CV180X_SDHCI_IOADDR             SD0
@@ -323,7 +324,6 @@ struct cvi_sdhci_host {
 #define SDHCI_NO_1_8_V          CV180X_SDHCI_NO_1_8_V
 #define SDHCI_PLL_INDEX         CV180X_SDHCI_PLL_INDEX
 #define SDHCI_PLL_REG           CV180X_SDHCI_PLL_REG
-
 
 #endif    /* ifdef CV180X*/
 

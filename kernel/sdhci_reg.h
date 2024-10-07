@@ -2,7 +2,7 @@
 
 #ifndef INC_SDHCI_REG_H
 #define INC_SDHCI_REG_H
-#include "cv180x_reg.h"
+#include "cv180x.h"
 #define REG_TOP_SD_PWRSW_CTRL (0x1F4)
 
 #define REG_SDIO0_PAD_MASK  (0xFFFFFFF3)
@@ -98,7 +98,7 @@
 #define REG_EMMC_DAT3_PAD_VALUE (1)
 
 // SD0/1ベースレジスタからのオフセット
-#define CVI_SDHCI_VENDOR_OFFSET     0x200
+#define CVI_SDHCI_VENDOR_OFFSET     (EMMC_BASE + 0x200)
 #define CVI_SDHCI_PHY_TX_RX_DLY     (CVI_SDHCI_VENDOR_OFFSET + 0x40)
 #define CVI_SDHCI_PHY_DS_DLY        (CVI_SDHCI_VENDOR_OFFSET + 0x44)
 #define CVI_SDHCI_PHY_DLY_STS       (CVI_SDHCI_VENDOR_OFFSET + 0x48)

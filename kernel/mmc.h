@@ -11,11 +11,27 @@
 
 #include "io.h"
 
+struct mmc_config {
+    const char      *name;
+    uint32_t        host_caps;
+    uint32_t        voltages;
+    uint32_t        f_min;
+    uint32_t        f_max;
+    uint32_t        b_max;
+    unsigned char   part_type;
+};
+
+struct sd_ssr {
+        unsigned int au;                /* In sectors */
+        unsigned int erase_timeout;     /* In milliseconds */
+        unsigned int erase_offset;      /* In milliseconds */
+};
+
 enum bus_mode {
-        MMC_LEGACY,
-        MMC_HS,
-        SD_HS,
-        MMC_HS_52,
+        MMC_LEGACY,     /* */
+        MMC_HS,         /* MMC High Speed*/
+        SD_HS,          /* SD High Speed*/
+        MMC_HS_52,      /* MMC Hi*/
         MMC_DDR_52,
         UHS_SDR12,
         UHS_SDR25,
@@ -29,7 +45,8 @@ enum bus_mode {
 };
 
 #define MMC_SUPPORTS_TUNING
-#define MMC_SUPPORTS_TUNING
+#define MMC_CLK_ENABLE      false
+#define MMC_CLK_DISABLE     true
 
 /* SD/MMC version bits; 8 flags, 8 major, 8 minor, 8 change */
 #define SD_VERSION_SD       (1U << 31)
@@ -357,6 +374,7 @@ enum mmc_voltage {
 
 /* Maximum block size for MMC */
 #define MMC_MAX_BLOCK_LEN       512
+#define SD_BLOCK_SIZE           512
 
 /* The number of MMC physical partitions.  These consist of:
  * boot partitions (2), general purpose partitions (4) in MMC v4.4.
@@ -376,5 +394,92 @@ enum mmc_voltage {
 #define MMC_TIMING_MMC_DDR52    8
 #define MMC_TIMING_MMC_HS200    9
 #define MMC_TIMING_MMC_HS400    10
+
+// MMCコマンド構造体
+struct mmc_cmd {
+    uint16_t    cmdidx;          // コマンド番号
+    uint32_t    resp_type;         // response種別
+    uint32_t    cmdarg;            // コマンド引数
+    uint32_t    response[4];       // レスポンス
+};
+
+// MMCデータ
+struct mmc_data {
+    union {                 // データバッファ
+        char *dest;
+        const char *src;    // src buffers don't get written to
+    };
+    uint32_t flags;         //
+    uint32_t blocks;        // ブロック数
+    uint32_t blocksize;     // ブロックサイズ
+};
+
+struct mmc {
+    //struct list_head link;
+    uint64_t                offset;     // read_point
+    const struct mmc_config *cfg;       // provided configuration
+    uint32_t                version;
+    void                    *priv;      // sdhci_host
+    uint32_t                has_init;
+    int                     high_capacity;
+    bool                    clk_disable;    // true if the clock can be turned off
+    uint32_t                bus_width;
+    uint32_t                clock;
+    uint32_t                saved_clock;
+    enum mmc_voltage        signal_voltage;
+    uint32_t                card_caps;
+    uint32_t                host_caps;
+    uint32_t                ocr;
+    uint32_t                dsr;
+    uint32_t                dsr_imp;
+    uint32_t                scr[2];
+    uint32_t                csd[4];
+    uint32_t                cid[4];
+    uint16_t                rca;
+    uint32_t                tran_speed;
+    uint32_t                legacy_speed;       // speed for the legacy mode provided by the card
+    uint32_t                read_bl_len;
+    uint32_t                write_bl_len;
+    uint32_t                erase_grp_size;     // in 512-byte sectors
+    struct sd_ssr           ssr;                // SD status register
+    uint64_t                capacity;
+    uint64_t                capacity_user;
+    uint64_t                capacity_boot;
+    uint64_t                capacity_rpmb;
+    uint64_t                capacity_gp[4];
+
+    char                    op_cond_pending;    // 1 if we are waiting on an op_cond command
+    char                    init_in_progress;   // 1 if we have done mmc_start_init()
+    char                    preinit;            // start init as early as possible
+    int                     ddr_mode;
+    uint8_t                 *ext_csd;
+    uint32_t                cardtype;           // cardtype read from the MMC
+    enum mmc_voltage        current_voltage;
+    enum bus_mode           selected_mode;      // mode currently used
+    enum bus_mode           best_mode;          // best mode is the supported mode with the
+                                                // highest bandwidth
+    uint32_t                quirks;
+    uint8_t                 hs400_tuning;
+
+    enum bus_mode           user_speed_mode;    // input speed mode from user
+};
+
+static inline bool mmc_is_mode_ddr(enum bus_mode mode)
+{
+    if (mode == MMC_DDR_52)
+        return true;
+    else if (mode == UHS_DDR50)
+        return true;
+#if 0
+    else if (mode == MMC_HS_400)
+        return true;
+#endif
+#if 0
+    else if (mode == MMC_HS_400_ES)
+        return true;
+#endif
+    else
+        return false;
+}
 
 #endif /* _MMC_H_ */
