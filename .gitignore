@@ -24,3 +24,4 @@ kernel/memalign.h
 kernel/sdhci.c
 kernel/sdhci.h
 kernel/sdhci_reg.h
+doc/src/err_log_1.txt
