@@ -380,59 +380,59 @@ enum bus_mode {
 // SD構成レジスタ
 struct tscr
 {
-  uint32_t  scr[2];
-  uint32_t  sd_bus_widths;
-  int       sd_version;
+  uint32_t  scr[2];         /* 生SCRデータを格納: BigEndian */
+  uint32_t  sd_bus_widths;  /* SCRのSD_BUSWIDTHS*/
+  int       sd_version;     /* SCRのバージョン: SD_SPEC/SD_SPEC3/SD_SPEC4/SD_SPEC5から作成 */
 };
 
 // sdhci_host構造体
 struct sdhci_host {
-    uint32_t    host_caps;
-    uint32_t    version;
-    uint32_t    max_clk;   /* Maximum Base Clock frequency */
-    uint32_t    clk_mul;   /* Clock Multiplier value */
-    uint32_t    f_min;
-    uint32_t    f_max;
-    uint32_t    b_max;
+    uint32_t    host_caps;  /* SDホストのケーパビリティ */
+    uint32_t    version;    /* SD規格のサポートバージョン */
+    uint32_t    max_clk;    /* 最大ベースクロック周波数 */
+    uint32_t    clk_mul;    /* クロックの分周値 */
+    uint32_t    f_min;      /* カードがサポートする最小クロック周波数 */
+    uint32_t    f_max;      /* カードがサポートする最大クロック周波数 */
+    uint32_t    b_max;      /* カードがサポートする最大ブロック長 */
 
-    uint32_t    voltages;
-    bool        vol_18v;
+    uint32_t    voltages;   /* 使用する電圧 */
+    bool        vol_18v;    /* 現在電圧は1.8vか */
 };
 
 // emmc構造体
 struct emmc {
     struct sdhci_host host;
-    uint64_t    ull_offset;
-    uint32_t    hci_ver;
+    uint64_t    offset;     /* 現在のオフセット位置 */
+    uint32_t    hci_ver;    /* SDホストコントローラのサポート規格バージョン */
 
     // was: struct SD_block_dev
     uint32_t    device_id[4];
 
-    uint32_t    card_supports_sdhc;
-    uint32_t    card_supports_hs;
-    uint32_t    card_supports_18v;
-    uint32_t    card_ocr;
-    uint32_t    card_rca;
-    uint32_t    last_interrupt;
-    uint32_t    last_error;
+    uint32_t    card_supports_sdhc; /* SDHCをサポートしているか */
+    uint32_t    card_supports_hs;   /* High Speedをサポートしているか */
+    uint32_t    card_supports_18v;  /* 1.8vをサポートしているか */
+    uint32_t    card_ocr;           /* カードのOCRデータ */
+    uint32_t    card_rca;           /* 現在選択しているカードのRCA */
+    uint32_t    last_interrupt;     /* 最新の割り込み */
+    uint32_t    last_error;         /* 最新のエラー */
 
-    struct tscr scr;
+    struct tscr scr;                /* カードのSCRを格納する構造体 */
 
-    int         failed_voltage_switch;
+    int         failed_voltage_switch;  /* 電圧切替に失敗 */
 
-    uint32_t    last_cmd_reg;
-    uint32_t    last_cmd;
-    uint32_t    last_cmd_success;  // 1: success, 0: failure
-    uint32_t    last_r0;
-    uint32_t    last_r1;
-    uint32_t    last_r2;
-    uint32_t    last_r3;
+    uint32_t    last_cmd_reg;       /* 最新のコマンドレジスタ値 */
+    uint32_t    last_cmd;           /* 最新のコマンド */
+    uint32_t    last_cmd_success;   /* 最新のコマンド実行の成否 1: success, 0: failure *///
+    uint32_t    last_r0;            /* 最新のレスsポンス[0] */
+    uint32_t    last_r1;            /* 最新のレスsポンス[1] */
+    uint32_t    last_r2;            /* 最新のレスsポンス[2] */
+    uint32_t    last_r3;            /* 最新のレスsポンス[3] */
 
-    void        *buf;
-    int         blocks_to_transfer;
-    size_t      block_size;
-    int         card_removal;
-    uint8_t     pwr;          // バスパワーの電圧
+    void        *buf;               /* データ転送用のバッファへのポインタ */
+    int         blocks_to_transfer; /* 転送するブロック数 */
+    size_t      block_size;         /* ブロック長 */
+    int         card_removal;       /* カードが挿入されていないか */
+    uint8_t     pwr;                /* 現在のバスパワー値 */
 };
 
 #endif  /* ifdef CV180X */
