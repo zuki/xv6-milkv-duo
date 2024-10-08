@@ -286,6 +286,97 @@ static void emmc_dump_mmc(struct emmc *self)
     emmc_dump_host(&self->host);
 }
 
+static void emmc_dump_clk_ctl(uint32_t ctl)
+{
+    debug("CLK_CTL_SWRST");
+    debug(" int_clk_en    : %d", (ctl >>  0) & 0x01);
+    debug(" int_clk_stable: %d", (ctl >>  1) & 0x01);
+    debug(" sd_clk_em     : %d", (ctl >>  2) & 0x01);
+    debug(" pll_en        : %d", (ctl >>  3) & 0x01);
+    debug(" up_freq_sel   : %d", (ctl >>  6) & 0x03);
+    debug(" freq_sel      : 0x%02x", (ctl >>  8) & 0xff);
+    debug(" tout_cnt      : 0x%x", (ctl >> 16) & 0x0f);
+    debug(" sw_rst_all    : %d", (ctl >> 24) & 0x01);
+    debug(" sw_rst_cmd    : %d", (ctl >> 25) & 0x01);
+    debug(" sw_rst_dat    : %d", (ctl >> 26) & 0x01);
+}
+
+static void emmc_dump_host_ctl1(uint32_t ctl1)
+{
+    debug("HOST_CTL1");
+    debug(" lec_ctl              : %d", (ctl1 >>  0) & 0x01);
+    debug(" dat_xfer_width       : %d", (ctl1 >>  1) & 0x01);
+    debug(" hs_enable            : %d", (ctl1 >>  2) & 0x01);
+    debug(" dma_sel              : %d", (ctl1 >>  3) & 0x03);
+    debug(" ext_dat_width        : %d", (ctl1 >>  5) & 0x01);
+    debug(" card_det_test        : %d", (ctl1 >>  6) & 0x01);
+    debug(" card_det_sel         : %d", (ctl1 >>  7) & 0x01);
+    debug(" sd_bus_pwr           : %d", (ctl1 >>  8) & 0x01);
+    debug(" sd_bus_vol_sel       : b%03b", (ctl1 >> 9) & 0x07);
+    debug(" stop_bg_req          : %d", (ctl1 >> 16) & 0x01);
+    debug(" continue_req         : %d", (ctl1 >> 17) & 0x01);
+    debug(" read_wait            : %d", (ctl1 >> 18) & 0x01);
+    debug(" int_bg               : %d", (ctl1 >> 19) & 0x01);
+    debug(" wakeup_on_card_int   : %d", (ctl1 >> 24) & 0x01);
+    debug(" wakeup_on_card_insert: %d", (ctl1 >> 25) & 0x01);
+    debug(" wakeup_on_card_ready : %d", (ctl1 >> 26) & 0x01);
+}
+
+static void emmc_host_ctl2(uint32_t value)
+{
+    uint16_t ctl2 = (uint16_t)(value >> 16);
+
+    debug("HOST_CTL2");
+    debug(" uhs_mode_sel     : %d", (ctl2 >>  0) & 0x07);
+    debug(" en_18_sig        : %d", (ctl2 >>  3) & 0x01);
+    debug(" drv_sel          : %d", (ctl2 >>  4) & 0x03);
+    debug(" execute_tune     : %d", (ctl2 >>  6) & 0x01);
+    debug(" sample_clk_sel   : %d", (ctl2 >>  7) & 0x01);
+    debug(" async_int_en     : %d", (ctl2 >> 14) & 0x01);
+    debug(" preset_val_enable: %d", (ctl2 >> 15) & 0x01);
+}
+
+static void mmc_dump_caps1(uint32_t caps1)
+{
+    debug("SD_CAPABILITIES_1");
+    debug(" tout_clk_freq    : %d", (caps1 >>  0) & 0x3f);
+    debug(" tout_clk_unit    : %d", (caps1 >>  7) & 0x01);
+    debug(" base_clk_freq    : %d", (caps1 >>  8) & 0xff);
+    debug(" max_blk_len      : %d", (caps1 >> 16) & 0x03);
+    debug(" embeeded_8bit    : %d", (caps1 >> 18) & 0x01);
+    debug(" adaa2_support    : %d", (caps1 >> 19) & 0x01);
+    debug(" hs_support       : %d", (caps1 >> 21) & 0x01);
+    debug(" sdma_support     : %d", (caps1 >> 22) & 0x01);
+    debug(" sus_res_support  : %d", (caps1 >> 23) & 0x01);
+    debug(" v33_support      : %d", (caps1 >> 24) & 0x01);
+    debug(" v30_support      : %d", (caps1 >> 25) & 0x01);
+    debug(" v18_support      : %d", (caps1 >> 26) & 0x01);
+    debug(" bus64_support    : %d", (caps1 >> 28) & 0x01);
+    debug(" async_int_support: %d", (caps1 >> 29) & 0x01);
+    debug(" slot_type        : %d", (caps1 >> 30) & 0x03);
+}
+
+static void mmc_dump_caps2(uint32_t caps2)
+{
+    debug("SD_CAPABILITIES_2");
+    debug(" sdr50_support : %d", (caps2 >> 0) & 0x01);
+    debug(" sdr104_support: %d", (caps2 >> 1) & 0x01);
+    debug(" ddr50_support : %d", (caps2 >> 2) & 0x01);
+    debug(" drv_a_support : %d", (caps2 >> 4) & 0x01);
+    debug(" drv_a_support : %d", (caps2 >> 5) & 0x01);
+    debug(" drv_a_support : %d", (caps2 >> 6) & 0x01);
+    debug(" retune_timer  : 0x%x", (caps2 >> 8) & 0x0f);
+    debug(" tune_sdr50    : %d", (caps2 >> 13) & 0x01);
+    debug(" retune_mode   : %d", (caps2 >> 14) & 0x03);
+    debug(" clk_muliplier : 0x%02x", (caps2 >> 24) & 0xff);
+}
+
+static void mmc_dump_version(uint16_t version)
+{
+    debug("SD_HOST_VERSION");
+    debug(" spec  : %d", (version >> 0) & 0xff);
+    debug(" vendor: 0x%02x", (version >> 16) & 0xff);
+}
 
 void emmc_intr(struct emmc *self)
 {
@@ -555,14 +646,11 @@ static int emmc_switch_clock_rate(struct emmc *self, uint32_t clock)
         div >>= 1;
     }
 
-    debug("clk div 0x%x\n", div);
-
     clk |= (div & SD_DIV_MASK) << SD_DIVIDER_SHIFT;
     clk |= ((div & SD_DIV_HI_MASK) >> SD_DIV_MASK_LEN)
         << SD_DIVIDER_HI_SHIFT;
     clk |= SD_CLOCK_INT_EN;
 
-    debug("SD_CONTROL1: 0x%x\n", clk);
     write16(SD_CONTROL1, clk);
 
     /* Wait max 20 ms */
@@ -573,6 +661,8 @@ static int emmc_switch_clock_rate(struct emmc *self, uint32_t clock)
 
     clk |= SD_CLOCK_CARD_EN;
     write16(SD_CONTROL1, clk);
+    delayms(1);
+    emmc_dump_clk_ctl(SD_CONTROL1);
     return 0;
 }
 
@@ -585,6 +675,7 @@ static int emmc_reset_cmd(void)
         error("CMD line did not reset properly");
         return -1;
     }
+    emmc_dump_clk_ctl(SD_CONTROL1);
     return 0;
 }
 
@@ -597,6 +688,7 @@ static int emmc_reset_dat(void)
         error("DAT line did not reset properly");
         return -1;
     }
+    emmc_dump_clk_ctl(SD_CONTROL1);
     return 0;
 }
 
@@ -761,7 +853,6 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
     }
 
     /* Return success */
-    debug("emmc_issue_command_int: %d is success!", SD_CMD_INDEX(cmd_reg));
     self->last_cmd_success = 1;
 }
 
@@ -851,97 +942,6 @@ static void emmc_handle_interrupts(struct emmc *self)
     write32(SD_INT_STS, reset_mask);
 }
 
-static void emmc_dump_clk_ctl(uint32_t ctl)
-{
-    debug("CLK_CTL_SWRST");
-    debug(" int_clk_en    : %d", (ctl >>  0) & 0x01);
-    debug(" int_clk_stable: %d", (ctl >>  1) & 0x01);
-    debug(" sd_clk_em     : %d", (ctl >>  2) & 0x01);
-    debug(" pll_en        : %d", (ctl >>  3) & 0x01);
-    debug(" up_freq_sel   : %d", (ctl >>  6) & 0x03);
-    debug(" freq_sel      : 0x%02x", (ctl >>  8) & 0xff);
-    debug(" tout_cnt      : 0x%x", (ctl >> 16) & 0x0f);
-    debug(" sw_rst_all    : %d", (ctl >> 24) & 0x01);
-    debug(" sw_rst_cmd    : %d", (ctl >> 25) & 0x01);
-    debug(" sw_rst_dat    : %d", (ctl >> 26) & 0x01);
-}
-
-static void emmc_dump_host_ctl1(uint32_t ctl1)
-{
-    debug("HOST_CTL1");
-    debug(" lec_ctl              : %d", (ctl1 >>  0) & 0x01);
-    debug(" dat_xfer_width       : %d", (ctl1 >>  1) & 0x01);
-    debug(" hs_enable            : %d", (ctl1 >>  2) & 0x01);
-    debug(" dma_sel              : %d", (ctl1 >>  3) & 0x03);
-    debug(" ext_dat_width        : %d", (ctl1 >>  5) & 0x01);
-    debug(" card_det_test        : %d", (ctl1 >>  6) & 0x01);
-    debug(" card_det_sel         : %d", (ctl1 >>  7) & 0x01);
-    debug(" sd_bus_pwr           : %d", (ctl1 >>  8) & 0x01);
-    debug(" sd_bus_vol_sel       : b%03b", (ctl1 >> 9) & 0x07);
-    debug(" stop_bg_req          : %d", (ctl1 >> 16) & 0x01);
-    debug(" continue_req         : %d", (ctl1 >> 17) & 0x01);
-    debug(" read_wait            : %d", (ctl1 >> 18) & 0x01);
-    debug(" int_bg               : %d", (ctl1 >> 19) & 0x01);
-    debug(" wakeup_on_card_int   : %d", (ctl1 >> 24) & 0x01);
-    debug(" wakeup_on_card_insert: %d", (ctl1 >> 25) & 0x01);
-    debug(" wakeup_on_card_ready : %d", (ctl1 >> 26) & 0x01);
-}
-
-static void emmc_host_ctl2(uint32_t value)
-{
-    uint16_t ctl2 = (uint16_t)(value >> 16);
-
-    debug("HOST_CTL2");
-    debug(" uhs_mode_sel     : %d", (ctl2 >>  0) & 0x07);
-    debug(" en_18_sig        : %d", (ctl2 >>  3) & 0x01);
-    debug(" drv_sel          : %d", (ctl2 >>  4) & 0x03);
-    debug(" execute_tune     : %d", (ctl2 >>  6) & 0x01);
-    debug(" sample_clk_sel   : %d", (ctl2 >>  7) & 0x01);
-    debug(" async_int_en     : %d", (ctl2 >> 14) & 0x01);
-    debug(" preset_val_enable: %d", (ctl2 >> 15) & 0x01);
-}
-
-static void mmc_dump_caps1(uint32_t caps1)
-{
-    debug("SD_CAPABILITIES_1");
-    debug(" tout_clk_freq    : %d", (caps1 >>  0) & 0x3f);
-    debug(" tout_clk_unit    : %d", (caps1 >>  7) & 0x01);
-    debug(" base_clk_freq    : %d", (caps1 >>  8) & 0xff);
-    debug(" max_blk_len      : %d", (caps1 >> 16) & 0x03);
-    debug(" embeeded_8bit    : %d", (caps1 >> 18) & 0x01);
-    debug(" adaa2_support    : %d", (caps1 >> 19) & 0x01);
-    debug(" hs_support       : %d", (caps1 >> 21) & 0x01);
-    debug(" sdma_support     : %d", (caps1 >> 22) & 0x01);
-    debug(" sus_res_support  : %d", (caps1 >> 23) & 0x01);
-    debug(" v33_support      : %d", (caps1 >> 24) & 0x01);
-    debug(" v30_support      : %d", (caps1 >> 25) & 0x01);
-    debug(" v18_support      : %d", (caps1 >> 26) & 0x01);
-    debug(" bus64_support    : %d", (caps1 >> 28) & 0x01);
-    debug(" async_int_support: %d", (caps1 >> 29) & 0x01);
-    debug(" slot_type        : %d", (caps1 >> 30) & 0x03);
-}
-
-static void mmc_dump_caps2(uint32_t caps2)
-{
-    debug("SD_CAPABILITIES_2");
-    debug(" sdr50_support : %d", (caps2 >> 0) & 0x01);
-    debug(" sdr104_support: %d", (caps2 >> 1) & 0x01);
-    debug(" ddr50_support : %d", (caps2 >> 2) & 0x01);
-    debug(" drv_a_support : %d", (caps2 >> 4) & 0x01);
-    debug(" drv_a_support : %d", (caps2 >> 5) & 0x01);
-    debug(" drv_a_support : %d", (caps2 >> 6) & 0x01);
-    debug(" retune_timer  : 0x%x", (caps2 >> 8) & 0x0f);
-    debug(" tune_sdr50    : %d", (caps2 >> 13) & 0x01);
-    debug(" retune_mode   : %d", (caps2 >> 14) & 0x03);
-    debug(" clk_muliplier : 0x%02x", (caps2 >> 24) & 0xff);
-}
-
-static void mmc_dump_version(uint１６_t version)
-{
-    debug("SD_HOST_VERSION");
-    debug(" spec  : %d", (version >> ０) & 0xff);
-    debug(" vendor: 0x%02x", (version >> 16) & 0xff);
-}
 
 
 static int emmc_set_host_data(struct emmc *self)
@@ -1629,7 +1629,10 @@ static int emmc_card_reset(struct emmc *self)
 
     /* Determine card version */
     /* Note that the SCR is big-endian */
+    trace("scr[0]: 0b%032b", self->scr.scr[0]);
+    trace("scr[1]: 0b%032b", self->scr.scr[1]);
     uint32_t scr0 = be2le32(self->scr.scr[0]);
+    trace("scr0: 0b%032b", scr0);
     self->scr.sd_version = SD_VER_UNKNOWN;
     uint32_t sd_spec = (scr0 >> (56 - 32)) & 0xf;
     uint32_t sd_spec3 = (scr0 >> (47 - 32)) & 0x1;
@@ -1651,7 +1654,7 @@ static int emmc_card_reset(struct emmc *self)
         }
     }
 
-    debug("debug: SCR: version %s, bus_widths 0x%x",
+    debug("SCR: version %s, bus_width %d",
           sd_versions[self->scr.sd_version], self->scr.sd_bus_widths);
 
 
@@ -1725,7 +1728,7 @@ static int emmc_card_reset(struct emmc *self)
 #endif
     }
 
-    debug("info: found valid version %s SD card",
+    info("found valid version %s SD card",
          sd_versions[self->scr.sd_version]);
 
     /* Reset interrupt register */
