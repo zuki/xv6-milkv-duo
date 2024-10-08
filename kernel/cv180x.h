@@ -1,8 +1,6 @@
 #ifndef INC_CV180X_REG_H
 #define INC_CV180X_REG_H
 
-#include "emmc.h"
-
 #define SOFT_RSTN_0         (RESET_BASE + 0x00)
 #define SOFT_RSTN_1         (RESET_BASE + 0x04)
 #define SOFT_RSTN_2         (RESET_BASE + 0x08)

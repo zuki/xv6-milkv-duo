@@ -340,7 +340,7 @@
 
 #define SD_GET_CLOCK_DIVIDER_FAIL    0xffffffff
 
-#include "sdhci_cv180x.h"
+#include "cv180x.h"
 
 enum bus_mode {
         MMC_LEGACY,     /* */

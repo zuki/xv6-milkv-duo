@@ -41,7 +41,6 @@
 #include "riscv.h"
 #include "defs.h"
 #include "emmc.h"
-#include "sdhci_cv180x.h"
 #include "bitops.h"
 #include "io.h"
 #include "errno.h"
