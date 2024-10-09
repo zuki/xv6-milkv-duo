@@ -199,26 +199,6 @@ void            plicinithart(void);
 int             plic_claim(void);
 void            plic_complete(int);
 
-// virtio_disk.c
-void            virtio_disk_init(void);
-void            virtio_disk_rw(struct buf *, int);
-void            virtio_disk_intr(void);
-
-// gpio.c
-void            gpioinit(void);
-
-// pwm.c
-void            pwminit(void);
-
-// adc.c
-void            adcinit(void);
-
-// i2c.c
-void            i2cinit(void);
-
-// spi.c
-void            spiinit(void);
-
 // emmc.c
 void emmc_clear_interrupt(void);
 void emmc_intr(struct emmc *self);
@@ -231,28 +211,6 @@ uint64_t emmc_seek(struct emmc *self, uint64_t off);
 void sd_init(void);
 void sd_intr(void);
 void sd_rw(struct buf *);
-
-/*
-// sdhci.c
-int sdhci_init(struct mmc *mmc);
-int sdhci_get_cd(struct sdhci_host *host);
-int sdhci_set_ios(struct mmc *mmc);
-int sdhci_execute_tuning(struct mmc *mmc, uint8_t opcode);
-int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data);
-int sdhci_set_voltage(struct mmc *mmc);
-int sdhci_card_busy(struct mmc *mmc, int state, int timeout_us);
-*/
-
-/*
-// mmc.c
-int mmc_init(struct mmc *mmc);
-size_t mmc_read(struct mmc *mmc, void *buf, size_t cnt);
-size_t mmc_write(struct mmc *mmc, void *buf, size_t cnt);
-uint64_t mmc_seek(struct mmc *mmc, uint64_t offset);
-
-int mmc_send_tuning(struct mmc *mmc, uint32_t opcode, int *cmd_error);
-int mmc_poll_for_busy(struct mmc *mmc, int timeout_ms);
-*/
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

@@ -35,8 +35,6 @@
 //
 #include "config.h"
 
-#ifdef CV180X
-
 #include "param.h"
 #include "riscv.h"
 #include "defs.h"
@@ -1794,5 +1792,3 @@ static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
     }
     return self->last_cmd_success;
 }
-
-#endif

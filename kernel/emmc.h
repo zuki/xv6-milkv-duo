@@ -3,8 +3,6 @@
 
 #include "config.h"
 
-#ifdef CV180X
-
 #include "types.h"
 
 #define MMC_CAP(mode)   (1 << mode)
@@ -434,7 +432,5 @@ struct emmc {
     int         card_removal;       /* カードが挿入されていないか */
     uint8_t     pwr;                /* 現在のバスパワー値 */
 };
-
-#endif  /* ifdef CV180X */
 
 #endif  /* ifndef INC_SD_H*/

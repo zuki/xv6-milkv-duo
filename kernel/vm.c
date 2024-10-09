@@ -29,61 +29,12 @@ kvmmake(void)
     // uart registers
     kvmmap(kpgtbl, UART0, UART0_PHY, PGSIZE, PTE_DEVICE);
 
-  // virtio mmio disk interface
-#ifdef VIRTIO0
-  kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef CV180X
     kvmmap(kpgtbl, MMIO_BASE, MMIO_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, CLKGEN_BASE, CLKGEN_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PINMUX_BASE, PINMUX_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, RESET_BASE, RESET_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_DEVICE);
     kvmmap(kpgtbl, SD0_BASE, SD0_BASE, 16*PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef SD1
-  kvmmap(kpgtbl, SD1, SD1, 16*PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef GPIO0
-  kvmmap(kpgtbl, GPIO0, GPIO0, PGSIZE, PTE_DEVICE);
-#endif
-#ifdef GPIO1
-  kvmmap(kpgtbl, GPIO1, GPIO1, PGSIZE, PTE_DEVICE);
-#endif
-#ifdef GPIO2
-  kvmmap(kpgtbl, GPIO2, GPIO2, PGSIZE, PTE_DEVICE);
-#endif
-#ifdef GPIO3
-  kvmmap(kpgtbl, GPIO3, GPIO3, PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef PWM0
-    kvmmap(kpgtbl, PWM0, PWM0, PGSIZE, PTE_DEVICE);
-#endif
-#ifdef PWM1
-    kvmmap(kpgtbl, PWM1, PWM1, PGSIZE, PTE_DEVICE);
-#endif
-#ifdef PWM2
-    kvmmap(kpgtbl, PWM2, PWM2, PGSIZE, PTE_DEVICE);
-#endif
-#ifdef PWM3
-    kvmmap(kpgtbl, PWM3, PWM3, PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef ADC0
-    kvmmap(kpgtbl, ADC0, ADC0, PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef I2C0
-    kvmmap(kpgtbl, I2C0, I2C0, PGSIZE, PTE_DEVICE);
-#endif
-
-#ifdef SPI0
-    kvmmap(kpgtbl, SPI0, SPI0, PGSIZE, PTE_DEVICE);
-#endif
 
     // map kernel text executable and read-only.
     kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64_t)etext-KERNBASE, PTE_EXEC);

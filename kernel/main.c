@@ -41,30 +41,7 @@ main()
     //virtio_disk_init(); // emulated hard disk
     ramdiskinit();
     sd_init();
-#ifdef GPIO_DRIVER
-    gpioinit();
-#endif
-#ifdef PWM_DRIVER
-    pwminit();
-#endif
-#ifdef ADC_DRIVER
-    adcinit();
-#endif
-#ifdef I2C_DRIVER
-    i2cinit();
-#endif
-#ifdef SPI_DRIVER
-    spiinit();
-#endif
-/*
-    printf("s %llu\n", r_time());
-    delayms(1000);  // 1秒
-    printf("e: %llu\n", r_time());
-    delayms(100);
-    printf("s %llu\n", r_time());
-    delayus(1000000);  // 1秒
-    printf("e: %llu\n", r_time());
-  */
+
     userinit();      // first user process
     __sync_synchronize();
     started = 1;

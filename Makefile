@@ -31,11 +31,6 @@ OBJS = \
   $K/sbi.o \
   $K/ramdisk.o \
   $K/ramdisk_data.o \
-  $K/gpio.o \
-  $K/pwm.o \
-  $K/adc.o \
-  $K/i2c.o \
-  $K/spi.o \
   $K/emmc.o \
   $K/sd.o
 
@@ -150,11 +145,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-	$U/_blink\
-	$U/_pwm\
-	$U/_adc\
-	$U/_i2c\
-	$U/_spi\
+	$U/_blink
 
 fs.img: mkfs/mkfs README.md $(UPROGS)
 	mkfs/mkfs fs.img README.md $(UPROGS)
