@@ -7,8 +7,8 @@
 #include "defs.h"
 #include <common/param.h>
 #include <common/memlayout.h>
-#include <common/spinlock.h>
-#include <common/sleeplock.h>
+#include "spinlock.h"
+#include "sleeplock.h"
 #include <common/fs.h>
 #include "buf.h"
 

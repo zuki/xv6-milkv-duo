@@ -9,10 +9,10 @@
 #include "defs.h"
 #include <common/param.h>
 #include <common/stat.h>
-#include <common/spinlock.h>
+#include "spinlock.h"
 #include "proc.h"
 #include <common/fs.h>
-#include <common/sleeplock.h>
+#include "sleeplock.h"
 #include <common/file.h>
 #include <common/fcntl.h>
 

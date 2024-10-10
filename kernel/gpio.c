@@ -7,8 +7,8 @@
 #include <common/types.h>
 #include <common/param.h>
 #include <common/riscv.h>
-#include <common/spinlock.h>
-#include <common/sleeplock.h>
+#include "spinlock.h"
+#include "sleeplock.h"
 #include <common/fs.h>
 #include <common/file.h>
 #include "defs.h"

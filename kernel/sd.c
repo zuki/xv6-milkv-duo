@@ -3,7 +3,7 @@
 #include "defs.h"
 //#include "list.h"
 #include <common/riscv.h>
-#include <common/spinlock.h>
+#include "spinlock.h"
 //#include "buf.h"
 #include <common/types.h>
 

@@ -2,7 +2,7 @@
 #define INC_BUF_H
 
 #include <common/types.h>
-#include <common/sleeplock.h>
+#include "sleeplock.h"
 
 #define DSIZE 1024
 

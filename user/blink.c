@@ -1,8 +1,6 @@
 /* Copyright (C) 2024 Jisheng Zhang <jszhang@kernel.org> */
 
 #include <common/types.h>
-#include <common/spinlock.h>
-#include <common/sleeplock.h>
 #include <common/fs.h>
 #include <common/file.h>
 #include <common/fcntl.h>

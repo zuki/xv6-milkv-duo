@@ -3,7 +3,7 @@
 #include "defs.h"
 #include <common/param.h>
 #include <common/memlayout.h>
-#include <common/spinlock.h>
+#include "spinlock.h"
 #include "proc.h"
 
 uint64_t

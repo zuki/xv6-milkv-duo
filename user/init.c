@@ -2,8 +2,6 @@
 
 #include <common/types.h>
 #include <common/stat.h>
-#include <common/spinlock.h>
-#include <common/sleeplock.h>
 #include <common/fs.h>
 #include <common/file.h>
 #include "user/user.h"
