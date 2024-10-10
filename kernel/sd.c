@@ -2,10 +2,10 @@
 #include "emmc.h"
 #include "defs.h"
 //#include "list.h"
-#include "riscv.h"
-#include "spinlock.h"
+#include <common/riscv.h>
+#include <common/spinlock.h>
 //#include "buf.h"
-#include "types.h"
+#include <common/types.h>
 
 static struct emmc sd0;
 //static struct list_head sdque;

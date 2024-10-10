@@ -1,4 +1,4 @@
-#include "memlayout.h"
+#include <common/memlayout.h>
 
 OUTPUT_ARCH( "riscv" )
 ENTRY( _entry )

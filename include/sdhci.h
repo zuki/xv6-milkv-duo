@@ -3,7 +3,7 @@
 
 #include "config.h"
 #include "io.h"
-#include "types.h"
+#include <common/types.h>
 #include "mmc.h"
 
 #ifdef CV180X

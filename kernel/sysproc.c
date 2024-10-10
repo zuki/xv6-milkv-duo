@@ -1,9 +1,9 @@
-#include "types.h"
-#include "riscv.h"
+#include <common/types.h>
+#include <common/riscv.h>
 #include "defs.h"
-#include "param.h"
-#include "memlayout.h"
-#include "spinlock.h"
+#include <common/param.h>
+#include <common/memlayout.h>
+#include <common/spinlock.h>
 #include "proc.h"
 
 uint64_t

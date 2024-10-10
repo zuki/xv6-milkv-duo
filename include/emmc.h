@@ -3,7 +3,7 @@
 
 #include "config.h"
 
-#include "types.h"
+#include <common/types.h>
 
 #define MMC_CAP(mode)   (1 << mode)
 

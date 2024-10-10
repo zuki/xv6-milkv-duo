@@ -4,6 +4,7 @@
         # be placed at KERNBASE.
 .section .text
 .global _start
+# 以下はRISV-V Linuxのブートメージヘッダー (64バイト)
 _start:
 	j _entry
 	.word 0
@@ -20,13 +21,13 @@ _start:
 	.word 0
 .global _entry
 _entry:
-        # OpenSBI sets up the following registers:
+        # OpenSBIは次のレジスタをセットする:
         #   a0 = hartid
         #   a1 = pointer to fdt
         #
-        # set up a stack for C.
-        # stack0 is declared in start.c,
-        # with a 4096-byte stack per CPU.
+        # Cを使うためのスタックの設定.
+        # stack0はstart.cで定義されており、
+        # CPUあたり4096バイト.
         # sp = stack0 + (hartid * 4096)
         la sp, stack0
 #ifdef CONFIG_RISCV_M_MODE
@@ -41,7 +42,7 @@ _entry:
         mul a2, a2, a3
         add sp, sp, a2
 #endif
-        # jump to start() in start.c
+        # start.cのstart()にジャンプ
         call start
 spin:
         j spin

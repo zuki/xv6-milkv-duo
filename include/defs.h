@@ -1,12 +1,13 @@
 #ifndef INC_DEFS_H
 #define INC_DEFS_H
 
-#include "riscv.h"
+#include <common/riscv.h>
 
 struct buf;
 struct context;
 struct file;
 struct inode;
+struct page;
 struct pipe;
 struct proc;
 struct spinlock;
@@ -22,6 +23,11 @@ void            brelse(struct buf*);
 void            bwrite(struct buf*);
 void            bpin(struct buf*);
 void            bunpin(struct buf*);
+
+// buddy.c
+void buddy_init(void);
+struct page *buddy_alloc(size_t size);
+void buddy_free(struct page *page);
 
 // console.c
 void            consoleinit(void);

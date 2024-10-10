@@ -1,12 +1,12 @@
 /* Copyright (C) 2024 Jisheng Zhang <jszhang@kernel.org> */
 
-#include "kernel/types.h"
-#include "kernel/spinlock.h"
-#include "kernel/sleeplock.h"
-#include "kernel/fs.h"
-#include "kernel/file.h"
-#include "kernel/fcntl.h"
-#include "kernel/gpio.h"
+#include <common/types.h>
+#include <common/spinlock.h>
+#include <common/sleeplock.h>
+#include <common/fs.h>
+#include <common/file.h>
+#include <common/fcntl.h>
+#include <common/gpio.h>
 #include "user/user.h"
 
 int

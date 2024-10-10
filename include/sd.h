@@ -2,7 +2,7 @@
 #define INC_SD_H
 
 #include "buf.h"
-#include "types.h"
+#include <common/types.h>
 
 #define PARTITIONS   4     // 最大パーティション数
 

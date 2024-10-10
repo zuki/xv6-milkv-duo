@@ -35,8 +35,8 @@
 //
 #include "config.h"
 
-#include "param.h"
-#include "riscv.h"
+#include <common/param.h>
+#include <common/riscv.h>
 #include "defs.h"
 #include "emmc.h"
 #include "bitops.h"

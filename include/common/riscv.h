@@ -3,7 +3,7 @@
 
 #ifndef __ASSEMBLER__
 
-#include "types.h"
+#include <common/types.h>
 
 // which hart (core) is this?
 static inline uint64_t
@@ -418,10 +418,10 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PXSHIFT(level)  (PGSHIFT+(9*(level)))
 #define PX(level, va) ((((uint64_t) (va)) >> PXSHIFT(level)) & PXMASK)
 
-// one beyond the highest possible virtual address.
-// MAXVA is actually one bit less than the max allowed by
-// Sv39, to avoid having to sign-extend virtual addresses
-// that have the high bit set.
+// MAXVAは実際にはSv39が許容する最大値より1ビット小さいが
+// これは上位ビットが設定されている仮想アドレスを符号拡張する
+// 必要がないようにするためである
+// = 0x40_0000_0000 = 256GB
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
 
 #define PTE_THEAD_DEVICE	((1UL << 63) | (1UL << 60))

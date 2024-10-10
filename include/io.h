@@ -3,7 +3,7 @@
 #ifndef INC_IO_H
 #define INC_IO_H
 
-#include "types.h"
+#include <common/types.h>
 
 static inline void write8(unsigned long addr, uint8_t value)
 {

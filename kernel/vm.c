@@ -1,10 +1,10 @@
-#include "param.h"
-#include "types.h"
-#include "memlayout.h"
+#include <common/param.h>
+#include <common/types.h>
+#include <common/memlayout.h>
 #include "elf.h"
-#include "riscv.h"
+#include <common/riscv.h>
 #include "defs.h"
-#include "fs.h"
+#include <common/fs.h>
 #include "config.h"
 #include "emmc.h"
 
