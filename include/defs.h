@@ -15,6 +15,9 @@ struct sleeplock;
 struct stat;
 struct superblock;
 struct emmc;
+struct slab_cache;
+
+#define _cleanup_(x) __attribute__((cleanup(x)))
 
 // bio.c
 void            binit(void);
@@ -83,6 +86,13 @@ void            log_write(struct buf*);
 void            begin_op(void);
 void            end_op(void);
 
+// page.c
+void page_init(void);
+void *page_address(const struct page *page);
+struct page *page_find_by_address(void *address);
+struct page *page_find_head(const struct page *page);
+void page_cleanup(struct page **page);
+
 // pipe.c
 int             pipealloc(struct file**, struct file**);
 void            pipeclose(struct pipe*, int);
@@ -133,6 +143,13 @@ static inline void sbiinit(void) { }
 
 // swtch.S
 void            swtch(struct context*, struct context*);
+
+// slab.c
+void slab_cache_init(void);
+struct slab_cache *slab_cache_create(const char *name, size_t size);
+void slab_cache_destroy(struct slab_cache *cache);
+void *slab_cache_alloc(struct slab_cache *cache);
+void slab_cache_free(struct slab_cache *cache, void *obj);
 
 // spinlock.c
 void            acquire(struct spinlock*);

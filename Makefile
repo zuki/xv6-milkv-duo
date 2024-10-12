@@ -33,7 +33,10 @@ OBJS = \
   $K/ramdisk.o \
   $K/ramdisk_data.o \
   $K/emmc.o \
-  $K/sd.o
+  $K/sd.o \
+  $K/buddy.o \
+  $K/slab.o \
+  $K/page.o
 
 $K/ramdisk_data.o: fs.img
 
@@ -67,7 +70,7 @@ OBJDUMP = $(TOOLPREFIX)objdump
 CFLAGS = -march=rv64gc_zihintpause -Wall -Werror -Os -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
-CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
+CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax -Wno-unused-function
 CFLAGS += -I$(I) -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 

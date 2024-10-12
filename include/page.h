@@ -19,8 +19,7 @@ limitations under the License.
 #ifndef INC_PAGE_H
 #define INC_PAGE_H
 
-#include "lib/list.h"
-#include "lib/extension.h"
+#include "list.h"
 
 /**
  * @ingroup page
@@ -28,7 +27,7 @@ limitations under the License.
  * @brief ページ領域の先頭アドレス
  *        pages[0:PAGE_NUM] | page0, page1, ...
  */
-#define PAGE_START ((char*)(0x65000000))
+#define PAGE_START ((char*)(0x80600000))
 
 /**
  * @ingroup page
@@ -40,9 +39,9 @@ limitations under the License.
  * @ingroup page
  * @def PAGE_NUM
  * @brief 総ページ数.
- *        ページに使用できるのは 0x4000 * 0x1000 = 64MB
+ *        ページに使用できるのは 0x3800 (14336) * 0x1000 (5096) = 56MB
  */
-#define PAGE_NUM  0x4000
+#define PAGE_NUM  0x3800
 
 /**
  * @ingroup page
@@ -81,7 +80,7 @@ limitations under the License.
  * @var page_index
  * @brief pages配列のインデックス.
  */
-typedef unsigned long page_index;
+typedef uint64_t page_index;
 
 /**
  * @ingroup page
@@ -96,11 +95,5 @@ struct page {
 };
 
 extern struct page *pages;
-
-void page_init(void);
-void *page_address(const struct page *page);
-struct page *page_find_by_address(void *address);
-struct page *page_find_head(const struct page *page);
-void page_cleanup(struct page **page);
 
 #endif

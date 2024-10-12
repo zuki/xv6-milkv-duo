@@ -15,6 +15,7 @@ typedef unsigned long   size_t;
 typedef short       int16_t;
 typedef int         int32_t;
 typedef long        int64_t;
+typedef long        ssize_t;
 
 typedef uint64_t    pde_t;
 typedef int         boot;
