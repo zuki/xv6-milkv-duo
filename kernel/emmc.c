@@ -382,7 +382,7 @@ void emmc_intr(struct emmc *self)
 void emmc_clear_interrupt(void)
 {
     uint32_t irpts = read32(SD_INT_STS);
-    debug("irpts: 0x%x", irpts);
+    trace("irpts: 0x%x", irpts);
     write32(SD_INT_STS, irpts);
 }
 
@@ -390,7 +390,7 @@ void emmc_clear_interrupt(void)
 int emmc_init(struct emmc *self)
 {
     if (emmc_card_init(self) != 0) {
-        debug("faile emmc_card_init");
+        error("faile emmc_card_init");
         return -1;
     }
     return 0;
@@ -402,7 +402,7 @@ size_t emmc_read(struct emmc *self, void *buf, size_t cnt)
         return -1;
     }
     uint32_t nblock = self->offset / SD_BLOCK_SIZE;
-    debug("nblock: 0x%x, offset: 0x%llx", nblock, self->offset);
+    trace("nblock: 0x%x, offset: 0x%llx", nblock, self->offset);
     if (emmc_do_read(self, (uint8_t *) buf, cnt, nblock) != cnt) {
         return -1;
     }
@@ -452,7 +452,7 @@ static void emmc_power_noreg(struct emmc *self, uint8_t mode, uint16_t vdd)
             break;
         }
     }
-    debug("self->pwr: 0x%02x, pwr: 0x%02x", self->pwr, pwr);
+    trace("self->pwr: 0x%02x, pwr: 0x%02x", self->pwr, pwr);
 
     /* すでにセットされている場合は何もしない */
     if (self->pwr == pwr)
@@ -467,7 +467,7 @@ static void emmc_power_noreg(struct emmc *self, uint8_t mode, uint16_t vdd)
         /* 電圧設定と電源オン */
         write8(SD_BUS_POWER_CNTL, pwr | SD_POWER_ON);
         delayms(1);
-        debug("SD_BUS_POWER_CNTL: 0x%02x", read8(SD_BUS_POWER_CNTL));
+        trace("SD_BUS_POWER_CNTL: 0x%02x", read8(SD_BUS_POWER_CNTL));
     }
 }
 
@@ -484,7 +484,7 @@ static void emmc_voltage_restore(struct emmc *self, bool sd_off)
             //(reg_pwrsw_auto=1, reg_pwrsw_disc=0, reg_pwrsw_vsel=0(3.3v), reg_en_pwrsw=1)
             write32(SYSCTL_SD_PWRSW_CTRL, 0x9 | (read32(SYSCTL_SD_PWRSW_CTRL) & 0xFFFFFFF0));
             delayms(1);
-            debug("SYSCTL_SD_PWRSW_CTRL: 0x%08x", read32(SYSCTL_SD_PWRSW_CTRL));
+            trace("SYSCTL_SD_PWRSW_CTRL: 0x%08x", read32(SYSCTL_SD_PWRSW_CTRL));
         }
     }
 
@@ -496,9 +496,9 @@ static void emmc_voltage_restore(struct emmc *self, bool sd_off)
     write32(CVI_SDHCI_PHY_CONFIG, REG_TX_BPS_SEL_BYPASS);
 
     delayms(1);
-    debug("CVI_SDHCI_SD_CTRL      : 0x%08x", read32(CVI_SDHCI_SD_CTRL));
-    debug("CVI_SDHCI_PHY_TX_RX_DLY: 0x%08x", read32(CVI_SDHCI_PHY_TX_RX_DLY));
-    debug("CVI_SDHCI_PHY_CONFIG   : 0x%08x", read32(CVI_SDHCI_PHY_CONFIG));
+    trace("CVI_SDHCI_SD_CTRL      : 0x%08x", read32(CVI_SDHCI_SD_CTRL));
+    trace("CVI_SDHCI_PHY_TX_RX_DLY: 0x%08x", read32(CVI_SDHCI_PHY_TX_RX_DLY));
+    trace("CVI_SDHCI_PHY_CONFIG   : 0x%08x", read32(CVI_SDHCI_PHY_CONFIG));
 }
 
 /* SD PADの設定: power on時にbunplug=false, off時にtrue */
@@ -514,8 +514,8 @@ static void emmc_setup_pad(struct emmc *self, bool sd_off)
     write8(PAD_SD0_D3, val);
     write8(PAD_SD0_CD, val);
     delayms(1);
-    debug("PAD_SD0");
-    debug(" PWR_EN: %d, CLK:  %d, CMD:  %d, D0:  %d, D1:  %d, D2:  %d, D3:  %d, CD:  %d", read8(PAD_SD0_PWR_EN), read8(PAD_SD0_CLK), read8(PAD_SD0_CMD), read8(PAD_SD0_D0), read8(PAD_SD0_D1), read8(PAD_SD0_D2), read8(PAD_SD0_D3), read8(PAD_SD0_CD));
+    trace("PAD_SD0");
+    trace(" PWR_EN: %d, CLK:  %d, CMD:  %d, D0:  %d, D1:  %d, D2:  %d, D3:  %d, CD:  %d", read8(PAD_SD0_PWR_EN), read8(PAD_SD0_CLK), read8(PAD_SD0_CMD), read8(PAD_SD0_D0), read8(PAD_SD0_D1), read8(PAD_SD0_D2), read8(PAD_SD0_D3), read8(PAD_SD0_CD));
 }
 
 /* power on時にreset=false, off時にtrue */
@@ -548,13 +548,13 @@ static void emmc_setup_io(struct emmc *self, bool reset)
     write8(IOBLK_SD0_DAT2,   (read8(IOBLK_SD0_DAT2)   & ~mask) | (reset ? pd : pu));
     write8(IOBLK_SD0_DAT3,   (read8(IOBLK_SD0_DAT3)   & ~mask) | (reset ? pd : pu));
     delayms(1);
-    debug("IOBLK_SD0");
-    debug(" PWR_EN: %d, CLK: %d, CMD: %d, D0: %d, D1: %d, D2: %d, D3: %d, CD: %d", read8(IOBLK_SD0_PWR_EN), read8(IOBLK_SD0_CLK), read8(IOBLK_SD0_CMD), read8(IOBLK_SD0_DAT0), read8(IOBLK_SD0_DAT1), read8(IOBLK_SD0_DAT2), read8(IOBLK_SD0_DAT3), read8(IOBLK_SD0_CD));
+    trace("IOBLK_SD0");
+    trace(" PWR_EN: %d, CLK: %d, CMD: %d, D0: %d, D1: %d, D2: %d, D3: %d, CD: %d", read8(IOBLK_SD0_PWR_EN), read8(IOBLK_SD0_CLK), read8(IOBLK_SD0_CMD), read8(IOBLK_SD0_DAT0), read8(IOBLK_SD0_DAT1), read8(IOBLK_SD0_DAT2), read8(IOBLK_SD0_DAT3), read8(IOBLK_SD0_CD));
 }
 
 static void emmc_power_on_off(struct emmc *self, uint8_t mode, uint16_t vdd)
 {
-    debug("mode: %d, vdd: 0x%04x", mode, vdd);
+    trace("mode: %d, vdd: 0x%04x", mode, vdd);
 
     /* モードが電源ON */
     if (mode == POWER_ON_MODE) {
@@ -599,7 +599,7 @@ static int emmc_switch_clock_rate(struct emmc *self, uint32_t clock)
     struct sdhci_host *host = &(self->host);
     unsigned int div, clk = 0;
 
-    debug("Set clock %d, self->max_clk %d", clock, host->max_clk);
+    trace("Set clock %d, self->max_clk %d", clock, host->max_clk);
 
     /* 1. CMD/DATラインが空くのを最大20ms待つ */
     if (emmc_timeout_wait(SD_PRESENT_STS, CMD_INHIBIT | DAT_INHIBIT, 0, 200000) < 0) {
@@ -661,7 +661,7 @@ static int emmc_switch_clock_rate(struct emmc *self, uint32_t clock)
     clk |= SD_CLOCK_CARD_EN;
     write16(SD_CONTROL1, clk);
     delayms(1);
-    emmc_dump_clk_ctl(SD_CONTROL1);
+    //emmc_dump_clk_ctl(SD_CONTROL1);
     return 0;
 }
 
@@ -674,7 +674,7 @@ static int emmc_reset_cmd(void)
         error("CMD line did not reset properly");
         return -1;
     }
-    emmc_dump_clk_ctl(SD_CONTROL1);
+    //emmc_dump_clk_ctl(SD_CONTROL1);
     return 0;
 }
 
@@ -687,7 +687,7 @@ static int emmc_reset_dat(void)
         error("DAT line did not reset properly");
         return -1;
     }
-    emmc_dump_clk_ctl(SD_CONTROL1);
+    //emmc_dump_clk_ctl(SD_CONTROL1);
     return 0;
 }
 
@@ -721,7 +721,7 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
     /* 3. ブロックサイズとブロック数をセットする */
     /*   最大転送データ長は64KBとする */
     if (self->blocks_to_transfer > 0xffff) {
-        debug("blocks_to_transfer too great (%d)",
+        warn("blocks_to_transfer too great (%d)",
               self->blocks_to_transfer);
         self->last_cmd_success = 0;
         return;
@@ -747,7 +747,7 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
 
     /* 8. エラーがないかチェックする */
     if ((irpts & 0xffff0001) != 1) {
-        error("error waiting for command complete interrupt 1: irpts=0b%032b", irpts);
+        error("waiting for command complete interrupt 1: irpts=0b%032b", irpts);
         self->last_error = irpts & 0xffff0000;
         self->last_interrupt = irpts;
         return;
@@ -783,7 +783,7 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
         }
 
         if (self->blocks_to_transfer > 1) {
-            debug("multi-block transfer");
+            trace("multi-block transfer");
         }
 
         //assert(((uint64_t) self->buf & 3) == 0);
@@ -818,7 +818,7 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
                 }
             }
         }
-        debug("block transfer complete");
+        trace("block transfer complete");
     }
 
     /* 12. 転送が完了するのを待つ (read/write転送コマンドかbusyありコマンドの場合) */
@@ -857,8 +857,8 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
 /* カード割り込みを処理する: カードの状態を出力するだけ */
 static void emmc_handle_card_interrupt(struct emmc *self)
 {
-    uint32_t status = read32(SD_PRESENT_STS);
-    debug("status: 0x%x", status);
+    //uint32_t status = read32(SD_PRESENT_STS);
+    //debug("status: 0x%x", status);
 
     /* Get the card status */
     if (self->card_rca) {
@@ -867,10 +867,10 @@ static void emmc_handle_card_interrupt(struct emmc *self)
         if (FAIL(self)) {
             warn("unable to get card status");
         } else {
-            debug("card status: 0x%x", self->last_r0);
+            trace("card status: 0x%x", self->last_r0);
         }
     } else {
-        debug("no card currently selected");
+        warn("no card currently selected");
     }
 }
 
@@ -884,7 +884,7 @@ static void emmc_handle_interrupts(struct emmc *self)
     /* 未処理の割り込みがなければ何もしない */
     if (irpts == 0) return;
 
-    debug("SD_INT_STS: 0x%08x", irpts);
+    //debug("SD_INT_STS: 0x%08x", irpts);
     uint32_t reset_mask = 0;
 
     if (irpts & SD_COMMAND_COMPLETE) {
@@ -931,13 +931,13 @@ static void emmc_handle_interrupts(struct emmc *self)
     }
 
     if (irpts & SD_CARD_INTERRUPT) {
-        debug("card interrupt detected");
+        trace("card interrupt detected");
         emmc_handle_card_interrupt(self);
         reset_mask |= SD_CARD_INTERRUPT;
     }
 
     if (irpts & 0x8000) {
-        debug("spurious error interrupt");
+        trace("spurious error interrupt");
         reset_mask |= 0xffff0000;
     }
     /* フラグのクリア */
@@ -962,9 +962,9 @@ static int emmc_set_host_data(struct emmc *self)
     caps2 = read32(SD_CAPABILITIES_2);
     version = read16(SD_HOST_VERSION);
 
-    mmc_dump_caps1(caps1);
-    mmc_dump_caps2(caps2);
-    mmc_dump_version(version);
+    //mmc_dump_caps1(caps1);
+    //mmc_dump_caps2(caps2);
+    //mmc_dump_version(version);
 
     host->version = (uint32_t)version;
     spec_ver = version & SPEC_VER_MASK;
@@ -1047,7 +1047,7 @@ static int emmc_set_host_data(struct emmc *self)
 
     host->b_max = 65535; /* CONFIG_SYS_SD_MAX_BLK_COUNTが未定義の場合のデフォルト */
 
-    emmc_dump_host(host);
+    //emmc_dump_host(host);
 
     return 0;
 }
@@ -1068,14 +1068,14 @@ static int emmc_card_init(struct emmc *self)
     if (self->host.max_clk == SD_MAX_CLOCK) {
         write32(DIV_CLK_SD0, SD_MAX_CLOCK_DIV_VALUE);
         write32(CLOCK_BYPASS_SELECT, read32(CLOCK_BYPASS_SELECT) & ~(1 << 6));
-        debug("PLL Setting");
-        debug(" Clock: %d, DIV_CLK_SD0: 0x%08x, CLOCK_BYPASS_SELECT: 0x%08x", self->host.max_clk, read32(CLOCK_BYPASS_SELECT), read32(CLOCK_BYPASS_SELECT))
+        trace("PLL Setting");
+        trace(" Clock: %d, DIV_CLK_SD0: 0x%08x, CLOCK_BYPASS_SELECT: 0x%08x", self->host.max_clk, read32(CLOCK_BYPASS_SELECT), read32(CLOCK_BYPASS_SELECT))
     }
 
     /* 6. 64-bitアドレッシングを設定: bit[28-29]は仕様書に情報なし */
     write32(SD_CONTROL2, read32(SD_CONTROL2) | (1 << 28) | (1 << 29));
     delayms(1);
-    emmc_host_ctl2(read32(SD_CONTROL2));
+    //emmc_host_ctl2(read32(SD_CONTROL2));
 
     /* 7. cv180x固有レジスタにデフォルト値をセット */
     write32(CVI_SDHCI_SD_CTRL, LATANCY_1T);
@@ -1083,9 +1083,9 @@ static int emmc_card_init(struct emmc *self)
     write32(CVI_SDHCI_PHY_CONFIG, REG_TX_BPS_SEL_BYPASS);
 
     delayms(1);
-    debug("CVI_SDHCI_SD_CTRL      : 0x%08x", read32(CVI_SDHCI_SD_CTRL));
-    debug("CVI_SDHCI_PHY_TX_RX_DLY: 0x%08x", read32(CVI_SDHCI_PHY_TX_RX_DLY));
-    debug("CVI_SDHCI_PHY_CONFIG   : 0x%08x", read32(CVI_SDHCI_PHY_CONFIG));
+    trace("CVI_SDHCI_SD_CTRL      : 0x%08x", read32(CVI_SDHCI_SD_CTRL));
+    trace("CVI_SDHCI_PHY_TX_RX_DLY: 0x%08x", read32(CVI_SDHCI_PHY_TX_RX_DLY));
+    trace("CVI_SDHCI_PHY_CONFIG   : 0x%08x", read32(CVI_SDHCI_PHY_CONFIG));
 
     /* Check the sanity of the sd_commands and sd_acommands structures */
     assert(sizeof(sd_commands) == (64 * sizeof(uint32_t)));
@@ -1093,7 +1093,7 @@ static int emmc_card_init(struct emmc *self)
 
     /* 8. ホストコントローラのパージョンをセット */
     self->hci_ver = self->host.version & 0xff;
-    debug("hci_ver: %d", self->hci_ver);
+    trace("hci_ver: %d", self->hci_ver);
     if (self->hci_ver < 2) {
 #ifdef SD_ALLOW_OLD_SDHCI
         warn("old SDHCI version detected");
@@ -1154,7 +1154,7 @@ static int emmc_ensure_data_mode(struct emmc *self)
         /* 3.3 Transfer状態以外: カードをリセット */
         int ret = emmc_card_reset(self);
         if (ret != 0) {
-            debug("fail emmc_card_reset 2");
+            error("fail emmc_card_reset 2");
             return ret;
         }
     }
@@ -1315,12 +1315,12 @@ static int emmc_card_reset(struct emmc *self)
     write32(SD_CONTROL0, control0);
     delayus(2000);
 
-    emmc_dump_host_ctl1(read32(SD_CONTROL0));
-    emmc_dump_clk_ctl(read32(SD_CONTROL1));
+    //emmc_dump_host_ctl1(read32(SD_CONTROL0));
+    //emmc_dump_clk_ctl(read32(SD_CONTROL1));
 
     /* 3. カードがあるかチェック */
     uint32_t status_reg = read32(SD_PRESENT_STS);
-    debug("SD_PRESENT_STS: 0x%08x", status_reg);
+    trace("SD_PRESENT_STS: 0x%08x", status_reg);
     if ((status_reg & (1 << 16)) == 0) {
         warn("no card inserted");
         return -1;
@@ -1405,7 +1405,7 @@ static int emmc_card_reset(struct emmc *self)
         }
     }
 
-    emmc_dump_mmc(self);
+    //emmc_dump_mmc(self);
 
     /* 10. CMD5（HCSS 3.6）のレスポンスをチェックしてカードがSDカードであるかチェックする */
     /* このレスポンスはカードがSDIOとEMMCの場合にのみ返される。 */
@@ -1477,7 +1477,7 @@ static int emmc_card_reset(struct emmc *self)
 
     }
 
-    debug("OCR: 0x%x, 1.8v support: %d, SDHC support: %d", self->card_ocr,
+    trace("OCR: 0x%x, 1.8v support: %d, SDHC support: %d", self->card_ocr,
           self->card_supports_18v, self->card_supports_sdhc);
 
     /* この時点でカードがSDカードであると確信できた。そのため、このカードは
@@ -1563,7 +1563,7 @@ static int emmc_card_reset(struct emmc *self)
     self->device_id[2] = self->last_r2;
     self->device_id[3] = self->last_r3;
 
-    debug("card CID: 0x%08x, 0x%08x, 0x%0xx, 0x%0xx", self->device_id[3],
+    trace("card CID: 0x%08x, 0x%08x, 0x%0xx, 0x%0xx", self->device_id[3],
           self->device_id[2], self->device_id[1], self->device_id[0]);
 
     /* 17. CMD3: SEND_RELATIVE_ADDRを送信してdata状態に移行する */
@@ -1587,7 +1587,7 @@ static int emmc_card_reset(struct emmc *self)
         warn("CMD3 response error");
         return -1;
     }
-    debug("RCA: 0x%x", self->card_rca);
+    trace("RCA: 0x%x", self->card_rca);
 
 
     /* 19. CMD7: SELECT_CARDを送信し、カードを選択してtransfer状態に移行する */
@@ -1658,7 +1658,7 @@ static int emmc_card_reset(struct emmc *self)
         }
     }
 
-    debug("SCR: version %s, bus_width %d",
+    trace("SCR: version %s, bus_width %d",
           sd_versions[self->scr.sd_version], self->scr.sd_bus_widths);
 
 #ifdef SD_HIGH_SPEED
@@ -1691,7 +1691,7 @@ static int emmc_card_reset(struct emmc *self)
                 } else {
                     /* 成功; クロックを50MHzに切り替える */
                     emmc_switch_clock_rate(self, SD_CLOCK_HIGH);
-                    debug("switch to 50MHz clock complete");
+                    trace("switch to 50MHz clock complete");
                 }
             }
         }
@@ -1722,7 +1722,7 @@ static int emmc_card_reset(struct emmc *self)
 
             /* 25.4 ホストのカード割り込みを有効にする */
             write32(SD_INT_STS_EN, old_irpt_mask);
-            debug("switch to 4-bit complete");
+            trace("switch to 4-bit complete");
         }
 #endif
     }
@@ -1740,7 +1740,7 @@ static int emmc_card_reset(struct emmc *self)
 static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
                    int timeout)
 {
-    debug("emmc_issue_command: cmd=%d, arg=0x%08x", cmd & 0xff, arg);
+    trace("emmc_issue_command: cmd=%d, arg=0x%08x", cmd & 0xff, arg);
     /* 1. 保留中の割り込みを処理する */
     emmc_handle_interrupts(self);
 
@@ -1755,7 +1755,7 @@ static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
     /* 3.1 ACMDの場合 */
     if (cmd & IS_APP_CMD) {
         cmd &= 0xff;
-        debug("issuing command ACMD%d", cmd);
+        trace("issuing command ACMD%d", cmd);
         /* 3.1.1 未定義のコマンドが指定された場合はエラー表示してリターンする */
         if (sd_acommands[cmd] == SD_CMD_RESERVED(0)) {
             error("invalid command ACMD%d", cmd);
@@ -1770,12 +1770,12 @@ static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
         }
         /* 3.1.2 CMD55: APP_CMDを送信 */
         emmc_issue_command_int(self, sd_commands[APP_CMD], rca, timeout);
-        debug("cmd: %d (0x%08x), result: %s", sd_commands[APP_CMD] >> 24, rca, self->last_cmd_success ? "success" : "failure");
+        trace("cmd: %d (0x%08x), result: %s", sd_commands[APP_CMD] >> 24, rca, self->last_cmd_success ? "success" : "failure");
         if (self->last_cmd_success) {
             self->last_cmd = cmd | IS_APP_CMD;
             /* 3.1.3 ACMDを送信 */
             emmc_issue_command_int(self, sd_acommands[cmd], arg, timeout);
-            debug("cmd: %d (0x%08x), result: %s", sd_acommands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
+            trace("cmd: %d (0x%08x), result: %s", sd_acommands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
         }
     /* 3.2 CMDの場合 */
     } else {
@@ -1788,7 +1788,7 @@ static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
         /* 3.2.2 CMDを送信 */
         self->last_cmd = cmd;
         emmc_issue_command_int(self, sd_commands[cmd], arg, timeout);
-        debug("cmd: %d (0x%08x), result: %s", sd_commands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
+        trace("cmd: %d (0x%08x), result: %s", sd_commands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
     }
     return self->last_cmd_success;
 }

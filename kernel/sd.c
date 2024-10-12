@@ -6,6 +6,7 @@
 #include "spinlock.h"
 //#include "buf.h"
 #include <common/types.h>
+#include "printf.h"
 
 static struct emmc sd0;
 //static struct list_head sdque;
@@ -51,9 +52,10 @@ sd_init(void)
     release(&sdlock);
 
     //char *addr = buf;
+
     uint32_t byte = 0;
     printf("\n");
-    for (int i=0; i < 64; i++) {
+    for (int i=0; i < 32; i++) {
       for (int j=0; j < 16; j++) {
         if (j == 0)
           printf("%08x:", byte);
@@ -75,7 +77,7 @@ sd_init(void)
         ptinfo[i].type = mbr.ptables[i].type;
         ptinfo[i].lba = mbr.ptables[i].lba;
         ptinfo[i].nsecs = mbr.ptables[i].nsecs;
-        printf("partition[%d]: TYPE: %d, LBA = 0x%x, #SECS = 0x%x\n",
+        debug("partition[%d]: TYPE: %d, LBA = 0x%x, #SECS = 0x%x\n",
             i, ptinfo[i].type, ptinfo[i].lba, ptinfo[i].nsecs);
         ptnum++;
     }
