@@ -4,7 +4,7 @@
 #include "user/user.h"
 #include <common/fs.h>
 #include <common/fcntl.h>
-#include <common/syscall.h>
+#include <common/syscall_v6.h>
 #include <common/memlayout.h>
 #include <common/riscv.h>
 
@@ -475,7 +475,7 @@ exitiputtest(char *s)
 // does the error path in open() for attempt to write a
 // directory call iput() in a transaction?
 // needs a hacked kernel that pauses just after the namei()
-// call in sys_open():
+// call in sys_v6_open():
 //    if((ip = namei(path)) == 0)
 //      return -1;
 //    {

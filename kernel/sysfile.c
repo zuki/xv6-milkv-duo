@@ -52,7 +52,7 @@ fdalloc(struct file *f)
 }
 
 uint64_t
-sys_dup(void)
+sys_v6_dup(void)
 {
   struct file *f;
   int fd;
@@ -66,7 +66,7 @@ sys_dup(void)
 }
 
 uint64_t
-sys_read(void)
+sys_v6_read(void)
 {
   struct file *f;
   int n;
@@ -80,7 +80,7 @@ sys_read(void)
 }
 
 uint64_t
-sys_write(void)
+sys_v6_write(void)
 {
   struct file *f;
   int n;
@@ -95,7 +95,7 @@ sys_write(void)
 }
 
 uint64_t
-sys_close(void)
+sys_v6_close(void)
 {
   int fd;
   struct file *f;
@@ -108,7 +108,7 @@ sys_close(void)
 }
 
 uint64_t
-sys_fstat(void)
+sys_v6_fstat(void)
 {
   struct file *f;
   uint64_t st; // user pointer to struct stat
@@ -121,7 +121,7 @@ sys_fstat(void)
 
 // Create the path new as a link to the same inode as old.
 uint64_t
-sys_link(void)
+sys_v6_link(void)
 {
   char name[DIRSIZ], new[MAXPATH], old[MAXPATH];
   struct inode *dp, *ip;
@@ -186,7 +186,7 @@ isdirempty(struct inode *dp)
 }
 
 uint64_t
-sys_unlink(void)
+sys_v6_unlink(void)
 {
   struct inode *ip, *dp;
   struct dirent de;
@@ -302,7 +302,7 @@ create(char *path, short type, short major, short minor)
 }
 
 uint64_t
-sys_open(void)
+sys_v6_open(void)
 {
   char path[MAXPATH];
   int fd, omode;
@@ -371,7 +371,7 @@ sys_open(void)
 }
 
 uint64_t
-sys_mkdir(void)
+sys_v6_mkdir(void)
 {
   char path[MAXPATH];
   struct inode *ip;
@@ -387,7 +387,7 @@ sys_mkdir(void)
 }
 
 uint64_t
-sys_mknod(void)
+sys_v6_mknod(void)
 {
   struct inode *ip;
   char path[MAXPATH];
@@ -407,7 +407,7 @@ sys_mknod(void)
 }
 
 uint64_t
-sys_chdir(void)
+sys_v6_chdir(void)
 {
   char path[MAXPATH];
   struct inode *ip;
@@ -432,7 +432,7 @@ sys_chdir(void)
 }
 
 uint64_t
-sys_exec(void)
+sys_v6_exec(void)
 {
   char path[MAXPATH], *argv[MAXARG];
   int i;
@@ -475,7 +475,7 @@ sys_exec(void)
 }
 
 uint64_t
-sys_pipe(void)
+sys_v6_pipe(void)
 {
   uint64_t fdarray; // user pointer to array of two integers
   struct file *rf, *wf;
@@ -505,7 +505,7 @@ sys_pipe(void)
 }
 
 uint64_t
-sys_ioctl(void)
+sys_v6_ioctl(void)
 {
   struct file *f;
   unsigned long req;

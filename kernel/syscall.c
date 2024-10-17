@@ -4,7 +4,7 @@
 #include <common/riscv.h>
 #include "spinlock.h"
 #include "proc.h"
-#include <common/syscall.h>
+#include <common/syscall_v6.h>
 #include "defs.h"
 
 // Fetch the uint64_t at addr from the current process.
@@ -80,54 +80,54 @@ argstr(int n, char *buf, int max)
 }
 
 // Prototypes for the functions that handle system calls.
-extern uint64_t sys_fork(void);
-extern uint64_t sys_exit(void);
-extern uint64_t sys_wait(void);
-extern uint64_t sys_pipe(void);
-extern uint64_t sys_read(void);
-extern uint64_t sys_kill(void);
-extern uint64_t sys_exec(void);
-extern uint64_t sys_fstat(void);
-extern uint64_t sys_chdir(void);
-extern uint64_t sys_dup(void);
-extern uint64_t sys_getpid(void);
-extern uint64_t sys_sbrk(void);
-extern uint64_t sys_sleep(void);
-extern uint64_t sys_uptime(void);
-extern uint64_t sys_open(void);
-extern uint64_t sys_write(void);
-extern uint64_t sys_mknod(void);
-extern uint64_t sys_unlink(void);
-extern uint64_t sys_link(void);
-extern uint64_t sys_mkdir(void);
-extern uint64_t sys_close(void);
-extern uint64_t sys_ioctl(void);
+extern uint64_t sys_v6_fork(void);
+extern uint64_t sys_v6_exit(void);
+extern uint64_t sys_v6_wait(void);
+extern uint64_t sys_v6_pipe(void);
+extern uint64_t sys_v6_read(void);
+extern uint64_t sys_v6_kill(void);
+extern uint64_t sys_v6_exec(void);
+extern uint64_t sys_v6_fstat(void);
+extern uint64_t sys_v6_chdir(void);
+extern uint64_t sys_v6_dup(void);
+extern uint64_t sys_v6_getpid(void);
+extern uint64_t sys_v6_sbrk(void);
+extern uint64_t sys_v6_sleep(void);
+extern uint64_t sys_v6_uptime(void);
+extern uint64_t sys_v6_open(void);
+extern uint64_t sys_v6_write(void);
+extern uint64_t sys_v6_mknod(void);
+extern uint64_t sys_v6_unlink(void);
+extern uint64_t sys_v6_link(void);
+extern uint64_t sys_v6_mkdir(void);
+extern uint64_t sys_v6_close(void);
+extern uint64_t sys_v6_ioctl(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64_t (*syscalls[])(void) = {
-[SYS_fork]    sys_fork,
-[SYS_exit]    sys_exit,
-[SYS_wait]    sys_wait,
-[SYS_pipe]    sys_pipe,
-[SYS_read]    sys_read,
-[SYS_kill]    sys_kill,
-[SYS_exec]    sys_exec,
-[SYS_fstat]   sys_fstat,
-[SYS_chdir]   sys_chdir,
-[SYS_dup]     sys_dup,
-[SYS_getpid]  sys_getpid,
-[SYS_sbrk]    sys_sbrk,
-[SYS_sleep]   sys_sleep,
-[SYS_uptime]  sys_uptime,
-[SYS_open]    sys_open,
-[SYS_write]   sys_write,
-[SYS_mknod]   sys_mknod,
-[SYS_unlink]  sys_unlink,
-[SYS_link]    sys_link,
-[SYS_mkdir]   sys_mkdir,
-[SYS_close]   sys_close,
-[SYS_ioctl]   sys_ioctl,
+[SYS_v6_fork]    sys_v6_fork,
+[SYS_v6_exit]    sys_v6_exit,
+[SYS_v6_wait]    sys_v6_wait,
+[SYS_v6_pipe]    sys_v6_pipe,
+[SYS_v6_read]    sys_v6_read,
+[SYS_v6_kill]    sys_v6_kill,
+[SYS_v6_exec]    sys_v6_exec,
+[SYS_v6_fstat]   sys_v6_fstat,
+[SYS_v6_chdir]   sys_v6_chdir,
+[SYS_v6_dup]     sys_v6_dup,
+[SYS_v6_getpid]  sys_v6_getpid,
+[SYS_v6_sbrk]    sys_v6_sbrk,
+[SYS_v6_sleep]   sys_v6_sleep,
+[SYS_v6_uptime]  sys_v6_uptime,
+[SYS_v6_open]    sys_v6_open,
+[SYS_v6_write]   sys_v6_write,
+[SYS_v6_mknod]   sys_v6_mknod,
+[SYS_v6_unlink]  sys_v6_unlink,
+[SYS_v6_link]    sys_v6_link,
+[SYS_v6_mkdir]   sys_v6_mkdir,
+[SYS_v6_close]   sys_v6_close,
+[SYS_v6_ioctl]   sys_v6_ioctl,
 };
 
 void

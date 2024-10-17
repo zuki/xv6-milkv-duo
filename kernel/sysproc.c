@@ -7,7 +7,7 @@
 #include "proc.h"
 
 uint64_t
-sys_exit(void)
+sys_v6_exit(void)
 {
   int n;
   argint(0, &n);
@@ -16,19 +16,19 @@ sys_exit(void)
 }
 
 uint64_t
-sys_getpid(void)
+sys_v6_getpid(void)
 {
   return myproc()->pid;
 }
 
 uint64_t
-sys_fork(void)
+sys_v6_fork(void)
 {
   return fork();
 }
 
 uint64_t
-sys_wait(void)
+sys_v6_wait(void)
 {
   uint64_t p;
   argaddr(0, &p);
@@ -36,7 +36,7 @@ sys_wait(void)
 }
 
 uint64_t
-sys_sbrk(void)
+sys_v6_sbrk(void)
 {
   uint64_t addr;
   int n;
@@ -49,10 +49,10 @@ sys_sbrk(void)
 }
 
 uint64_t
-sys_sleep(void)
+sys_v6_sleep(void)
 {
   int n;
-  uint32_t ticks0;
+  uint64_t ticks0;
 
   argint(0, &n);
   acquire(&tickslock);
@@ -69,7 +69,7 @@ sys_sleep(void)
 }
 
 uint64_t
-sys_kill(void)
+sys_v6_kill(void)
 {
   int pid;
 
@@ -80,9 +80,9 @@ sys_kill(void)
 // return how many clock tick interrupts have occurred
 // since start.
 uint64_t
-sys_uptime(void)
+sys_v6_uptime(void)
 {
-  uint32_t xticks;
+  uint64_t xticks;
 
   acquire(&tickslock);
   xticks = ticks;
