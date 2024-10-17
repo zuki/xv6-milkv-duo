@@ -36,7 +36,8 @@ OBJS = \
   $K/sd.o \
   $K/buddy.o \
   $K/slab.o \
-  $K/page.o
+  $K/page.o \
+  $K/rtc.o
 
 $K/ramdisk_data.o: fs.img
 

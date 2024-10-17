@@ -133,6 +133,10 @@ void            kdelay(unsigned long n);
 void            delayms(unsigned long n);
 void            delayus(unsigned long n);
 uint64_t        get_timer(uint64_t start);
+
+// rtc.c
+void            rtc_init(void);
+
 // sbi.c
 #ifndef CONFIG_RISCV_M_MODE
 void            sbiinit(void);
@@ -184,7 +188,7 @@ int             fetchaddr(uint64_t, uint64_t*);
 void            syscall();
 
 // trap.c
-extern uint32_t     ticks;
+extern uint64_t     ticks;
 void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;

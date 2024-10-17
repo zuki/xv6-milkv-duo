@@ -8,7 +8,7 @@
 #include "config.h"
 
 struct spinlock tickslock;
-uint32_t ticks;
+uint64_t ticks;
 
 extern char trampoline[], uservec[], userret[];
 

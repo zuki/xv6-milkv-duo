@@ -33,6 +33,8 @@ kvmmake(void)
     kvmmap(kpgtbl, CLKGEN_BASE, CLKGEN_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PINMUX_BASE, PINMUX_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, RESET_BASE, RESET_BASE, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, RTC_CTRL_BASE, RTC_CTRL_BASE, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, RTC_CORE_BASE, RTC_CORE_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_DEVICE);
     kvmmap(kpgtbl, SD0_BASE, SD0_BASE, 16*PGSIZE, PTE_DEVICE);
 
