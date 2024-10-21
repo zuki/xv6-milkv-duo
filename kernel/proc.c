@@ -647,19 +647,20 @@ either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len)
   }
 }
 
-// Copy from either a user address, or kernel address,
-// depending on usr_src.
-// Returns 0 on success, -1 on error.
-int
-either_copyin(void *dst, int user_src, uint64_t src, uint64_t len)
+/*
+ * usr_srcに応じて、ユーザーアドレスまたはカーネルアドレスから
+ * コピーする。
+ * 成功すれば0を返し、エラーなら-1を返す。
+ */
+int either_copyin(void *dst, int user_src, uint64_t src, uint64_t len)
 {
-  struct proc *p = myproc();
-  if(user_src){
-    return copyin(p->pagetable, dst, src, len);
-  } else {
-    memmove(dst, (char*)src, len);
-    return 0;
-  }
+    struct proc *p = myproc();
+    if (user_src) {
+        return copyin(p->pagetable, dst, src, len);
+    } else {
+        memmove(dst, (char*)src, len);
+        return 0;
+    }
 }
 
 // Print a process listing to console.  For debugging.
