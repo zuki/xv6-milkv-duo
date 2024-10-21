@@ -1,6 +1,19 @@
 #ifndef INC_CV180X_REG_H
 #define INC_CV180X_REG_H
 
+#define MMIO_BASE       0x03000000
+#define SYSCTL_BASE     0x03000000
+#define PINMUX_BASE     0x03001000
+#define CLKGEN_BASE     0x03002000
+#define RESET_BASE      0x03003000
+#define WATCHDOG_BASE   0x03010000
+#define TIMVER_BASE     0x030A0000
+#define ETH0_BASE       0x04070000
+#define RTC_BASE        0x05000000
+#define SD0_BASE        0x04310000
+#define SD1_BASE        0x04320000
+#define USB_BASE        0x04340000
+
 #define SOFT_RSTN_0         (RESET_BASE + 0x00)
 #define SOFT_RSTN_1         (RESET_BASE + 0x04)
 #define SOFT_RSTN_2         (RESET_BASE + 0x08)
@@ -47,31 +60,44 @@
 #define IRQ_EDGE                3
 
 /* RTC */
-/*
- * RTC info registers
- */
-#define RTC_CTRL_BASE       0x05025000
-#define RTC_CTRL0_UNLOCKKEY     (RTC_CTRL_BASE + 0x4)
-#define RTC_CTRL0               (RTC_CTRL_BASE + 0x8)
-#define RTC_CTRL0_STATUS0       (RTC_CTRL_BASE + 0xC)
-#define RTCSYS_RST_CTRL         (RTC_CTRL_BASE +0x18)
+/* RTC_CTRLレジスタ */
+#define RTC_CTRL_BASE       (RTC_BASE + 0x25000)
+#define RTC_CTRL0_UNLOCKKEY     (RTC_CTRL_BASE + 0x04)
+#define RTC_CTRL0               (RTC_CTRL_BASE + 0x08)
+#define RTC_CTRL0_STATUS0       (RTC_CTRL_BASE + 0x0C)
+#define RTC_RST_CTRL            (RTC_CTRL_BASE + 0x18)
+#define RTC_FC_COARSE_EN        (RTC_CTRL_BASE + 0x40)
+#define RTC_FC_COARSE_CAL       (RTC_CTRL_BASE + 0x44)
+#define RTC_FC_FINE_EN          (RTC_CTRL_BASE + 0x48)
+#define RTC_FC_FINE_PERIOD      (RTC_CTRL_BASE + 0x4C)
+#define RTC_FC_FINE_CAL         (RTC_CTRL_BASE + 0x50)
+#define RTC_POR_RST_CTRL        (RTC_CTRL_BASE + 0xac)
 
-#define RTC_RST_CTRL            (RTC_BASE + 0x18)
-#define RTC_INFO0               (RTC_BASE + 0x1C)
-#define RTC_EN_PWR_WAKEUP       (RTC_BASE + 0xBC)
-#define RTC_EN_SHDN_REQ         (RTC_BASE + 0xC0)
-#define RTC_EN_PWR_CYC_REQ      (RTC_BASE + 0xC8)
-#define RTC_EN_WARM_RST_REQ     (RTC_BASE + 0xCC)
-#define RTC_EN_WDT_RST_REQ      (RTC_BASE + 0xE0)
-#define RTC_EN_SUSPEND_REQ      (RTC_BASE + 0xE4)
-#define RTC_PG_REG              (RTC_BASE + 0xF0)
-#define RTC_ST_ON_REASON        (RTC_BASE + 0xF8)
-
-#define REG_RTC_ST_ON_REASON    (REG_RTC_BASE + RTC_ST_ON_REASON)
-
+/* RTC_COREレジスタ */
+#define RTC_CORE_BASE       (RTC_BASE + 0x26000)
+#define RTC_ANA_CALIB           (RTC_CORE_BASE + 0x00)
+#define RTC_SEC_PULST_GEN       (RTC_CORE_BASE + 0x04)
+#define RTC_SET_SEC_CNTR_VALUE  (RTC_CORE_BASE + 0x10)
+#define RTC_SET_SEC_CNTR_TRIG   (RTC_CORE_BASE + 0x14)
+#define RTC_SEC_CNTR_VALUE      (RTC_CORE_BASE + 0x18)
+#define RTC_INFO0               (RTC_CORE_BASE + 0x1C)
+#define RTC_POR_DB_MAGIC_KEY    (RTC_CORE_BASE + 0x68)
+#define RTC_EN_PWR_WAKEUP       (RTC_CORE_BASE + 0xBC)
+#define RTC_EN_SHDN_REQ         (RTC_CORE_BASE + 0xC0)
+#define RTC_EN_PWR_CYC_REQ      (RTC_CORE_BASE + 0xC8)
+#define RTC_EN_WARM_RST_REQ     (RTC_CORE_BASE + 0xCC)
+#define RTC_EN_PWR_VBAT_DET     (RTC_CORE_BASE + 0xD0)
+#define RTC_EN_WDT_RST_REQ      (RTC_CORE_BASE + 0xE0)
+#define RTC_EN_SUSPEND_REQ      (RTC_CORE_BASE + 0xE4)
+#define RTC_PG_REG              (RTC_CORE_BASE + 0xF0)
+#define RTC_ST_ON_REASON        (RTC_CORE_BASE + 0xF8)
+#define RTC_PWR_DET_SEL         (RTC_CORE_BASE + 0x140)
+/* RTC_MACROレジスタ */
+#define RTC_MACRO_BASE      (RTC_BASE + 0x26400)
+#define RTC_PWR_DET_COMP        (RTC_MACRO_BASE + 0x44)
 #define RTC_MACRO_DA_SOC_READY  (RTC_MACRO_BASE + 0x8C)
 #define RTC_MACRO_RO_T          (RTC_MACRO_BASE + 0xA8)
-#define RTC_CORE_SRAM_BASE      0x05026800
+#define RTC_CORE_SRAM_BASE  (RTC_BASE + 0x26800)
 #define RTC_CORE_SRAM_SIZE      0x0800 // 2KB
 #define RTCSYS_F32KLESS_BASE    0x0502A000
 
