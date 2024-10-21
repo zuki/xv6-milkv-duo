@@ -381,11 +381,13 @@ copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
   return 0;
 }
 
-// Copy from user to kernel.
-// Copy len bytes to dst from virtual address srcva in a given page table.
-// Return 0 on success, -1 on error.
-int
-copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)
+/*
+ * ユーザからカーネルにコピーする。
+ * 与えられたページテーブルの仮想アドレスsrcvaからdstに
+ * lenバイトコピーする。
+ * 成功したら0を返し、エラーなら-1を返す。
+ */
+int copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)
 {
   uint64_t n, va0, pa0;
 
