@@ -41,6 +41,7 @@ main()
         fileinit();         // file table
         //virtio_disk_init(); // emulated hard disk
         ramdiskinit();
+        rtc_init();
         sd_init();
 
         userinit();      // first user process
