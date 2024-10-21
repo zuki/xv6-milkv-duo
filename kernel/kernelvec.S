@@ -1,10 +1,8 @@
         #
-        # interrupts and exceptions while in supervisor
-        # mode come here.
-        #
-        # the current stack is a kernel stack.
-        # push all registers, call kerneltrap().
-        # when kerneltrap() returns, restore registers, return.
+        # スーパバイザモードでの割り込みと例外はここに来る。
+        # 現在のスタックはカーネル・スタックである。
+        # すべてのレジスタをプッシュし、kerneltrap()を呼び出す。
+        # kerneltrap()が復帰したらレジスタをリストアして復帰する。
         #
 .globl kerneltrap
 .globl kernelvec
@@ -98,7 +96,7 @@ timervec:
         # scratch[0,8,16] : register save area.
         # scratch[24] : address of CLINT's MTIMECMP register.
         # scratch[32] : desired interval between interrupts.
-        
+
         csrrw a0, mscratch, a0
         sd a1, 0(a0)
         sd a2, 8(a0)
