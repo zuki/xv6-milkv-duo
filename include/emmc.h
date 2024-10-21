@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <common/types.h>
+#include "cv180x.h"
 
 #define MMC_CAP(mode)   (1 << mode)
 
@@ -39,25 +40,8 @@
 #define SD_CLOCK_100        100000000
 #define SD_CLOCK_208        208000000
 
-
 /* Allow old sdhci versions (may cause errors), required for QEMU. */
 #define SD_ALLOW_OLD_SDHCI
-
-#define MMIO_BASE       0x03000000
-#define SYSCTL_BASE     0x03000000
-#define PINMUX_BASE     0x03001000
-#define CLKGEN_BASE     0x03002000
-#define RESET_BASE      0x03003000
-#define WATCHDOG_BASE   0x03010000
-#define TIMVER_BASE     0x030A0000
-#define ETH0_BASE       0x04070000
-#define RTC_SYS_BASE    0x05000000
-#define RTC_MACRO_BASE  0x05026400
-#define RTC_CTRL_BASE   0x05025000
-#define RTC_BASE        0x05026000
-#define SD0_BASE        0x04310000
-#define SD1_BASE        0x04320000
-#define USB_BASE        0x04340000
 
 #define SD_ARG2             (SD0_BASE + 0x00)
 #define SD_BLKSIZECNT       (SD0_BASE + 0x04)
@@ -338,7 +322,6 @@
 
 #define SD_GET_CLOCK_DIVIDER_FAIL    0xffffffff
 
-#include "cv180x.h"
 
 enum bus_mode {
         MMC_LEGACY,     /* */
