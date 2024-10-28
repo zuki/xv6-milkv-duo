@@ -343,7 +343,9 @@ sfence_vma()
 typedef uint64_t pte_t;
 typedef uint64_t *pagetable_t; // 512 PTEs
 
+/* time: Timer for RDTIME instruction */
 #define CSR_TIME		0xc01
+/* sie: Supervisor Interrupt-enable register */
 #define CSR_IE			0x104
 
 #ifdef __ASSEMBLY__
