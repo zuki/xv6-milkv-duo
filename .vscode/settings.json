@@ -25,5 +25,10 @@
         "__string": "c",
         "atomic": "c",
         "cstring": "c"
+    },
+    "editor.tokenColorCustomizations": {
+        "comments":{
+            "foreground":"#d17f13"
+        }
     }
 }
