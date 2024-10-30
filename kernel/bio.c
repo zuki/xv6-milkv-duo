@@ -1,17 +1,18 @@
-// Buffer cache.
+// バッファキャッシュ.
 //
-// The buffer cache is a linked list of buf structures holding
-// cached copies of disk block contents.  Caching disk blocks
-// in memory reduces the number of disk reads and also provides
-// a synchronization point for disk blocks used by multiple processes.
+// バッファキャッシュはディスクブロックの内容をキャッシュした
+// コピーを保持する buf 構造体の連結リストである。 ディスク
+// ブロックをメモリにキャッシュすることでディスクの読み込み
+// 回数を減らすことができ、また、複数のプロセスで使用される
+// ディスクブロックの同期ポイントにもなる。
 //
-// Interface:
-// * To get a buffer for a particular disk block, call bread.
-// * After changing buffer data, call bwrite to write it to disk.
-// * When done with the buffer, call brelse.
-// * Do not use the buffer after calling brelse.
-// * Only one process at a time can use a buffer,
-//     so do not keep them longer than necessary.
+// インタフェース:
+// * ぢスクの特定のブロックのバッファをシュトするには bread を呼び出す
+// * バッファデータを変更したら bwrite を夜バイダしてディスクに書き戻す
+// * バッファを使い終わったら、brelse を呼び出す
+// * brelse 呼び出したらそのバッファを使用しない
+// * 一度に1つのプロセスしかバッファは使用できない。そのため、必要以上に
+//   長くバッファを保持しない
 
 
 #include <common/types.h>
@@ -24,130 +25,137 @@
 #include "buf.h"
 
 struct {
-  struct spinlock lock;
-  struct buf buf[NBUF];
+    struct spinlock lock;
+    struct buf buf[NBUF];
 
-  // Linked list of all buffers, through prev/next.
-  // Sorted by how recently the buffer was used.
-  // head.next is most recent, head.prev is least.
-  struct buf head;
+    // prev/nextによるすべてのバッファの連結リスト.
+    // 使用されたもの順にソートされており、head.nextが
+    // 最新で、head.prevが最も使用されていない
+    struct buf head;
 } bcache;
 
-void
-binit(void)
+// TODO: init_bufcache()
+void binit(void)
 {
-  struct buf *b;
+    struct buf *b;
 
-  initlock(&bcache.lock, "bcache");
+    initlock(&bcache.lock, "bcache");
 
-  // Create linked list of buffers
-  bcache.head.prev = &bcache.head;
-  bcache.head.next = &bcache.head;
-  for(b = bcache.buf; b < bcache.buf+NBUF; b++){
-    b->next = bcache.head.next;
-    b->prev = &bcache.head;
-    initsleeplock(&b->lock, "buffer");
-    bcache.head.next->prev = b;
-    bcache.head.next = b;
+    // バッファの連結リストを作成する
+    bcache.head.prev = &bcache.head;
+    bcache.head.next = &bcache.head;
+    for(b = bcache.buf; b < bcache.buf+NBUF; b++){
+        b->next = bcache.head.next;
+        b->prev = &bcache.head;
+        initsleeplock(&b->lock, "buffer");
+        bcache.head.next->prev = b;
+        bcache.head.next = b;
   }
 }
 
-// Look through buffer cache for block on device dev.
-// If not found, allocate a buffer.
-// In either case, return locked buffer.
-static struct buf*
-bget(uint32_t dev, uint32_t blockno)
+// バッファキャッシュからデバイスdev のブロック番号 blockno の
+// バッファを探す.
+// 見つからなかったらバッファを割り当てる。
+// どちらの場合もロックしたバッファを返す。
+static struct buf *bget(uint32_t dev, uint32_t blockno)
 {
-  struct buf *b;
+    struct buf *b;
 
-  acquire(&bcache.lock);
+    acquire(&bcache.lock);
 
-  // Is the block already cached?
-  for(b = bcache.head.next; b != &bcache.head; b = b->next){
-    if(b->dev == dev && b->blockno == blockno){
-      b->refcnt++;
-      release(&bcache.lock);
-      acquiresleep(&b->lock);
-      return b;
+    // 指定のブロックがキャッシュにあるか?
+    // get_block()にあたる.ただし、load_block()はしない
+    for (b = bcache.head.next; b != &bcache.head; b = b->next){
+        if (b->dev == dev && b->blockno == blockno) {
+            b->refcnt++;
+            release(&bcache.lock);
+            acquiresleep(&b->lock);
+            return b;
+        }
     }
-  }
 
-  // Not cached.
-  // Recycle the least recently used (LRU) unused buffer.
-  for(b = bcache.head.prev; b != &bcache.head; b = b->prev){
-    if(b->refcnt == 0) {
-      b->dev = dev;
-      b->blockno = blockno;
-      b->valid = 0;
-      b->refcnt = 1;
-      release(&bcache.lock);
-      acquiresleep(&b->lock);
-      return b;
+    // キャッシュにない.
+    // 未使用の最も利用されていないバッファをリサイクルする
+    // find_free_entry()にあたる
+    for (b = bcache.head.prev; b != &bcache.head; b = b->prev) {
+        if (b->refcnt == 0) {
+            b->dev = dev;
+            b->blockno = blockno;
+            b->valid = 0;
+            b->refcnt = 1;
+            release(&bcache.lock);
+            acquiresleep(&b->lock);
+            return b;
+        }
     }
-  }
-  panic("bget: no buffers");
+    panic("bget: no buffers");
 }
 
-// Return a locked buf with the contents of the indicated block.
-struct buf*
-bread(uint32_t dev, uint32_t blockno)
+// 指定したブロックのデータを持つロックしたバッファを返す.
+// TODO: read_entry()にあたる、load_block()から呼び出されている
+//       vfsではget_block()
+struct buf* bread(uint32_t dev, uint32_t blockno)
 {
-  struct buf *b;
+    struct buf *b;
 
-  b = bget(dev, blockno);
-  if(!b->valid) {
-    //virtio_disk_rw(b, 0);
-    ramdiskrw(b, 0);
-    b->valid = 1;
-  }
-  return b;
+    b = bget(dev, blockno);
+    if (!b->valid) {
+        //virtio_disk_rw(b, 0);
+        ramdiskrw(b, 0);          // TODO: vfs_bread
+        b->valid = 1;
+    }
+    return b;
 }
 
-// Write b's contents to disk.  Must be locked.
-void
-bwrite(struct buf *b)
+// バッファをディスクに書き戻す. ロックされていなければならない.
+// TODO: write_entry()にあたる。dirtyフラグ処理あり
+//       sync_bufcache()から呼び出す
+// v6ではlogシステムのbegen_op()/end_op()のタイミングでのみ呼び出される
+void bwrite(struct buf *b)
 {
-  if(!holdingsleep(&b->lock))
-    panic("bwrite");
-  //virtio_disk_rw(b, 1);
-  ramdiskrw(b, 1);
+    if (!holdingsleep(&b->lock))
+        panic("bwrite");
+    //virtio_disk_rw(b, 1);
+    ramdiskrw(b, 1);              // TODO: vfs_bwrite
 }
 
-// Release a locked buffer.
-// Move to the head of the most-recently-used list.
-void
-brelse(struct buf *b)
+// ロックされているバッファを解放する.
+// 最も最近使用されたリストの先頭に移動する.
+// TODO: release_block()
+void brelse(struct buf *b)
 {
-  if(!holdingsleep(&b->lock))
-    panic("brelse");
+    if (!holdingsleep(&b->lock))
+        panic("brelse");
 
-  releasesleep(&b->lock);
+    releasesleep(&b->lock);
 
-  acquire(&bcache.lock);
-  b->refcnt--;
-  if (b->refcnt == 0) {
-    // no one is waiting for it.
-    b->next->prev = b->prev;
-    b->prev->next = b->next;
-    b->next = bcache.head.next;
-    b->prev = &bcache.head;
-    bcache.head.next->prev = b;
-    bcache.head.next = b;
-  }
+    acquire(&bcache.lock);
+    b->refcnt--;
+    if (b->refcnt == 0) {
+        // no one is waiting for it.
+        b->next->prev = b->prev;
+        b->prev->next = b->next;
+        b->next = bcache.head.next;
+        b->prev = &bcache.head;
+        bcache.head.next->prev = b;
+        bcache.head.next = b;
+    }
 
-  release(&bcache.lock);
+    release(&bcache.lock);
 }
 
 void
 bpin(struct buf *b) {
-  acquire(&bcache.lock);
-  b->refcnt++;
-  release(&bcache.lock);
+    acquire(&bcache.lock);
+    b->refcnt++;
+    release(&bcache.lock);
 }
 
 void
 bunpin(struct buf *b) {
-  acquire(&bcache.lock);
-  b->refcnt--;
-  release(&bcache.lock);
+    acquire(&bcache.lock);
+    b->refcnt--;
+    release(&bcache.lock);
 }
+
+// TODO: mark_block_dirty
