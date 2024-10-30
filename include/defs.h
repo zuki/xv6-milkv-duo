@@ -28,9 +28,9 @@ void            bpin(struct buf*);
 void            bunpin(struct buf*);
 
 // buddy.c
-void buddy_init(void);
-struct page *buddy_alloc(size_t size);
-void buddy_free(struct page *page);
+void            buddy_init(void);
+struct page *   buddy_alloc(size_t size);
+void            buddy_free(struct page *page);
 
 // console.c
 void            consoleinit(void);
@@ -87,11 +87,11 @@ void            begin_op(void);
 void            end_op(void);
 
 // page.c
-void page_init(void);
-void *page_address(const struct page *page);
-struct page *page_find_by_address(void *address);
-struct page *page_find_head(const struct page *page);
-void page_cleanup(struct page **page);
+void            page_init(void);
+void *          page_address(const struct page *page);
+struct page *   page_find_by_address(void *address);
+struct page *   page_find_head(const struct page *page);
+void            page_cleanup(struct page **page);
 
 // pipe.c
 int             pipealloc(struct file**, struct file**);
@@ -149,11 +149,11 @@ static inline void sbiinit(void) { }
 void            swtch(struct context*, struct context*);
 
 // slab.c
-void slab_cache_init(void);
+void            slab_cache_init(void);
 struct slab_cache *slab_cache_create(const char *name, size_t size);
-void slab_cache_destroy(struct slab_cache *cache);
-void *slab_cache_alloc(struct slab_cache *cache);
-void slab_cache_free(struct slab_cache *cache, void *obj);
+void            slab_cache_destroy(struct slab_cache *cache);
+void *          slab_cache_alloc(struct slab_cache *cache);
+void            slab_cache_free(struct slab_cache *cache, void *obj);
 
 // spinlock.c
 void            acquire(struct spinlock*);
@@ -208,14 +208,14 @@ void            kvmmap(pagetable_t, uint64_t, uint64_t, uint64_t, uint64_t);
 int             mappages(pagetable_t, uint64_t, uint64_t, uint64_t, uint64_t);
 pagetable_t     uvmcreate(void);
 void            uvmfirst(pagetable_t, uchar *, uint32_t);
-uint64_t          uvmalloc(pagetable_t, uint64_t, uint64_t, int);
-uint64_t          uvmdealloc(pagetable_t, uint64_t, uint64_t);
+uint64_t        uvmalloc(pagetable_t, uint64_t, uint64_t, int);
+uint64_t        uvmdealloc(pagetable_t, uint64_t, uint64_t);
 int             uvmcopy(pagetable_t, pagetable_t, uint64_t);
 void            uvmfree(pagetable_t, uint64_t);
 void            uvmunmap(pagetable_t, uint64_t, uint64_t, int);
 void            uvmclear(pagetable_t, uint64_t);
 pte_t *         walk(pagetable_t, uint64_t, int);
-uint64_t          walkaddr(pagetable_t, uint64_t);
+uint64_t        walkaddr(pagetable_t, uint64_t);
 int             copyout(pagetable_t, uint64_t, char *, uint64_t);
 int             copyin(pagetable_t, char *, uint64_t, uint64_t);
 int             copyinstr(pagetable_t, char *, uint64_t, uint64_t);
@@ -227,17 +227,17 @@ int             plic_claim(void);
 void            plic_complete(int);
 
 // emmc.c
-void emmc_clear_interrupt(void);
-void emmc_intr(struct emmc *self);
-int emmc_init(struct emmc *self);
-size_t emmc_read(struct emmc *self, void *buf, size_t cnt);
-size_t emmc_write(struct emmc *self, void *buf, size_t cnt);
-uint64_t emmc_seek(struct emmc *self, uint64_t off);
+void            emmc_clear_interrupt(void);
+void            emmc_intr(struct emmc *self);
+int             emmc_init(struct emmc *self);
+size_t          emmc_read(struct emmc *self, void *buf, size_t cnt);
+size_t          emmc_write(struct emmc *self, void *buf, size_t cnt);
+uint64_t        emmc_seek(struct emmc *self, uint64_t off);
 
 // sd.c
-void sd_init(void);
-void sd_intr(void);
-void sd_rw(struct buf *);
+void            sd_init(void);
+void            sd_intr(void);
+void            sd_rw(struct buf *);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
