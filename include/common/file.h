@@ -1,17 +1,18 @@
-#ifndef INC_FILE_H
-#define INC_FILE_H
+#ifndef INC_COMMON_FILE_H
+#define INC_COMMON_FILE_H
 
-#include "sleeplock.h"
+#include <common/fs.h>
+#include <sleeplock.h>
 
 struct file {
-  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
-  int ref; // reference count
-  char readable;
-  char writable;
-  struct pipe *pipe; // FD_PIPE
-  struct inode *ip;  // FD_INODE and FD_DEVICE
-  uint32_t off;          // FD_INODE
-  short major;       // FD_DEVICE
+    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+    int ref;            // reference count
+    char readable;
+    char writable;
+    struct pipe *pipe;  // FD_PIPE
+    struct inode *ip;   // FD_INODE and FD_DEVICE
+    uint32_t off;       // FD_INODE
+    short major;        // FD_DEVICE
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
@@ -20,25 +21,24 @@ struct file {
 
 // in-memory copy of an inode
 struct inode {
-  uint32_t dev;           // Device number
-  uint32_t inum;          // Inode number
-  int ref;            // Reference count
-  struct sleeplock lock; // protects everything below here
-  int valid;          // inode has been read from disk?
-
-  short type;         // copy of disk inode
-  short major;
-  short minor;
-  short nlink;
-  uint32_t size;
-  uint32_t addrs[NDIRECT+1];
+    uint32_t dev;           // Device number
+    uint32_t inum;          // Inode number
+    int ref;                // Reference count
+    struct sleeplock lock;  // protects everything below here
+    int valid;              // inode has been read from disk?
+    short type;             // copy of disk inode
+    short major;
+    short minor;
+    short nlink;
+    uint32_t size;
+    uint32_t addrs[NDIRECT+1];
 };
 
 // map major device number to device functions.
 struct devsw {
-  int (*read)(int, uint64_t, int);
-  int (*write)(int, uint64_t, int);
-  int (*ioctl)(int, unsigned long, void *);
+    int (*read)(int, uint64_t, int);
+    int (*write)(int, uint64_t, int);
+    int (*ioctl)(int, unsigned long, void *);
 };
 
 extern struct devsw devsw[];

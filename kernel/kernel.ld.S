@@ -33,10 +33,6 @@ SECTIONS
     *(.sdata .sdata.*) /* do not need to distinguish this from .data */
     . = ALIGN(16);
     *(.data .data.*)
-    . = ALIGN(0x1000);
-    __ramdisk_start = .;
-    *(.ramdisk .ramdisk.*)
-    __ramdisk_end = .;
   }
 
   .bss : {

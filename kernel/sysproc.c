@@ -1,10 +1,11 @@
 #include <common/types.h>
 #include <common/riscv.h>
-#include "defs.h"
+#include <defs.h>
 #include <common/param.h>
 #include <common/memlayout.h>
-#include "spinlock.h"
-#include "proc.h"
+#include <spinlock.h>
+#include <proc.h>
+#include <printf.h>
 
 uint64_t
 sys_v6_exit(void)

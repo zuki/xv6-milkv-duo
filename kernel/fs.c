@@ -1,192 +1,195 @@
-// File system implementation.  Five layers:
-//   + Blocks: allocator for raw disk blocks.
-//   + Log: crash recovery for multi-step updates.
-//   + Files: inode allocator, reading, writing, metadata.
-//   + Directories: inode with special contents (list of other inodes!)
-//   + Names: paths like /usr/rtm/xv6/fs.c for convenient naming.
+// ファイルシステムの実装.  5つのレイヤがある:
+//   + ブロック: 生のディスクブロックのアロケータ.
+//   + ログ: 多段階更新処理のためのクラッシュリカバリ機能.
+//   + ファイル: inodeアロケータ、読み書きとメタデータ
+//   + ディレクトリ: 特別な内容（他のinodeのリスト）を持つinode
+//   + 名前: 便利な命名のための /usr/rtm/xv6/fs.c のようなパス.
 //
-// This file contains the low-level file system manipulation
-// routines.  The (higher-level) system call implementations
-// are in sysfile.c.
+// このファイルは低レベルのファイルシステム操作関数を含んでいる。
+// （高レベルな）システムコールの実装はsysfile.c にある。
 
 #include <common/types.h>
 #include <common/riscv.h>
-#include "defs.h"
+#include <defs.h>
 #include <common/param.h>
 #include <common/stat.h>
-#include "spinlock.h"
-#include "proc.h"
-#include "sleeplock.h"
+#include <spinlock.h>
+#include <proc.h>
+#include <sleeplock.h>
 #include <common/fs.h>
-#include "buf.h"
+#include <buf.h>
 #include <common/file.h>
+#include <sd.h>
+#include <printf.h>
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
-// there should be one superblock per disk device, but we run with
-// only one device
+
+// TODO: vfs
+// ディスク装置1台につき1つスーパーブロックがあるはずだが
+// 我々は1台の装置しか使っていない。
 struct superblock sb;
 
-// Read the super block.
-static void
-readsb(int dev, struct superblock *sb)
+// スーパーブロックを読み込む
+static void readsb(int dev, struct superblock *sb)
 {
-  struct buf *bp;
+    struct buf *bp;
 
-  bp = bread(dev, 1);
-  memmove(sb, bp->data, sizeof(*sb));
-  brelse(bp);
-}
-
-// Init fs
-void
-fsinit(int dev) {
-  readsb(dev, &sb);
-  if(sb.magic != FSMAGIC)
-    panic("invalid file system");
-  initlog(dev, &sb);
-}
-
-// Zero a block.
-static void
-bzero(int dev, int bno)
-{
-  struct buf *bp;
-
-  bp = bread(dev, bno);
-  memset(bp->data, 0, BSIZE);
-  log_write(bp);
-  brelse(bp);
-}
-
-// Blocks.
-
-// Allocate a zeroed disk block.
-// returns 0 if out of disk space.
-static uint
-balloc(uint32_t dev)
-{
-  int b, bi, m;
-  struct buf *bp;
-
-  bp = 0;
-  for(b = 0; b < sb.size; b += BPB){
-    bp = bread(dev, BBLOCK(b, sb));
-    for(bi = 0; bi < BPB && b + bi < sb.size; bi++){
-      m = 1 << (bi % 8);
-      if((bp->data[bi/8] & m) == 0){  // Is block free?
-        bp->data[bi/8] |= m;  // Mark block in use.
-        log_write(bp);
-        brelse(bp);
-        bzero(dev, b + bi);
-        return b + bi;
-      }
-    }
+    bp = bread(dev, 1);
+    memmove(sb, bp->data, sizeof(*sb));
     brelse(bp);
-  }
-  printf("balloc: out of blocks\n");
-  return 0;
 }
 
-// Free a disk block.
-static void
-bfree(int dev, uint32_t b)
+static void printsb(struct superblock *sb) {
+    debug("magic: 0x%08x, size: %d", sb->magic, sb->size);
+    debug("num of block: %d, inode: %d, log: %d", sb->nblocks, sb->ninodes, sb->nlog);
+    debug("start at log: %d, inode: %d, bmap: %d", sb->logstart, sb->inodestart, sb->bmapstart);
+}
+
+// ファイルシステムを初期化する
+void fsinit(int dev) {
+    readsb(dev, &sb);
+    //printsb(&sb);
+    if (sb.magic != FSMAGIC) {
+        panic("invalid file system");
+    }
+    initlog(dev, &sb);
+    info("fsinit ok");
+}
+
+// ブロックをゼロで初期化する.
+static void bzero(int dev, int bno)
 {
-  struct buf *bp;
-  int bi, m;
+    struct buf *bp;
 
-  bp = bread(dev, BBLOCK(b, sb));
-  bi = b % BPB;
-  m = 1 << (bi % 8);
-  if((bp->data[bi/8] & m) == 0)
-    panic("freeing free block");
-  bp->data[bi/8] &= ~m;
-  log_write(bp);
-  brelse(bp);
+    bp = bread(dev, bno);
+    memset(bp->data, 0, BSIZE);
+    // FIXME: logシステムを削除する
+    log_write(bp);
+    brelse(bp);
 }
 
-// Inodes.
+// ブロックレイヤの関数.
+
+// ゼロクリアしたディスクブロックを割り当て、そのブロック番号を返す。
+// ディスクに空きがない場合は 0 を返す.
+static uint balloc(uint32_t dev)
+{
+    int b, bi, m;
+    struct buf *bp;
+
+    bp = 0;
+    for (b = 0; b < sb.size; b += BPB) {
+        bp = bread(dev, BBLOCK(b, sb));
+        for (bi = 0; bi < BPB && b + bi < sb.size; bi++){
+            m = 1 << (bi % 8);
+            if ((bp->data[bi/8] & m) == 0) {  // Is block free?
+                bp->data[bi/8] |= m;  // Mark block in use.
+                log_write(bp);
+                brelse(bp);
+                bzero(dev, b + bi);
+                return b + bi;
+            }
+        }
+        brelse(bp);
+    }
+    printf("balloc: out of blocks\n");
+    return 0;
+}
+
+// ディスクブロックを解放する.
+static void bfree(int dev, uint32_t b)
+{
+    struct buf *bp;
+    int bi, m;
+
+    bp = bread(dev, BBLOCK(b, sb));
+    bi = b % BPB;
+    m = 1 << (bi % 8);
+    if ((bp->data[bi/8] & m) == 0)
+        panic("freeing free block");
+    bp->data[bi/8] &= ~m;
+    log_write(bp);
+    brelse(bp);
+}
+
+// inodeレイヤの関数.
 //
-// An inode describes a single unnamed file.
-// The inode disk structure holds metadata: the file's type,
-// its size, the number of links referring to it, and the
-// list of blocks holding the file's content.
+// inodeは名前のない1つのファイルを記述する。
+// dinode構造体はファイルのタイプ、サイズ、そのファイルを参照する
+// リンク数、ファイルコンテンツを保持するブロックのリストなどの
+// メタデータを保持する。
 //
-// The inodes are laid out sequentially on disk at block
-// sb.inodestart. Each inode has a number, indicating its
-// position on the disk.
+// inodeはディスク上のsb.inodestartブロックから順番に並べられる。
+// 各inodeはディスク上の位置を示す番号を持っている。
 //
-// The kernel keeps a table of in-use inodes in memory
-// to provide a place for synchronizing access
-// to inodes used by multiple processes. The in-memory
-// inodes include book-keeping information that is
-// not stored on disk: ip->ref and ip->valid.
+// カーネルは複数のプロセスで使用されるinodeへのアクセスを同期する
+// 場所を提供するために使用中のinodeのテーブルをメモリ内に保持する。
+// インメモリinodeにはディスクに保存されないブックキーピング情報
+// （ip->refとip->valid）が含まれる。
 //
-// An inode and its in-memory representation go through a
-// sequence of states before they can be used by the
-// rest of the file system code.
+// inodeとそのメモリ内表現はファイルシステムコードの残りの部分で
+// 使用できるようになる前に一連の状態を通過する。
 //
-// * Allocation: an inode is allocated if its type (on disk)
-//   is non-zero. ialloc() allocates, and iput() frees if
-//   the reference and link counts have fallen to zero.
+// * 割り当て: inodeはタイプ(dinode.type)が非ゼロの場合、
+// 割り当てられる。ialloc()は割り当てを行い、iput()は参照
+// カウントとリンクカウントがゼロになった場合に解放を行う。
 //
-// * Referencing in table: an entry in the inode table
-//   is free if ip->ref is zero. Otherwise ip->ref tracks
-//   the number of in-memory pointers to the entry (open
-//   files and current directories). iget() finds or
-//   creates a table entry and increments its ref; iput()
-//   decrements ref.
+// * テーブルの参照: inodeテーブルのエントリはip->refがゼロに
+// なると解放される。そうでなければ、ip->refはエントリ（オープン
+// ファイルや関連とディレクトリ）へのインメモリポインタの数を
+// 追跡する。iget()はテーブルエントリを見つけるか作成して、
+// そのrefをインクリメントする。iput()はrefをデクリメントする。
 //
-// * Valid: the information (type, size, &c) in an inode
-//   table entry is only correct when ip->valid is 1.
-//   ilock() reads the inode from
-//   the disk and sets ip->valid, while iput() clears
-//   ip->valid if ip->ref has fallen to zero.
+// * 有効性: inodeテーブルエントリの情報(タイプ、サイズなど)は
+// ip->validが1のときのみ正しい。ilock()はinodeをディスクから
+// 夜m込み、ip->validをセットする。一方、iput()はip->refが0に
+// なった場合、ip->validをクリアする。
 //
-// * Locked: file system code may only examine and modify
-//   the information in an inode and its content if it
-//   has first locked the inode.
+// * ロック: ファイルシステムのコードはまずinodeをロックしないと
+// inodeの情報とその内容を調べたり変更したりすることができない。
 //
-// Thus a typical sequence is:
+// したがって、通常、処理シーケンスは次のようになる。
 //   ip = iget(dev, inum)
 //   ilock(ip)
 //   ... examine and modify ip->xxx ...
 //   iunlock(ip)
 //   iput(ip)
 //
-// ilock() is separate from iget() so that system calls can
-// get a long-term reference to an inode (as for an open file)
-// and only lock it for short periods (e.g., in read()).
-// The separation also helps avoid deadlock and races during
-// pathname lookup. iget() increments ip->ref so that the inode
-// stays in the table and pointers to it remain valid.
+// ilock()とiget()は分離されているのでシステムコールは(オープン
+// ファイルなどの）inodeへの長期的な参照を取得することができ
+// (read()などで)短期間だけロックすることができる。この分離は
+// パス名検索の際のデッドロックや教護を避けるのにも役立っている。
+// iget()はip->refをインクリメントするのでinodeはテーブル内に
+// 留まり、それへのポインタの有効性は保持される。
 //
-// Many internal file system functions expect the caller to
-// have locked the inodes involved; this lets callers create
-// multi-step atomic operations.
+// 多くの内部ファイルシステム関数は呼び出し元が関係するinodeを
+// ロックしていることを想定している。これにより呼び出し元は
+// 多段階のアトミック操作が可能である。
 //
-// The itable.lock spin-lock protects the allocation of itable
-// entries. Since ip->ref indicates whether an entry is free,
-// and ip->dev and ip->inum indicate which i-node an entry
-// holds, one must hold itable.lock while using any of those fields.
+// itable.lockスピンロックはitableエントリの割り当てを保護する。
+// ip->refはエントリがフリーかどうかを示し、ip->devとip->inumは
+// エントリが保持するi-nodeを示すので、これらのフィールドのいずれかを
+// 使用している間、itable.lockを保持しなければならない。
 //
-// An ip->lock sleep-lock protects all ip-> fields other than ref,
-// dev, and inum.  One must hold ip->lock in order to
-// read or write that inode's ip->valid, ip->size, ip->type, &c.
+// ip->lockスリープロックはref、dev、inum以外のすべてのip->
+// フィールドを保護する。inodeのip->valid、ip->size、ip->typeなどを
+// 読み書きするにはip->lockを保持しなければならない。
 
+// インメモリinodeテーブル構造体
 struct {
   struct spinlock lock;
   struct inode inode[NINODE];
 } itable;
 
-void
-iinit()
+// inodeテーブルを初期化する
+void iinit()
 {
-  int i = 0;
+    int i = 0;
 
-  initlock(&itable.lock, "itable");
-  for(i = 0; i < NINODE; i++) {
-    initsleeplock(&itable.inode[i].lock, "inode");
-  }
+    initlock(&itable.lock, "itable");
+    for (i = 0; i < NINODE; i++) {
+        initsleeplock(&itable.inode[i].lock, "inode");
+    }
 }
 
 static struct inode* iget(uint32_t dev, uint32_t inum);
@@ -195,8 +198,7 @@ static struct inode* iget(uint32_t dev, uint32_t inum);
 // Mark it as allocated by  giving it type type.
 // Returns an unlocked but allocated and referenced inode,
 // or NULL if there is no free inode.
-struct inode*
-ialloc(uint32_t dev, short type)
+struct inode* ialloc(uint32_t dev, short type)
 {
   int inum;
   struct buf *bp;

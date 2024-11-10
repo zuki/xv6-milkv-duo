@@ -87,14 +87,14 @@ const uint32_t sd_commands[] = {
     SD_CMD_INDEX(15),
     SD_CMD_INDEX(16) | SD_RESP_R1,
     SD_CMD_INDEX(17) | SD_RESP_R1 | SD_DATA_READ,
-    SD_CMD_INDEX(18) | SD_RESP_R1 | SD_DATA_READ | SD_CMD_MULTI_BLOCK | SD_CMD_BLKCNT_EN | SD_CMD_AUTO_CMD_EN_CMD12,    /* SD_CMD_AUTO_CMD_EN_CMD12 not in original driver */
+    SD_CMD_INDEX(18) | SD_RESP_R1 | SD_DATA_READ | SD_CMD_MULTI_BLOCK | SD_CMD_BLKCNT_EN | SD_CMD_AUTO_CMD_EN_CMD12,  /* SD_CMD_AUTO_CMD_EN_CMD12 not in original driver */
     SD_CMD_INDEX(19) | SD_RESP_R1 | SD_DATA_READ,
     SD_CMD_INDEX(20) | SD_RESP_R1b,
     SD_CMD_RESERVED(21),
     SD_CMD_RESERVED(22),
     SD_CMD_INDEX(23) | SD_RESP_R1,
     SD_CMD_INDEX(24) | SD_RESP_R1 | SD_DATA_WRITE,
-    SD_CMD_INDEX(25) | SD_RESP_R1 | SD_DATA_WRITE | SD_CMD_MULTI_BLOCK | SD_CMD_BLKCNT_EN | SD_CMD_AUTO_CMD_EN_CMD12,   /* SD_CMD_AUTO_CMD_EN_CMD12 not in original driver */
+    SD_CMD_INDEX(25) | SD_RESP_R1 | SD_DATA_WRITE | SD_CMD_MULTI_BLOCK | SD_CMD_BLKCNT_EN | SD_CMD_AUTO_CMD_EN_CMD12,  /* SD_CMD_AUTO_CMD_EN_CMD12 not in original driver */
     SD_CMD_RESERVED(26),
     SD_CMD_INDEX(27) | SD_RESP_R1 | SD_DATA_WRITE,
     SD_CMD_INDEX(28) | SD_RESP_R1b,
@@ -401,9 +401,9 @@ size_t emmc_read(struct emmc *self, void *buf, size_t cnt)
     if (self->offset % SD_BLOCK_SIZE != 0) {
         return -1;
     }
-    uint32_t nblock = self->offset / SD_BLOCK_SIZE;
-    trace("nblock: 0x%x, offset: 0x%llx", nblock, self->offset);
-    if (emmc_do_read(self, (uint8_t *) buf, cnt, nblock) != cnt) {
+    uint32_t blockno = self->offset / SD_BLOCK_SIZE;
+    trace("nblock: 0x%x, offset: 0x%llx", blockno, self->offset);
+    if (emmc_do_read(self, (uint8_t *) buf, cnt, blockno) != cnt) {
         return -1;
     }
     return cnt;
@@ -414,9 +414,9 @@ size_t emmc_write(struct emmc *self, void *buf, size_t cnt)
     if (self->offset % SD_BLOCK_SIZE != 0) {
         return -1;
     }
-    uint32_t nblock = self->offset / SD_BLOCK_SIZE;
+    uint32_t blockno = self->offset / SD_BLOCK_SIZE;
 
-    if (emmc_do_write(self, (uint8_t *) buf, cnt, nblock) != cnt) {
+    if (emmc_do_write(self, (uint8_t *) buf, cnt, blockno) != cnt) {
         return -1;
     }
     return cnt;
@@ -578,7 +578,7 @@ static void emmc_power_on_off(struct emmc *self, uint8_t mode, uint16_t vdd)
 
 /*
  *  regのmaskビットがvalue値になるのをus待つ.
- *  指定時間内にvalue値になったら0, ならなあったら -1 を返す
+ *  指定時間内にvalue値になったら0, ならなかったら -1 を返す
  */
 static int emmc_timeout_wait(uint64_t reg, uint32_t mask, int value, uint64_t us)
 {
@@ -721,7 +721,7 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
     /* 3. ブロックサイズとブロック数をセットする */
     /*   最大転送データ長は64KBとする */
     if (self->blocks_to_transfer > 0xffff) {
-        warn("blocks_to_transfer too great (%d)",
+        error("blocks_to_transfer too great (%d)",
               self->blocks_to_transfer);
         self->last_cmd_success = 0;
         return;
@@ -746,8 +746,19 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
     write32(SD_INT_STS, 0xffff0001);
 
     /* 8. エラーがないかチェックする */
-    if ((irpts & 0xffff0001) != 1) {
-        error("waiting for command complete interrupt 1: irpts=0b%032b", irpts);
+    if ((irpts & 0xffff8001) != 1) {
+    /*
+        if ((irpts & SD_INT_ACMD12ERR)) {
+            uint32_t cnt2 = read32(SD_CONTROL2);
+            debug("auto cmd err: 0x%08x", cnt2);
+            if ((irpts & 0xffff8001) == 0x01008001) {
+                debug("ok irpts: 0x%08x", irpts);
+                goto cont;
+            }
+        }
+    */
+
+        error("waiting for command complete interrupt 1: irpts=0x%08x", irpts);
         self->last_error = irpts & 0xffff0000;
         self->last_interrupt = irpts;
         return;
@@ -838,9 +849,8 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
 
             /* エラーのチェックをする: 転送完了フラグとタイムアウトフラグが同時にたった場合は
              * 転送完了を優先する: HCSS 2.2.17 */
-            if (((irpts & 0xffff0002) != 2)
-                && ((irpts & 0xffff0002) != 0x100002)) {
-                error("error occured whilst waiting for transfer complete interrupt 3");
+            if (((irpts & 0xffff0002) != 2) && ((irpts & 0xffff0002) != 0x100002)) {
+                error("error occured whilst waiting for transfer complete interrupt 3: irpts=0x%08x", irpts);
                 self->last_error = irpts & 0xffff0000;
                 self->last_interrupt = irpts;
                 return;
@@ -1189,6 +1199,7 @@ static int emmc_do_data_command(struct emmc *self, int is_write, uint8_t * buf,
 
     /* 1. Physical layer v.3 table 4.20 - SDSCカードはブロックアドレスではなくバイトアドレスを使う */
     if (!self->card_supports_sdhc) {
+        debug("use byte address");
         block_no *= SD_BLOCK_SIZE;
     }
 
@@ -1205,7 +1216,7 @@ static int emmc_do_data_command(struct emmc *self, int is_write, uint8_t * buf,
         return -1;
     }
     self->buf = buf;
-
+    trace("%s %d blocks from 0x%08x", is_write ? "write" : "read", self->blocks_to_transfer, block_no);
     /* 3. 使用するコマンドを決定（Read/Write. Single/Multi) */
     int command;
     if (is_write) {
@@ -1231,13 +1242,14 @@ static int emmc_do_data_command(struct emmc *self, int is_write, uint8_t * buf,
         if (emmc_issue_command(self, command, block_no, 5000000)) {
             break;
         } else {
-            error("error: 0x%x when sending CMD%d", self->last_error, command);
+            error("error: 0x%08x when sending CMD%d", self->last_error, command);
             if (++retry_count < max_retries) {
                 trace("Retrying");
             } else {
                 error("Giving up");
             }
         }
+        delayus(20000);
     }
     /* 5.1 再試行してもエラーの場合は -1 でリターン */
     if (retry_count == max_retries) {
@@ -1740,7 +1752,7 @@ static int emmc_card_reset(struct emmc *self)
 static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
                    int timeout)
 {
-    trace("emmc_issue_command: cmd=%d, arg=0x%08x", cmd & 0xff, arg);
+    //debug("cmd=0x%08x, arg=0x%08x", cmd, arg);
     /* 1. 保留中の割り込みを処理する */
     emmc_handle_interrupts(self);
 
@@ -1758,7 +1770,7 @@ static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
         trace("issuing command ACMD%d", cmd);
         /* 3.1.1 未定義のコマンドが指定された場合はエラー表示してリターンする */
         if (sd_acommands[cmd] == SD_CMD_RESERVED(0)) {
-            error("invalid command ACMD%d", cmd);
+            error("3.1.1 invalid command ACMD%d", cmd);
             self->last_cmd_success = 0;
             return 0;
         }
@@ -1770,25 +1782,29 @@ static int emmc_issue_command(struct emmc *self, uint32_t cmd, uint32_t arg,
         }
         /* 3.1.2 CMD55: APP_CMDを送信 */
         emmc_issue_command_int(self, sd_commands[APP_CMD], rca, timeout);
-        trace("cmd: %d (0x%08x), result: %s", sd_commands[APP_CMD] >> 24, rca, self->last_cmd_success ? "success" : "failure");
+        trace("3.1.2 cmd: %d (0x%08x), result: %s", sd_commands[APP_CMD] >> 24, rca, self->last_cmd_success ? "success" : "failure");
         if (self->last_cmd_success) {
             self->last_cmd = cmd | IS_APP_CMD;
             /* 3.1.3 ACMDを送信 */
             emmc_issue_command_int(self, sd_acommands[cmd], arg, timeout);
-            trace("cmd: %d (0x%08x), result: %s", sd_acommands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
+            trace("3.1.3 cmd: %d (0x%08x), result: %s", sd_acommands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
         }
     /* 3.2 CMDの場合 */
     } else {
         /* 3.2.1 未定義のコマンドが指定された場合はエラー表示してリターンする */
         if (sd_commands[cmd] == SD_CMD_RESERVED(0)) {
-            error("invalid command CMD%d", cmd);
+            error("3.2.1 invalid command CMD%d", cmd);
             self->last_cmd_success = 0;
             return 0;
         }
         /* 3.2.2 CMDを送信 */
         self->last_cmd = cmd;
         emmc_issue_command_int(self, sd_commands[cmd], arg, timeout);
-        trace("cmd: %d (0x%08x), result: %s", sd_commands[cmd] >> 24, arg, self->last_cmd_success ? "success" : "failure");
+        if (self->last_cmd_success) {
+            trace("3.2.2 cmd: %d (0x%08x), success", sd_commands[cmd] >> 24, arg);
+        } else {
+            trace("3.2.2 cmd: %d (0x%08x), failure: interrupt=0x%08x, error=0x%08x", sd_commands[cmd] >> 24, arg, self->last_interrupt, self->last_error);
+        }
     }
     return self->last_cmd_success;
 }

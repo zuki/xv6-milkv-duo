@@ -4,7 +4,8 @@
 #include "buf.h"
 #include <common/types.h>
 
-#define PARTITIONS   4     // 最大パーティション数
+#define PARTITIONS      4     // 最大パーティション数
+#define SECTOR_SIZE     512
 
 // FIXME: vfsを実装したらvfs.hに移動
 #define SDMAJOR         0                   // SD card major block device
@@ -49,6 +50,13 @@ static inline uint8_t blksize_bits(uint32_t size)
       size >>= 1;
     } while (size > 256);
   return bits;
+}
+
+extern struct partition_info ptinfo[PARTITIONS];
+
+static inline uint32_t fs_lba(int  dev)
+{
+    return ptinfo[dev].lba;
 }
 
 #endif

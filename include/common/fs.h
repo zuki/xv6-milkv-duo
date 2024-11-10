@@ -1,12 +1,13 @@
-#ifndef INC_FS_H
-#define INC_fS_H
+#ifndef INC_COMMON_FS_H
+#define INC_COMMON_FS_H
 
-// On-disk file system format.
-// Both the kernel and user programs use this header file.
+#include <sd.h>
 
+// ディスク上のファイルシステムフォーマット.
+// カーネル/ユーザプログラムの両者がこのヘッダーファイルを使用する.
 
-#define ROOTINO  1   // root i-number
-#define BSIZE 1024  // block size
+#define ROOTINO     1       // ルートディレクトリ('/')のinode番号
+#define BSIZE       1024    // ブロックサイズ
 
 // Disk layout:
 // [ boot block | super block | log | inode blocks |
@@ -15,46 +16,45 @@
 // mkfs computes the super block and builds an initial file system. The
 // super block describes the disk layout:
 struct superblock {
-  uint32_t magic;        // Must be FSMAGIC
-  uint32_t size;         // Size of file system image (blocks)
-  uint32_t nblocks;      // Number of data blocks
-  uint32_t ninodes;      // Number of inodes.
-  uint32_t nlog;         // Number of log blocks
-  uint32_t logstart;     // Block number of first log block
-  uint32_t inodestart;   // Block number of first inode block
-  uint32_t bmapstart;    // Block number of first free map block
+    uint32_t magic;        // Must be FSMAGIC
+    uint32_t size;         // ファイルシステムのサイズ（ブロック単位）
+    uint32_t nblocks;      // データブロックの総数
+    uint32_t ninodes;      // inodeの総数.
+    uint32_t nlog;         // ログブロックの総数
+    uint32_t logstart;     // 先頭のログブロックのブロック番号
+    uint32_t inodestart;   // 先頭のinodeブロックのブロック番号
+    uint32_t bmapstart;    // 先頭のビットマップブロックのブロック番号
 };
 
-#define FSMAGIC 0x10203040
+#define FSMAGIC     0x10203040
 
-#define NDIRECT 12
-#define NINDIRECT (BSIZE / sizeof(uint))
-#define MAXFILE (NDIRECT + NINDIRECT)
+#define NDIRECT     12      // 直接指定のブロック数
+#define NINDIRECT   (BSIZE / sizeof(uint))  // 間接指定のブロック数
+#define MAXFILE     (NDIRECT + NINDIRECT)   // 1ファイルの最大ブロックする
 
-// On-disk inode structure
+// ディスク上のinode構造体(64バイト)
 struct dinode {
-  short type;           // File type
-  short major;          // Major device number (T_DEVICE only)
-  short minor;          // Minor device number (T_DEVICE only)
-  short nlink;          // Number of links to inode in file system
-  uint32_t size;            // Size of file (bytes)
-  uint32_t addrs[NDIRECT+1];   // Data block addresses
+    short type;         // ファイルタイプ
+    short major;        // メジャーデバイス番号 (T_DEVICE only)
+    short minor;        // マイナーデバイス番号 (T_DEVICE only)
+    short nlink;        // inodeへのリンク数
+    uint32_t size;      // ファイルサイズ（バイト単位）(bytes)
+    uint32_t addrs[NDIRECT+1];   // データブロックのアドレス
 };
 
-// Inodes per block.
-#define IPB           (BSIZE / sizeof(struct dinode))
+// ブロックあたりのInode数 = 1024 / 64 = 16
+#define IPB             (BSIZE / sizeof(struct dinode))
 
-// Block containing inode i
-#define IBLOCK(i, sb)     ((i) / IPB + sb.inodestart)
+// inode iを含むブロックの番号
+#define IBLOCK(i, sb)   ((i) / IPB + sb.inodestart)
+// ブロックあたりのビットマップビット数 = 8192
+#define BPB             (BSIZE * 8)
 
-// Bitmap bits per block
-#define BPB           (BSIZE*8)
+// ブロック bを含むビットマップブロックの番号
+#define BBLOCK(b, sb)   ((b) / BPB + sb.bmapstart)
 
-// Block of free map containing bit for block b
-#define BBLOCK(b, sb) ((b)/BPB + sb.bmapstart)
-
-// Directory is a file containing a sequence of dirent structures.
-#define DIRSIZ 14
+// ディレクトリ名の最大長()
+#define DIRSIZ          14
 
 struct dirent {
   ushort inum;

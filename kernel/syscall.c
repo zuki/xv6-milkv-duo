@@ -2,10 +2,11 @@
 #include <common/param.h>
 #include <common/memlayout.h>
 #include <common/riscv.h>
-#include "spinlock.h"
-#include "proc.h"
+#include <spinlock.h>
+#include <proc.h>
 #include <common/syscall_v6.h>
-#include "defs.h"
+#include <defs.h>
+#include <printf.h>
 
 // Fetch the uint64_t at addr from the current process.
 int
@@ -24,10 +25,12 @@ fetchaddr(uint64_t addr, uint64_t *ip)
 int
 fetchstr(uint64_t addr, char *buf, int max)
 {
-  struct proc *p = myproc();
-  if(copyinstr(p->pagetable, buf, addr, max) < 0)
-    return -1;
-  return strlen(buf);
+    struct proc *p = myproc();
+    if (copyinstr(p->pagetable, buf, addr, max) < 0) {
+        debug("error in copyinstr()");
+        return -1;
+    }
+    return strlen(buf);
 }
 
 static uint64_t
@@ -74,9 +77,9 @@ argaddr(int n, uint64_t *ip)
 int
 argstr(int n, char *buf, int max)
 {
-  uint64_t addr;
-  argaddr(n, &addr);
-  return fetchstr(addr, buf, max);
+    uint64_t addr;
+    argaddr(n, &addr);
+    return fetchstr(addr, buf, max);
 }
 
 // Prototypes for the functions that handle system calls.

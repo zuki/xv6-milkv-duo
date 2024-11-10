@@ -218,14 +218,14 @@ uvmcreate()
 void
 uvmfirst(pagetable_t pagetable, uchar *src, uint32_t sz)
 {
-  char *mem;
+    char *mem;
 
-  if(sz >= PGSIZE)
-    panic("uvmfirst: more than a page");
-  mem = kalloc();
-  memset(mem, 0, PGSIZE);
-  mappages(pagetable, 0, PGSIZE, (uint64_t)mem, PTE_NORMAL|PTE_X|PTE_U);
-  memmove(mem, src, sz);
+    if(sz >= PGSIZE)
+        panic("uvmfirst: more than a page");
+    mem = kalloc();
+    memset(mem, 0, PGSIZE);
+    mappages(pagetable, 0, PGSIZE, (uint64_t)mem, PTE_NORMAL|PTE_X|PTE_U);
+    memmove(mem, src, sz);
 }
 
 // Allocate PTEs and physical memory to grow process from oldsz to

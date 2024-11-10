@@ -22,7 +22,7 @@
 
 #define LOG1(level, ...)                        \
 ({                                              \
-    printf("[%d]%s: ", cpuid(), __func__);    \
+    printf("[%s] %s: ", level, __func__);    \
     printf(__VA_ARGS__);                      \
     printf("\n");                             \
 })

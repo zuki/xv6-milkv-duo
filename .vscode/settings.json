@@ -24,7 +24,10 @@
         "typeinfo": "c",
         "__string": "c",
         "atomic": "c",
-        "cstring": "c"
+        "cstring": "c",
+        "cstddef": "c",
+        "__config": "c",
+        "ios": "c"
     },
     "editor.tokenColorCustomizations": {
         "comments":{

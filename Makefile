@@ -30,8 +30,6 @@ OBJS = \
   $K/kernelvec.o \
   $K/plic.o \
   $K/sbi.o \
-  $K/ramdisk.o \
-  $K/ramdisk_data.o \
   $K/emmc.o \
   $K/sd.o \
   $K/buddy.o \

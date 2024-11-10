@@ -2,8 +2,9 @@
 #include <common/param.h>
 #include <common/memlayout.h>
 #include <common/riscv.h>
-#include "defs.h"
-#include "emmc.h"
+#include <defs.h>
+#include <emmc.h>
+#include <printf.h>
 
 volatile static int started = 0;
 volatile static unsigned long main_hartid = ~0UL;
@@ -22,7 +23,7 @@ main()
         consoleinit();
         printfinit();
         printf("\n");
-        printf("xv6 kernel is booting\n");
+        printf("xv6 kernel is booting in hart %d\n", cpuid());
         printf("\n");
         sbiinit();
         //kinit();          // physical page allocator
@@ -40,20 +41,20 @@ main()
         iinit();            // inode table
         fileinit();         // file table
         //virtio_disk_init(); // emulated hard disk
-        ramdiskinit();
+        //ramdiskinit();
         rtc_init();
         sd_init();
-
         userinit();      // first user process
         __sync_synchronize();
         started = 1;
     } else {
         while(started == 0) ;
+        printf("hart %d started\n", cpuid());
         __sync_synchronize();
         kvminithart();    // turn on paging
         trapinithart();   // install kernel trap vector
         plicinithart();   // ask PLIC for device interrupts
-        printf("hart %d started\n", cpuid());
+        printf("hart %d init ok", cpuid());
     }
 
     scheduler();
