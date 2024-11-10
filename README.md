@@ -8,3 +8,4 @@
 
 1. `rpi-os`のemmcをmilk-v版のu-bootを参考にriscv対応してSDカードの読み取りが可能に (tag: v.0.1)
 2. [cyanurus](https://github.com/redcap97/cyanurus)からBuddy, Slabシステムを取り込み`kalloc`の代わりに使用 (tag: v.0.1.2)
+3. SDカード上のxv6ファイルシステムが稼働
