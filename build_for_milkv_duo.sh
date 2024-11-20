@@ -1,4 +1,3 @@
-cp kernel/config.h.cv1800b kernel/config.h
 make clean
 rm -f duo-imgtools/kernel.bin
 make
