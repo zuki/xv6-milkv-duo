@@ -199,28 +199,28 @@ uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
   sfence_vma();
 }
 
-// create an empty user page table.
-// returns 0 if out of memory.
+// 空のユーザページテーブルを作成する.
+// メモリ不足の場合は 0 を返す.
 pagetable_t
 uvmcreate()
 {
-  pagetable_t pagetable;
-  pagetable = (pagetable_t) kalloc();
-  if(pagetable == 0)
-    return 0;
-  memset(pagetable, 0, PGSIZE);
-  return pagetable;
+    pagetable_t pagetable;
+    pagetable = (pagetable_t) kalloc();
+    if (pagetable == 0)
+        return 0;
+    memset(pagetable, 0, PGSIZE);
+    return pagetable;
 }
 
-// Load the user initcode into address 0 of pagetable,
-// for the very first process.
-// sz must be less than a page.
+// ユーザモードinitcodeを最初のプロセスとして
+// pagetableのアドレス0にロードする。szは1ページ
+// 未満でなければならない
 void
 uvmfirst(pagetable_t pagetable, uchar *src, uint32_t sz)
 {
     char *mem;
 
-    if(sz >= PGSIZE)
+    if (sz >= PGSIZE)
         panic("uvmfirst: more than a page");
     mem = kalloc();
     memset(mem, 0, PGSIZE);
@@ -228,32 +228,33 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint32_t sz)
     memmove(mem, src, sz);
 }
 
-// Allocate PTEs and physical memory to grow process from oldsz to
-// newsz, which need not be page aligned.  Returns new size or 0 on error.
+// oldszからnewsz（いずれもページにアラインしている必要はない）までプロセス
+// サイズを増加させるためにPTEと物理メモリを割り当てる。 新しいサイズを返すか、
+// エラーの場合は 0 を返す.（デフォルトはRO/Xの実行コード用, xpermでwriteを追加可能）
 uint64_t
 uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
 {
-  char *mem;
-  uint64_t a;
+    char *mem;
+    uint64_t a;
 
-  if(newsz < oldsz)
-    return oldsz;
+    if (newsz < oldsz)
+        return oldsz;
 
-  oldsz = PGROUNDUP(oldsz);
-  for(a = oldsz; a < newsz; a += PGSIZE){
-    mem = kalloc();
-    if(mem == 0){
-      uvmdealloc(pagetable, a, oldsz);
-      return 0;
+    oldsz = PGROUNDUP(oldsz);
+    for (a = oldsz; a < newsz; a += PGSIZE){
+        mem = kalloc();
+        if (mem == 0) {
+            uvmdealloc(pagetable, a, oldsz);
+            return 0;
+        }
+        memset(mem, 0, PGSIZE);
+        if (mappages(pagetable, a, PGSIZE, (uint64_t)mem, PTE_RO|PTE_U|xperm) != 0) {
+            kfree(mem);
+            uvmdealloc(pagetable, a, oldsz);
+            return 0;
+        }
     }
-    memset(mem, 0, PGSIZE);
-    if(mappages(pagetable, a, PGSIZE, (uint64_t)mem, PTE_RO|PTE_U|xperm) != 0){
-      kfree(mem);
-      uvmdealloc(pagetable, a, oldsz);
-      return 0;
-    }
-  }
-  return newsz;
+    return newsz;
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -294,14 +295,14 @@ freewalk(pagetable_t pagetable)
   kfree((void*)pagetable);
 }
 
-// Free user memory pages,
-// then free page-table pages.
+// ユーザメモリページを解放し、
+// 次に、ページテーブルページを解放する.
 void
 uvmfree(pagetable_t pagetable, uint64_t sz)
 {
-  if(sz > 0)
-    uvmunmap(pagetable, 0, PGROUNDUP(sz)/PGSIZE, 1);
-  freewalk(pagetable);
+    if (sz > 0)
+        uvmunmap(pagetable, 0, PGROUNDUP(sz)/PGSIZE, 1);
+    freewalk(pagetable);
 }
 
 // Given a parent process's page table, copy
@@ -343,110 +344,109 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
   return -1;
 }
 
-// mark a PTE invalid for user access.
-// used by exec for the user stack guard page.
+// ユーザーアクセスに対してPTEを無効とマークする。
+// execがユーザスタックのガードページとして使用する。
+
 void
 uvmclear(pagetable_t pagetable, uint64_t va)
 {
-  pte_t *pte;
+    pte_t *pte;
 
-  pte = walk(pagetable, va, 0);
-  if(pte == 0)
-    panic("uvmclear");
-  *pte &= ~PTE_U;
+    pte = walk(pagetable, va, 0);
+    if (pte == 0)
+        panic("uvmclear");
+    *pte &= ~PTE_U;
 }
 
-// Copy from kernel to user.
-// Copy len bytes from src to virtual address dstva in a given page table.
-// Return 0 on success, -1 on error.
+// カーネル空間からユーザ空間にコピーする.
+// srcから指定されたページテーブルの仮想アドレスdstvaにlenバイトコピーする.
+// 成功したら0を返し、エラーなら-1を返す。
 int
 copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
 {
-  uint64_t n, va0, pa0;
+    uint64_t n, va0, pa0;
 
-  while(len > 0){
-    va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PGSIZE - (dstva - va0);
-    if(n > len)
-      n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
+    while (len > 0) {
+        va0 = PGROUNDDOWN(dstva);
+        pa0 = walkaddr(pagetable, va0);
+        if (pa0 == 0)
+            return -1;
+        n = PGSIZE - (dstva - va0);
+        if (n > len)
+            n = len;
+        memmove((void *)(pa0 + (dstva - va0)), src, n);
 
-    len -= n;
-    src += n;
-    dstva = va0 + PGSIZE;
-  }
-  return 0;
+        len -= n;
+        src += n;
+        dstva = va0 + PGSIZE;
+    }
+    return 0;
 }
 
-/*
- * ユーザからカーネルにコピーする。
- * 与えられたページテーブルの仮想アドレスsrcvaからdstに
- * lenバイトコピーする。
- * 成功したら0を返し、エラーなら-1を返す。
- */
+// ユーザからカーネルにコピーする。
+// 与えられたページテーブルの仮想アドレスsrcvaからdstに
+// lenバイトコピーする。
+// 成功したら0を返し、エラーなら-1を返す。
 int copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)
 {
-  uint64_t n, va0, pa0;
+    uint64_t n, va0, pa0;
 
-  while(len > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PGSIZE - (srcva - va0);
-    if(n > len)
-      n = len;
-    memmove(dst, (void *)(pa0 + (srcva - va0)), n);
+    while (len > 0) {
+        va0 = PGROUNDDOWN(srcva);
+        pa0 = walkaddr(pagetable, va0);
+        if (pa0 == 0)
+            return -1;
+        n = PGSIZE - (srcva - va0);
+        if (n > len)
+            n = len;
+        memmove(dst, (void *)(pa0 + (srcva - va0)), n);
 
-    len -= n;
-    dst += n;
-    srcva = va0 + PGSIZE;
-  }
-  return 0;
+        len -= n;
+        dst += n;
+        srcva = va0 + PGSIZE;
+    }
+    return 0;
 }
 
-// Copy a null-terminated string from user to kernel.
-// Copy bytes to dst from virtual address srcva in a given page table,
-// until a '\0', or max.
-// Return 0 on success, -1 on error.
+// null終端の文字列をユーザ空間からカーネル空間にコピーする.
+// 指定のページテーブルにある仮想アドレス srcvaからdstに'\0'が
+// 現れるかmaxサイズになるまでバイトをコピーする,
+// 成功したら 0, エラーが発生したら -1 を返す.
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
 {
-  uint64_t n, va0, pa0;
-  int got_null = 0;
+    uint64_t n, va0, pa0;
+    int got_null = 0;
 
-  while(got_null == 0 && max > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PGSIZE - (srcva - va0);
-    if(n > max)
-      n = max;
+    while (got_null == 0 && max > 0) {
+        va0 = PGROUNDDOWN(srcva);
+        pa0 = walkaddr(pagetable, va0);
+        if (pa0 == 0)
+            return -1;
+        n = PGSIZE - (srcva - va0);
+        if (n > max)
+            n = max;
 
-    char *p = (char *) (pa0 + (srcva - va0));
-    while(n > 0){
-      if(*p == '\0'){
-        *dst = '\0';
-        got_null = 1;
-        break;
-      } else {
-        *dst = *p;
-      }
-      --n;
-      --max;
-      p++;
-      dst++;
+        char *p = (char *) (pa0 + (srcva - va0));
+        while (n > 0) {
+            if (*p == '\0') {
+                *dst = '\0';
+                got_null = 1;
+                break;
+            } else {
+                *dst = *p;
+            }
+            --n;
+            --max;
+            p++;
+            dst++;
+        }
+
+        srcva = va0 + PGSIZE;
     }
-
-    srcva = va0 + PGSIZE;
-  }
-  if(got_null){
-    return 0;
-  } else {
-    return -1;
-  }
+    if (got_null) {
+        return 0;
+    } else {
+        return -1;
+    }
 }

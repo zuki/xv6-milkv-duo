@@ -1,8 +1,8 @@
         #
         # スーパバイザモードでの割り込みと例外はここに来る。
-        # 現在のスタックはカーネル・スタックである。
+        # 現在のスタックはカーネルスタックである。
         # すべてのレジスタをプッシュし、kerneltrap()を呼び出す。
-        # kerneltrap()が復帰したらレジスタをリストアして復帰する。
+        # kerneltrap()から戻ったらレジスタをリストアして復帰する。
         #
 .globl kerneltrap
 .globl kernelvec
@@ -52,6 +52,7 @@ kernelvec:
         ld sp, 8(sp)
         ld gp, 16(sp)
         # not tp (contains hartid), in case we moved CPUs
+        ld tp, 24(sp)
         ld t0, 32(sp)
         ld t1, 40(sp)
         ld t2, 48(sp)
@@ -81,6 +82,9 @@ kernelvec:
         ld t6, 240(sp)
 
         addi sp, sp, 256
+
+        #
+        csrw sscratch, 0
 
         # return to whatever we were doing in the kernel.
         sret

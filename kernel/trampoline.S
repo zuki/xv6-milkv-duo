@@ -1,13 +1,13 @@
         #
-        # low-level code to handle traps from user space into
-        # the kernel, and returns from kernel to user.
+        # ユーザ空間からカーネルへのトラップを処理して
+        # カーネルからユーザへ復帰する低レベルのコード
         #
-        # the kernel maps the page holding this code
-        # at the same virtual address (TRAMPOLINE)
-        # in user and kernel space so that it continues
-        # to work when it switches page tables.
-        # kernel.ld causes this code to start at
-        # a page boundary.
+        # カーネルはページテーブルを切り替えても動作し
+        # 続けるように、このコードを保持するページを
+        # ユーザ空間とカーネル空間の同じ仮想アドレス
+        # （TRAMPOLINE）にマップする。
+        # (kernel: vm.c#L49, user: proc.c#L215)
+        # kernel.ldはこのコードをページ境界で開始させる。
         #
 
 #include <common/riscv.h>
@@ -20,22 +20,21 @@ trampoline:
 .globl uservec
 uservec:
 	#
-        # trap.c sets stvec to point here, so
-        # traps from user space start here,
-        # in supervisor mode, but with a
-        # user page table.
-        #
+        # trap.cはstvecがここを指すように設定する(trap.c#L115-116)ので、
+        # ユーザ空間からのトラップはここからスーパー
+        # バイザモードで開始される。ただし、ユーザページ
+        # テーブルが使用される。
 
-        # save user a0 in sscratch so
-        # a0 can be used to get at TRAPFRAME.
+        # a0をTRAPFRAMEの取得に使用できるように
+        # a0をsscratchに保存する
         csrw sscratch, a0
 
-        # each process has a separate p->trapframe memory area,
-        # but it's mapped to the same virtual address
-        # (TRAPFRAME) in every process's user page table.
+        # 各プロセスは独自のp->trapframeメモリ領域を持っているが、
+        # それはすべてのプロセスのユーザページテーブルで同じ仮想
+        # アドレス（TRAPFRAME）にマッピングされている。
         li a0, TRAPFRAME
 
-        # save the user registers in TRAPFRAME
+        # ユーザレジスタをTRAPRAMEに保存する
         sd ra, 40(a0)
         sd sp, 48(a0)
         sd gp, 56(a0)
@@ -67,43 +66,42 @@ uservec:
         sd t5, 272(a0)
         sd t6, 280(a0)
 
-	# save the user a0 in p->trapframe->a0
+	# sscratchに保存していたユーザa0をp->trapframe->a0に保安する
         csrr t0, sscratch
         sd t0, 112(a0)
 
-        # initialize kernel stack pointer, from p->trapframe->kernel_sp
+        # p->trapframe->kernel_spの値を使って、カーネルスタックポインタを初期化する
         ld sp, 8(a0)
 
-        # make tp hold the current hartid, from p->trapframe->kernel_hartid
-        ld tp, 32(a0)
+        # p->trapframe->kernel_hartidの値を使って、tpが現在のhartidを保持するようにする
+        # p->trapframe->kernel_hartidにはユーザprocess構造体の先頭アドレスをセットした
+        //ld tp, 32(a0)
 
-        # load the address of usertrap(), from p->trapframe->kernel_trap
+        # p->trapframe->kernel_trapの値を使って、usertrap()のアドレスをロードする
         ld t0, 16(a0)
 
-
-        # fetch the kernel page table address, from p->trapframe->kernel_satp.
+        # p->trapframe->kernel_satpの値を使って、カーネルページテーブルのアドレスをフェッチする
         ld t1, 0(a0)
 
-        # wait for any previous memory operations to complete, so that
-        # they use the user page table.
+        # ユーザページテーブルを使用したこれまでのメモリ操作が完了するのを待つ
         sfence.vma zero, zero
 
-        # install the kernel page table.
+        # カーネルページテーブルをインストールする
         csrw satp, t1
 
-        # flush now-stale user entries from the TLB.
+        # 今や古くなったユーザエントリをTLBからフラッシュする
         sfence.vma zero, zero
 
-        # jump to usertrap(), which does not return
+        # usertrap()にジャンプする。この関数は戻らない
         jr t0
 
 .globl userret
 .balign 4
 userret:
         # userret(pagetable)
-        # called by usertrapret() in trap.c to
-        # switch from kernel to user.
-        # a0: user page table, for satp.
+        # カーネルからユーザに切り替えるために
+        # trap.cのusertrapret()関数から呼び出されるr.
+        # a0: satpにセットするユーザページテーブル.
 
         # switch to the user page table.
         sfence.vma zero, zero

@@ -225,16 +225,24 @@ r_satp()
 static inline void
 w_mscratch(uint64_t x)
 {
-  asm volatile("csrw mscratch, %0" : : "r" (x));
+    asm volatile("csrw mscratch, %0" : : "r" (x));
+}
+
+static inline uint64_t
+r_sscratch()
+{
+    uint64_t x;
+    asm volatile("csrr %0, sscratch" : "=r"(x) );
+    return x;
 }
 
 // Supervisor Trap Cause
 static inline uint64_t
 r_scause()
 {
-  uint64_t x;
-  asm volatile("csrr %0, scause" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, scause" : "=r" (x) );
+    return x;
 }
 
 // Supervisor Trap Value
@@ -308,8 +316,8 @@ r_sp()
   return x;
 }
 
-// read and write tp, the thread pointer, which xv6 uses to hold
-// this core's hartid (core number), the index into cpus[].
+// スレッドポインタtpを読み書きする。xv6ではtpをこのコアのhartid
+// (コア番号で、cpus[]のインデックスでもある）の保管に使用している。
 static inline uint64_t
 r_tp()
 {

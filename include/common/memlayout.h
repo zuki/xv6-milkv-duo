@@ -119,18 +119,18 @@
 /* PHYSTOP: 0x83e0_0000 */
 #define PHYSTOP (KERNBASE + 60*1024*1024)
 
-/* map the trampoline page to the highest address,
- * in both user and kernel space.
+/* trampolineページはユーザ空間でもカーネル空間でも
+ * 最上位のアドレスにマッピングする.
  */
 #define TRAMPOLINE (MAXVA - PGSIZE)
 
-/* map kernel stacks beneath the trampoline,
- * each surrounded by invalid guard pages.
+/* trampolineの下にカーネルスタックをマッピングする
+ * それぞれガードページを挟む.
  */
 #define KSTACK(p) (TRAMPOLINE - ((p)+1)* 2*PGSIZE)
 
-/* User memory layout.
- * Address zero first:
+/* ユーザメモリレイアウト.
+ * アドレス0から:
  *   text
  *   original data and bss
  *   fixed-size stack

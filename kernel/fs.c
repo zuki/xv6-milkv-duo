@@ -12,7 +12,7 @@
 #include <common/riscv.h>
 #include <defs.h>
 #include <common/param.h>
-#include <common/stat.h>
+#include <linux/stat.h>
 #include <spinlock.h>
 #include <proc.h>
 #include <sleeplock.h>
@@ -21,6 +21,7 @@
 #include <common/file.h>
 #include <sd.h>
 #include <printf.h>
+#include <errno.h>
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
@@ -194,30 +195,30 @@ void iinit()
 
 static struct inode* iget(uint32_t dev, uint32_t inum);
 
-// Allocate an inode on device dev.
-// Mark it as allocated by  giving it type type.
-// Returns an unlocked but allocated and referenced inode,
-// or NULL if there is no free inode.
+// デバイスdevにinodeを割り当てる.
+// タイプtypeを与えることによりinodeを割り当て済みとマークする.
+// ロックしていない割り当て済みで参照済みのinodeを返す.
+// 空きinodeがなかった場合はNULLを返す
 struct inode* ialloc(uint32_t dev, short type)
 {
-  int inum;
-  struct buf *bp;
-  struct dinode *dip;
+    int inum;
+    struct buf *bp;
+    struct dinode *dip;
 
-  for(inum = 1; inum < sb.ninodes; inum++){
-    bp = bread(dev, IBLOCK(inum, sb));
-    dip = (struct dinode*)bp->data + inum%IPB;
-    if(dip->type == 0){  // a free inode
-      memset(dip, 0, sizeof(*dip));
-      dip->type = type;
-      log_write(bp);   // mark it allocated on the disk
-      brelse(bp);
-      return iget(dev, inum);
+    for (inum = 1; inum < sb.ninodes; inum++) {
+        bp = bread(dev, IBLOCK(inum, sb));
+        dip = (struct dinode*)bp->data + inum%IPB;
+        if (dip->type == 0) {  // a free inode
+            memset(dip, 0, sizeof(*dip));
+            dip->type = type;
+            log_write(bp);   // mark it allocated on the disk
+            brelse(bp);
+            return iget(dev, inum);
+        }
+        brelse(bp);
     }
-    brelse(bp);
-  }
-  printf("ialloc: no inodes\n");
-  return 0;
+    printf("ialloc: no inodes\n");
+    return 0;
 }
 
 // Copy a modified in-memory inode to disk.
@@ -242,40 +243,41 @@ iupdate(struct inode *ip)
   brelse(bp);
 }
 
-// Find the inode with number inum on device dev
-// and return the in-memory copy. Does not lock
-// the inode and does not read it from disk.
+// デバイスdevで番号がinumのinodeをさがして、その
+// インメモリコピーを返す。ロックはせず、ディスク
+// から読み込むこともない.
 static struct inode*
 iget(uint32_t dev, uint32_t inum)
 {
-  struct inode *ip, *empty;
+    struct inode *ip, *empty;
 
-  acquire(&itable.lock);
+    acquire(&itable.lock);
 
-  // Is the inode already in the table?
-  empty = 0;
-  for(ip = &itable.inode[0]; ip < &itable.inode[NINODE]; ip++){
-    if(ip->ref > 0 && ip->dev == dev && ip->inum == inum){
-      ip->ref++;
-      release(&itable.lock);
-      return ip;
+    // Is the inode already in the table?
+    empty = 0;
+    for (ip = &itable.inode[0]; ip < &itable.inode[NINODE]; ip++) {
+        if (ip->ref > 0 && ip->dev == dev && ip->inum == inum) {
+            ip->ref++;
+            release(&itable.lock);
+            trace("find: dev: %d, inum: %d, ref: %d", dev, inum, ip->ref);
+            return ip;
+        }
+        if(empty == 0 && ip->ref == 0)    // Remember empty slot.
+            empty = ip;
     }
-    if(empty == 0 && ip->ref == 0)    // Remember empty slot.
-      empty = ip;
-  }
 
-  // Recycle an inode entry.
-  if(empty == 0)
-    panic("iget: no inodes");
+    // Recycle an inode entry.
+    if (empty == 0)
+        panic("iget: no inodes");
 
-  ip = empty;
-  ip->dev = dev;
-  ip->inum = inum;
-  ip->ref = 1;
-  ip->valid = 0;
-  release(&itable.lock);
-
-  return ip;
+    ip = empty;
+    ip->dev = dev;
+    ip->inum = inum;
+    ip->ref = 1;
+    ip->valid = 0;
+    release(&itable.lock);
+    trace("recycle: dev: %d, inum: %d", dev, inum);
+    return ip;
 }
 
 // Increment reference count for ip.
@@ -456,45 +458,69 @@ itrunc(struct inode *ip)
 
 // Copy stat information from inode.
 // Caller must hold ip->lock.
-void
-stati(struct inode *ip, struct stat *st)
+
+void stati(struct inode *ip, struct stat *st)
 {
-  st->dev = ip->dev;
-  st->ino = ip->inum;
-  st->type = ip->type;
-  st->nlink = ip->nlink;
-  st->size = ip->size;
+    // FIXME: Support other fields in stat.
+    st->st_dev     = ip->dev;
+    st->st_ino     = ip->inum;
+    st->st_nlink   = ip->nlink;
+    st->st_uid     = 0;
+    st->st_gid     = 0;
+    st->st_size    = ip->size;
+    st->st_blksize = 1024;
+    st->st_blocks  = (ip->size / st->st_blksize) + 1;
+    st->st_atime.tv_sec = st->st_atime.tv_nsec = 0L;
+    st->st_mtime.tv_sec = st->st_mtime.tv_nsec = 0L;
+    st->st_ctime.tv_sec = st->st_ctime.tv_nsec = 0L;
+    if (ip->type == T_DEVICE)
+        st->st_rdev = mkdev(ip->major, ip->minor);
+
+    switch (ip->type) {
+    case T_FILE:
+        st->st_mode = S_IFREG | 0644;
+        break;
+    case T_DIR:
+        st->st_mode = S_IFDIR | 0755;
+        break;
+    case T_DEVICE:
+        st->st_mode = S_IFCHR | S_IFBLK | 0666;
+        break;
+    default:
+        error("unexpected stat type %d", ip->type);
+        panic("bad type");
+    }
 }
 
-// Read data from inode.
-// Caller must hold ip->lock.
-// If user_dst==1, then dst is a user virtual address;
-// otherwise, dst is a kernel address.
+// inodeからデータを読み込む.
+// Callerはip->lockを保持していなければならない.
+// user_dst==1 の場合、dst はユーザ仮想アドレス、
+// そうでなければ、dst はカーネルアドレス.
 int
 readi(struct inode *ip, int user_dst, uint64_t dst, uint32_t off, uint32_t n)
 {
-  uint32_t tot, m;
-  struct buf *bp;
+    uint32_t tot, m;
+    struct buf *bp;
 
-  if(off > ip->size || off + n < off)
-    return 0;
-  if(off + n > ip->size)
-    n = ip->size - off;
+    if (off > ip->size || off + n < off)
+        return 0;
+    if (off + n > ip->size)
+        n = ip->size - off;
 
-  for(tot=0; tot<n; tot+=m, off+=m, dst+=m){
-    uint32_t addr = bmap(ip, off/BSIZE);
-    if(addr == 0)
-      break;
-    bp = bread(ip->dev, addr);
-    m = min(n - tot, BSIZE - off%BSIZE);
-    if(either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
-      brelse(bp);
-      tot = -1;
-      break;
+    for (tot=0; tot<n; tot+=m, off+=m, dst+=m) {
+        uint32_t addr = bmap(ip, off/BSIZE);
+        if (addr == 0)
+            break;
+        bp = bread(ip->dev, addr);
+        m = min(n - tot, BSIZE - off%BSIZE);
+        if (either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
+            brelse(bp);
+            tot = -1;
+            break;
+        }
+        brelse(bp);
     }
-    brelse(bp);
-  }
-  return tot;
+    return tot;
 }
 
 // Write data to inode.
@@ -696,4 +722,89 @@ struct inode*
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
+}
+
+int unlink(struct inode *dp, uint32_t off)
+{
+    struct dirent de;
+    // FIXME: 取り詰めとsizeの変更
+    memset(&de, 0, sizeof(de));
+    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
+        return -1;
+    return 0;
+}
+
+int getdents(struct file *f, char *data, size_t size)
+{
+    ssize_t n;
+    int namelen, reclen, tlen = 0, off = 0;
+    struct dirent de;
+    struct dirent64 de64;
+    struct inode *dirip;
+
+    trace("ip: %d, data: %p, size: %ld", f->ip->inum, data, size);
+    while (1) {
+        n = fileread(f, (uint64_t)&de, sizeof(struct dirent), 0);
+        //debug("n: %kd, de: de.inum: %d, name: %s", n, de.inum, de.name);
+
+        //r = (buf - data);
+        if (n == 0) {
+            //return tlen;
+            //error("read 0, tlen=%ld", tlen);
+            //return tlen ? tlen : -ENOENT;
+            break;
+        }
+        if (n < 0 || n != sizeof(struct dirent)) {
+            error("readi invalid n=%ld, tlen=%ld", n, tlen);
+            return tlen ? tlen : -1;
+        }
+
+        if (de.inum == 0)
+            continue;
+
+        namelen = MIN(strlen(de.name), DIRSIZ) + 1;
+        reclen = (size_t)(&((struct dirent64*)0)->d_name);
+        reclen = reclen + namelen;
+        reclen = ALIGN(reclen, 3);
+        if ((tlen + reclen) > size) {
+            error("break; tlen: %d, reclen: %d, size: %d", tlen, reclen, size);
+            break;
+        }
+        trace("inum: %d, type: %d, namelen: %d, reclen: %d", de.inum, f->ip->type, namelen, reclen);
+
+        //de64 = (struct dirent64 *)buf;
+        //memset(de64, 0, sizeof(struct dirent64));
+        de64.d_ino = de.inum;
+        de64.d_off = off;
+        de64.d_reclen = reclen;
+
+        dirip = iget(f->ip->dev, de.inum);
+        ilock(dirip);
+        trace("dirip inum: %d, type: %d", dirip->inum, dirip->type);
+        //de64.d_type = IFTODT(f->ip->mode);
+        if (dirip->type == T_DEVICE) {
+            if (f->major == 0)      // SD
+                de64.d_type = IFTODT(S_IFBLK);
+            else // if (f->major == 1) // CONSOLE
+                de64.d_type = IFTODT(S_IFCHR);
+        } else if (dirip->type == T_DIR) {
+            de64.d_type = IFTODT(S_IFDIR);
+        } else { // if (dirip->type == T_FILE)
+            de64.d_type = IFTODT(S_IFREG);
+        }
+        iunlockput(dirip);
+
+        strncpy(de64.d_name, de.name, namelen);
+
+        if (copyout(myproc()->pagetable, (uint64_t)data + tlen, (char *)&de64, reclen) < 0) {
+            error("failed copyout");
+            return -EINVAL;
+        }
+
+        tlen += reclen;
+        off = f->off;
+        trace("tlen: %d, de64: ino: %d, off: %ld, reclen: %d, type: %d, name: %s", tlen, de64.d_ino, de64.d_off, de64.d_reclen, de64.d_type, de64.d_name);
+    }
+    //debug_bytes(data, tlen);
+    return tlen;
 }

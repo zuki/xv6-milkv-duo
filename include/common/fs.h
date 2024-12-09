@@ -30,7 +30,7 @@ struct superblock {
 
 #define NDIRECT     12      // 直接指定のブロック数
 #define NINDIRECT   (BSIZE / sizeof(uint))  // 間接指定のブロック数
-#define MAXFILE     (NDIRECT + NINDIRECT)   // 1ファイルの最大ブロックする
+#define MAXFILE     (NDIRECT + NINDIRECT)   // 1ファイルの最大ブロック数
 
 // ディスク上のinode構造体(64バイト)
 struct dinode {
@@ -59,6 +59,14 @@ struct dinode {
 struct dirent {
   ushort inum;
   char name[DIRSIZ];
+};
+
+struct dirent64 {
+  ino_t d_ino;
+  off_t d_off;
+  unsigned short d_reclen;
+  unsigned char d_type;
+  char d_name[256];
 };
 
 #endif

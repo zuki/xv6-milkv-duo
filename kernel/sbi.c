@@ -115,7 +115,7 @@ void sbiinit(void)
     /* タイマーのセット: INVERVAL=10ms : 1tick = 1/25MHz = 40 ns */
     next = csr_read(CSR_TIME) + INTERVAL;
     sbi_set_timer(next);
-    /* 割り込みを開始; interrupt-enbleギットをセット */
+    /* 割り込みを開始; interrupt-enbleビットをセット */
     csr_set(CSR_IE, 1 << 5);
 
     printf("\n");

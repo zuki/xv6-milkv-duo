@@ -6,470 +6,473 @@
 
 #include <common/types.h>
 #include <common/riscv.h>
+#include <common/fs.h>
 #include <defs.h>
 #include <common/param.h>
-#include <common/stat.h>
+#include <linux/stat.h>
 #include <spinlock.h>
 #include <proc.h>
 #include <common/fs.h>
 #include <sleeplock.h>
 #include <common/file.h>
-#include <common/fcntl.h>
+#include <linux/fcntl.h>
 #include <printf.h>
+#include <errno.h>
+#include <pipe.h>
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
-static int
-argfd(int n, int *pfd, struct file **pf)
+static int argfd(int n, int *pfd, struct file **pf)
 {
-  int fd;
-  struct file *f;
+    int fd;
+    struct file *f;
 
-  argint(n, &fd);
-  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
-    return -1;
-  if(pfd)
-    *pfd = fd;
-  if(pf)
-    *pf = f;
-  return 0;
+    argint(n, &fd);
+    if (fd < 0 || fd >= NOFILE || (f = myproc()->ofile[fd]) == 0)
+        return -1;
+    if (pfd)
+        *pfd = fd;
+    if (pf)
+        *pf = f;
+    return 0;
 }
 
-// Allocate a file descriptor for the given file.
-// Takes over file reference from caller on success.
-static int
-fdalloc(struct file *f)
+// 指定されたファイル用のファイルディスクリプタを割り当てる.
+// 成功時は呼び出し元からファイル参照を引き継ぐ.
+int fdalloc(struct file *f, int from)
 {
-  int fd;
-  struct proc *p = myproc();
+    int fd;
+    struct proc *p = myproc();
 
-  for (fd = 0; fd < NOFILE; fd++){
-    if (p->ofile[fd] == 0){
-      p->ofile[fd] = f;
-      return fd;
+    for (fd = from; fd < NOFILE; fd++){
+        if (p->ofile[fd] == 0) {
+            p->ofile[fd] = f;
+            return fd;
+        }
     }
-  }
-  return -1;
+    return -EBADF;
 }
 
-uint64_t
-sys_v6_dup(void)
-{
-  struct file *f;
-  int fd;
 
-  if(argfd(0, 0, &f) < 0)
-    return -1;
-  if((fd=fdalloc(f)) < 0)
-    return -1;
-  filedup(f);
-  return fd;
+static long dupfd(int fd, int from)
+{
+    struct file *f = myproc()->ofile[fd];
+    if (!f) return -EBADF;
+
+    filedup(f);
+    return fdalloc(f, from);
 }
 
-uint64_t
-sys_v6_read(void)
-{
-  struct file *f;
-  int n;
-  uint64_t p;
 
-  argaddr(1, &p);
-  argint(2, &n);
-  if(argfd(0, 0, &f) < 0)
-    return -1;
-  return fileread(f, p, n);
+long sys_dup(void)
+{
+    int fd;
+
+    argint(0, &fd);
+    return dupfd(fd, 0);
+
+#if 0
+    struct file *f;
+    int fd;
+
+    if (argfd(0, 0, &f) < 0)
+        return -EINVAL;
+    if ((fd = fdalloc(f, 0)) < 0)
+        return -EBADF;
+    filedup(f);
+    debug("fd: %d, f.inum: %d, f.type: %d, f.major: %d", fd, f->ip->inum, f->type, f->major);
+    return fd;
+#endif
 }
 
-uint64_t
-sys_v6_write(void)
+long sys_read(void)
 {
-  struct file *f;
-  int n;
-  uint64_t p;
+    struct file *f;
+    int n;
+    uint64_t p;
 
-  argaddr(1, &p);
-  argint(2, &n);
-  if(argfd(0, 0, &f) < 0)
-    return -1;
-
-  return filewrite(f, p, n);
+    argu64(1, &p);
+    argint(2, &n);
+    if (argfd(0, 0, &f) < 0)
+        return -EBADF;
+    return fileread(f, p, n, 1);
 }
 
-uint64_t
-sys_v6_close(void)
+long sys_write(void)
 {
-  int fd;
-  struct file *f;
+    struct file *f;
+    int n;
+    uint64_t p;
 
-  if(argfd(0, &fd, &f) < 0)
-    return -1;
-  myproc()->ofile[fd] = 0;
-  fileclose(f);
-  return 0;
+    argu64(1, &p);
+    argint(2, &n);
+    if (argfd(0, 0, &f) < 0)
+        return -EBADF;
+
+    return filewrite(f, p, n);
 }
 
-uint64_t
-sys_v6_fstat(void)
-{
-  struct file *f;
-  uint64_t st; // user pointer to struct stat
+struct iovec {
+    void *iov_base;             /* Starting address. */
+    size_t iov_len;             /* Number of bytes to transfer. */
+};
 
-  argaddr(1, &st);
-  if(argfd(0, 0, &f) < 0)
-    return -1;
-  return filestat(f, st);
+long sys_readv(void)
+{
+    struct file *f;
+    int iovcnt;
+    struct iovec *iov, *pp;
+
+    argu64(1, (uint64_t *)&iov);    // iovはuser
+    argint(2, &iovcnt);
+    if (argfd(0, 0, &f) < 0)
+        return -EBADF;
+
+    ssize_t tot = 0;
+    for (pp = iov; pp < iov + iovcnt; pp++) {
+        tot += fileread(f, (uint64_t)pp->iov_base, pp->iov_len, 1);
+    }
+    return tot;
+}
+
+ssize_t sys_writev(void)
+{
+    struct file *f;
+    int fd, iovcnt;
+    struct iovec *iov, *pp, iov_k;
+    struct proc *p = myproc();
+
+    argu64(1, (uint64_t *)&iov);
+    trace("n: 1, iov: %p", iov);
+    argint(2, &iovcnt);
+    if (argfd(0, &fd, &f) < 0)
+        return -EBADF;
+
+    ssize_t tot = 0;
+    for (pp = iov; pp < iov + iovcnt; pp++) {
+#if 0
+        if (!in_user(p->iov_base, p->iov_len)) {
+            if (p->iov_base == 0 && p->iov_len == 0) continue;      // fflushで実行
+            return -EFAULT;
+        }
+#endif
+        if (copyin(p->pagetable, (char *)&iov_k, (uint64_t)pp, sizeof(struct iovec)) != 0)
+            return -EIO;
+        tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len);
+    }
+    return tot;
+}
+
+long sys_close(void)
+{
+    int fd;
+    struct file *f;
+
+    if (argfd(0, &fd, &f) < 0)
+        return -EBADF;
+
+    trace("fd: %d", fd);
+
+    myproc()->ofile[fd] = 0;
+    bit_remove(myproc()->fdflag, fd);
+    fileclose(f);
+    return 0;
+}
+
+long sys_fstat(void)
+{
+    struct file *f;
+    uint64_t st; // user pointer to struct stat
+    int fd;
+
+    argu64(1, &st);
+    if (argfd(0, &fd, &f) < 0)
+        return -EBADF;
+    trace("fd: %d, st: %p", fd, (struct st *)st);
+    return filestat(f, st);
+}
+
+long sys_fstatat(void)
+{
+    char path[MAXPATH];
+    uint64_t staddr; // user pointer to struct stat
+    int dirfd, flags;
+
+    struct inode *ip;
+    struct stat st;
+
+    argint(0, &dirfd);
+    if (argstr(1, path, MAXPATH) < 0)
+        return -EFAULT;
+    argu64(2, &staddr);
+    argint(3, &flags);
+
+    trace("dirfd: %d, path: %s, staddr: 0x%lx, flags: %d", dirfd, path, staddr, flags);
+
+    /* 当面、無視する */
+    if (dirfd != AT_FDCWD) {
+        warn("dirfd unimplemented");
+        return -EINVAL;
+    }
+    if (flags != 0) {
+        warn("flags unimplemented: flags=%d", flags);
+        return -EINVAL;
+    }
+
+    begin_op();
+    if ((ip = namei(path)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+    ilock(ip);
+    stati(ip, &st);
+    iunlockput(ip);
+    end_op();
+
+    if (copyout(myproc()->pagetable, staddr, (char *)&st, sizeof(st)) < 0)
+        return -EFAULT;
+    return 0;
 }
 
 // Create the path new as a link to the same inode as old.
-uint64_t
-sys_v6_link(void)
+long sys_linkat(void)
 {
-  char name[DIRSIZ], new[MAXPATH], old[MAXPATH];
-  struct inode *dp, *ip;
+    char newpath[MAXPATH], oldpath[MAXPATH];
+    int oldfd, newfd, flags;
 
-  if(argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
-    return -1;
+    argint(0, &oldfd);
+    argint(2, &newfd);
+    argint(4, &flags);
+    if (argstr(1, oldpath, MAXPATH) < 0 || argstr(3, newpath, MAXPATH) < 0)
+        return -EINVAL;
 
-  begin_op();
-  if((ip = namei(old)) == 0){
-    end_op();
-    return -1;
-  }
+    trace("oldfd: %d, oldpath: %s, newfd: %d, newpath: %s, flags: %d", oldfd, oldpath, newfd, newpath, flags);
 
-  ilock(ip);
-  if(ip->type == T_DIR){
+    // TODO: AT_FDCWD以外の実装
+    if (oldfd != AT_FDCWD || newfd != AT_FDCWD)
+        return -EINVAL;
+    // TODO: AT_SYMLINK_FOLLOW は実装する
+    if (flags)
+        return -EINVAL;
+
+    return filelink(oldpath, newpath);
+}
+
+long sys_unlinkat(void)
+{
+    char path[MAXPATH];
+    int dirfd, flags;
+
+    argint(0, &dirfd);
+    argint(2, &flags);
+    if (argstr(1, path, MAXPATH) < 0)
+        return -EINVAL;
+
+    if (dirfd != AT_FDCWD)
+        return -EINVAL;
+
+    if (flags & ~AT_REMOVEDIR)
+        return -EINVAL;
+
+    return fileunlink(path, flags);
+}
+
+long sys_openat(void)
+{
+    char path[MAXPATH];
+    int dirfd, flags;
+    mode_t mode;
+
+    argint(0, &dirfd);
+    argint(2, &flags);
+    argint(3, (int *)&mode);
+
+    if (argstr(1, path, MAXPATH) < 0)
+        return -EINVAL;
+
+    if (dirfd != AT_FDCWD) {
+        warn("dirfd unimplemented");
+        return -EINVAL;
+    }
+    trace("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
+#if 0
+    char *c = path;
+    while (*c != 0) {
+        printf("%02x", *c++);
+    }
+    printf("\n");
+#endif
+/*
+    if ((flags & O_LARGEFILE) == 0) {
+        error("expect O_LARGEFILE in open flags");
+        return -EINVAL;
+    }
+*/
+    return fileopen(path, flags, mode);
+}
+
+long sys_mkdirat(void)
+{
+    int dirfd;
+    char path[MAXPATH];
+    mode_t mode;
+    struct inode *ip;
+
+    argint(0, &dirfd);
+    argint(2, (int *)&mode);
+    if (argstr(1, path, MAXPATH) < 0)
+        return -EINVAL;
+
+    trace("dirfd %d, path '%s', mode 0x%x", dirfd, path, mode);
+
+    if (dirfd != AT_FDCWD) {
+        warn("dirfd unimplemented");
+        return -EINVAL;
+    }
+
+
+    begin_op();
+    if ((long)(ip = create(path, T_DIR, 0, 0, mode | S_IFDIR)) == 0) {
+        end_op();
+        return (long)ip;
+    }
     iunlockput(ip);
     end_op();
-    return -1;
-  }
-
-  ip->nlink++;
-  iupdate(ip);
-  iunlock(ip);
-
-  if((dp = nameiparent(new, name)) == 0)
-    goto bad;
-  ilock(dp);
-  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
-    iunlockput(dp);
-    goto bad;
-  }
-  iunlockput(dp);
-  iput(ip);
-
-  end_op();
-
-  return 0;
-
-bad:
-  ilock(ip);
-  ip->nlink--;
-  iupdate(ip);
-  iunlockput(ip);
-  end_op();
-  return -1;
-}
-
-// Is the directory dp empty except for "." and ".." ?
-static int
-isdirempty(struct inode *dp)
-{
-  int off;
-  struct dirent de;
-
-  for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
-    if(readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
-      panic("isdirempty: readi");
-    if(de.inum != 0)
-      return 0;
-  }
-  return 1;
-}
-
-uint64_t
-sys_v6_unlink(void)
-{
-  struct inode *ip, *dp;
-  struct dirent de;
-  char name[DIRSIZ], path[MAXPATH];
-  uint32_t off;
-
-  if(argstr(0, path, MAXPATH) < 0)
-    return -1;
-
-  begin_op();
-  if((dp = nameiparent(path, name)) == 0){
-    end_op();
-    return -1;
-  }
-
-  ilock(dp);
-
-  // Cannot unlink "." or "..".
-  if(namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
-    goto bad;
-
-  if((ip = dirlookup(dp, name, &off)) == 0)
-    goto bad;
-  ilock(ip);
-
-  if(ip->nlink < 1)
-    panic("unlink: nlink < 1");
-  if(ip->type == T_DIR && !isdirempty(ip)){
-    iunlockput(ip);
-    goto bad;
-  }
-
-  memset(&de, 0, sizeof(de));
-  if(writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
-    panic("unlink: writei");
-  if(ip->type == T_DIR){
-    dp->nlink--;
-    iupdate(dp);
-  }
-  iunlockput(dp);
-
-  ip->nlink--;
-  iupdate(ip);
-  iunlockput(ip);
-
-  end_op();
-
-  return 0;
-
-bad:
-  iunlockput(dp);
-  end_op();
-  return -1;
-}
-
-static struct inode*
-create(char *path, short type, short major, short minor)
-{
-  struct inode *ip, *dp;
-  char name[DIRSIZ];
-
-  if((dp = nameiparent(path, name)) == 0)
     return 0;
+}
 
-  ilock(dp);
+long sys_mknodat(void)
+{
+    struct inode *ip;
+    char path[MAXPATH];
+    int dirfd;
+    mode_t mode;
+    dev_t  dev;
+    uint16_t major=0, minor=0, type;
 
-  if((ip = dirlookup(dp, name, 0)) != 0){
-    iunlockput(dp);
+    argint(0, &dirfd);
+    argint(2, (int *)&mode);
+    argu64(3, &dev);
+    if (argstr(1, path, MAXPATH) < 0)
+        return -EINVAL;
+
+    if (dirfd != AT_FDCWD) {
+        warn("dirfd unimplemented");
+        return -EINVAL;
+    }
+    trace("path '%s', mode 0x%x, dev 0x%lx", path, mode, dev);
+
+    begin_op();
+    if (S_ISDIR(mode))
+        type = T_DIR;
+    else if (S_ISREG(mode))
+        type = T_FILE;
+    else if (S_ISCHR(mode) || S_ISBLK(mode))
+        type = T_DEVICE;
+/*
+    else if (S_ISLNK(mode))
+        type = T_SYMLINK;
+*/
+    else {
+        warn("%d is not supported yet", mode & S_IFMT);
+        return -EINVAL;
+    }
+    trace("type: %d", type);
+    if (type == T_DEVICE) {
+        major = (uint16_t)((dev >> 8) & 0xFF);
+        minor = (uint16_t)(dev & 0xFF);
+        trace("dev: 0x%l016x, major: %d, minor: %d", dev, major, minor);
+    }
+
+    trace("path: %s, type: %d, major: %d, minor: %d, mode: %x", path, type, major, minor, mode);
+
+    if ((long)(ip = create(path, type, major, minor, mode)) < 0) {
+        end_op();
+        return (long)ip;
+    }
+    iunlockput(ip);
+    end_op();
+    return 0;
+}
+
+long sys_chdir(void)
+{
+    char path[MAXPATH];
+    struct inode *ip;
+    struct proc *p = myproc();
+
+    if(argstr(0, path, MAXPATH) < 0) {
+        end_op();
+        return -EINVAL;
+    }
+
+    begin_op();
+    if ((ip = namei(path)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
-      return ip;
-    iunlockput(ip);
+
+    if (ip->type != T_DIR){
+        iunlockput(ip);
+        end_op();
+        return -ENOTDIR;
+    }
+
+    iunlock(ip);
+    iput(p->cwd);
+    end_op();
+    p->cwd = ip;
     return 0;
-  }
-
-  if((ip = ialloc(dp->dev, type)) == 0){
-    iunlockput(dp);
-    return 0;
-  }
-
-  ilock(ip);
-  ip->major = major;
-  ip->minor = minor;
-  ip->nlink = 1;
-  iupdate(ip);
-
-  if(type == T_DIR){  // Create . and .. entries.
-    // No ip->nlink++ for ".": avoid cyclic ref count.
-    if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
-      goto fail;
-  }
-
-  if(dirlink(dp, name, ip->inum) < 0)
-    goto fail;
-
-  if(type == T_DIR){
-    // now that success is guaranteed:
-    dp->nlink++;  // for ".."
-    iupdate(dp);
-  }
-
-  iunlockput(dp);
-
-  return ip;
-
- fail:
-  // something went wrong. de-allocate ip.
-  ip->nlink = 0;
-  iupdate(ip);
-  iunlockput(ip);
-  iunlockput(dp);
-  return 0;
 }
 
-uint64_t
-sys_v6_open(void)
-{
-  char path[MAXPATH];
-  int fd, omode;
-  struct file *f;
-  struct inode *ip;
-  int n;
-
-  argint(1, &omode);
-  if((n = argstr(0, path, MAXPATH)) < 0)
-    return -1;
-
-  begin_op();
-
-  if(omode & O_CREATE){
-    ip = create(path, T_FILE, 0, 0);
-    if(ip == 0){
-      end_op();
-      return -1;
-    }
-  } else {
-    if((ip = namei(path)) == 0){
-      end_op();
-      return -1;
-    }
-    ilock(ip);
-    if(ip->type == T_DIR && omode != O_RDONLY){
-      iunlockput(ip);
-      end_op();
-      return -1;
-    }
-  }
-
-  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
-    iunlockput(ip);
-    end_op();
-    return -1;
-  }
-
-  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
-    if(f)
-      fileclose(f);
-    iunlockput(ip);
-    end_op();
-    return -1;
-  }
-
-  if(ip->type == T_DEVICE){
-    f->type = FD_DEVICE;
-    f->major = ip->major;
-  } else {
-    f->type = FD_INODE;
-    f->off = 0;
-  }
-  f->ip = ip;
-  f->readable = !(omode & O_WRONLY);
-  f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
-
-  if((omode & O_TRUNC) && ip->type == T_FILE){
-    itrunc(ip);
-  }
-
-  iunlock(ip);
-  end_op();
-
-  return fd;
-}
-
-uint64_t
-sys_v6_mkdir(void)
-{
-  char path[MAXPATH];
-  struct inode *ip;
-
-  begin_op();
-  if(argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0){
-    end_op();
-    return -1;
-  }
-  iunlockput(ip);
-  end_op();
-  return 0;
-}
-
-uint64_t
-sys_v6_mknod(void)
-{
-  struct inode *ip;
-  char path[MAXPATH];
-  int major, minor;
-
-  begin_op();
-  argint(1, &major);
-  argint(2, &minor);
-  if((argstr(0, path, MAXPATH)) < 0 ||
-     (ip = create(path, T_DEVICE, major, minor)) == 0){
-    end_op();
-    return -1;
-  }
-  iunlockput(ip);
-  end_op();
-  return 0;
-}
-
-uint64_t
-sys_v6_chdir(void)
-{
-  char path[MAXPATH];
-  struct inode *ip;
-  struct proc *p = myproc();
-
-  begin_op();
-  if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
-    end_op();
-    return -1;
-  }
-  ilock(ip);
-  if(ip->type != T_DIR){
-    iunlockput(ip);
-    end_op();
-    return -1;
-  }
-  iunlock(ip);
-  iput(p->cwd);
-  end_op();
-  p->cwd = ip;
-  return 0;
-}
-
-uint64_t
-sys_v6_exec(void)
+long sys_execve(void)
 {
     char path[MAXPATH], *argv[MAXARG];
-    int i;
+    int i, error = 0;
     uint64_t uargv, uarg;
 
-    argaddr(1, &uargv);
+    argu64(1, &uargv);
+
     if (argstr(0, path, MAXPATH) < 0) {
         debug("parse path error");
-        return -1;
+        return -EINVAL;
     }
     memset(argv, 0, sizeof(argv));
-    for (i=0;; i++) {
+    for (i = 0; ; i++) {
         if (i >= NELEM(argv)) {
             error("too many options");
+            error = -E2BIG;
             goto bad;
         }
-        if (fetchaddr(uargv+sizeof(uint64_t)*i, (uint64_t*)&uarg) < 0) {
+        if (fetchaddr(uargv + sizeof(uint64_t)*i, (uint64_t*)&uarg) < 0) {
             error("fetchaddr error: uarg[%d]", i);
+            error = -EFAULT;
             goto bad;
         }
         if (uarg == 0) {
             argv[i] = 0;
             break;
         }
+        // TODO: slabを使う
         argv[i] = kalloc();
         if (argv[i] == 0) {
             error("outof memory");
+            error = -ENOMEM;
             goto bad;
         }
 
         if (fetchstr(uarg, argv[i], PGSIZE) < 0) {
             error("fetchstr error: argv[%d]", i);
+            error = -EIO;
             goto bad;
         }
 
     }
+
+    //int ret = exec(path, argv);
+    trace("path: %s, argv[0]: %s", path, argv[0]);
     int ret = exec(path, argv);
     for (i = 0; i < NELEM(argv) && argv[i] != 0; i++)
         kfree(argv[i]);
@@ -479,50 +482,132 @@ sys_v6_exec(void)
 bad:
     for (i = 0; i < NELEM(argv) && argv[i] != 0; i++)
         kfree(argv[i]);
-    return -1;
+
+    return error;
 }
 
-uint64_t
-sys_v6_pipe(void)
+long sys_pipe2(void)
 {
-  uint64_t fdarray; // user pointer to array of two integers
-  struct file *rf, *wf;
-  int fd0, fd1;
-  struct proc *p = myproc();
+    uint64_t fdarray;       // fd[2]
+    struct file *rf, *wf;
+    int fd0, fd1, flags;
+    struct proc *p = myproc();
 
-  argaddr(0, &fdarray);
-  if(pipealloc(&rf, &wf) < 0)
-    return -1;
-  fd0 = -1;
-  if((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0){
-    if(fd0 >= 0)
-      p->ofile[fd0] = 0;
-    fileclose(rf);
-    fileclose(wf);
-    return -1;
-  }
-  if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
-     copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
-    p->ofile[fd0] = 0;
-    p->ofile[fd1] = 0;
-    fileclose(rf);
-    fileclose(wf);
-    return -1;
-  }
-  return 0;
+    argint(1, &flags);
+    argu64(0, &fdarray);
+    if (pipealloc(&rf, &wf, flags) < 0)
+        return -ENFILE;
+
+
+    if (flags & ~PIPE2_FLAGS) {
+        warn("invalid flags=%d", flags);
+        return -EINVAL;
+    }
+
+    fd0 = -1;
+    if ((fd0 = fdalloc(rf, 0)) < 0 || (fd1 = fdalloc(wf, 0)) < 0){
+        if (fd0 >= 0)
+            p->ofile[fd0] = 0;
+        fileclose(rf);
+        fileclose(wf);
+        return -EMFILE;
+    }
+
+    if (copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
+        copyout(p->pagetable, fdarray + sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0) {
+        p->ofile[fd0] = 0;
+        p->ofile[fd1] = 0;
+        bit_remove(p->fdflag, fd0);
+        bit_remove(p->fdflag, fd1);
+        fileclose(rf);
+        fileclose(wf);
+        return -EFAULT;
+    }
+    if (flags & O_CLOEXEC) {
+        bit_add(p->fdflag, fd0);
+        bit_add(p->fdflag, fd1);
+    }
+    return 0;
 }
 
-uint64_t
-sys_v6_ioctl(void)
+long sys_ioctl(void)
 {
-  struct file *f;
-  unsigned long req;
-  void *p;
+    struct file *f;
+    uint64_t req;
+    uint64_t argp;
+    int fd;
 
-  argaddr(1, &req);
-  argaddr(2, (uint64_t *)&p);
-  if (argfd(0, 0, &f) < 0)
-    return -1;
+    argu64(1, &req);
+    argu64(2, &argp);
+    if (argfd(0, &fd, &f) < 0)
+        return -EINVAL;
 
-  return fileioctl(f, req, p);
+    trace("fd: %d, f.type: %d, f.major: %d, req: 0x%l016x, p: %p", fd, f->type, f->major, req, argp);
+
+    if (f->type != FD_INODE && f->ip->type != T_DEVICE) {
+        debug("bad type: %d, %d", f->type, f->ip->type);
+        return -ENOTTY;
+    }
+
+    return fileioctl(f, req, (void *)argp);
+}
+
+long sys_fcntl(void)
+{
+    struct file *f;
+    struct proc *p = myproc();
+    int fd, cmd, args;
+
+    if (argfd(0, &fd, &f) < 0) {
+        return -EINVAL;
+    }
+
+    argint(1, &cmd);
+    argint(2, &args);
+
+    trace("fd=%d, cmd=0x%x, args=%d", fd, cmd, args);
+
+    switch (cmd) {
+        case F_DUPFD:
+            return dupfd(fd, args);
+
+        case F_GETFD:
+            return bit_test(p->fdflag, fd) ? FD_CLOEXEC : 0;
+
+        case F_SETFD:
+            if (args & FD_CLOEXEC)
+                bit_add(p->fdflag, fd);
+            else
+                bit_remove(p->fdflag, fd);
+            return 0;
+
+        case F_GETFL:
+            return (f->flags & (FILE_STATUS_FLAGS | O_ACCMODE));
+
+        case F_SETFL:
+            f->flags = ((args & FILE_STATUS_FLAGS) | (f->flags & O_ACCMODE));
+            return 0;
+    }
+
+    return -EINVAL;
+}
+
+long sys_getdents64(void)
+{
+    int fd;
+    char *dirp;
+    uint64_t size;
+    struct file *f;
+
+    if (argfd(0, &fd, &f) < 0)
+        return -EINVAL;
+
+    argu64(1, (uint64_t *)&dirp);
+    argu64(2, &size);
+
+    trace("fd: %d, dirp: %p, count: %ld", fd, dirp, size);
+    if (f->ip->type != T_DIR)
+        return -ENOTDIR;
+
+    return getdents(f, dirp, size);
 }

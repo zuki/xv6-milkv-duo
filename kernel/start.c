@@ -7,70 +7,69 @@
 void main();
 void timerinit();
 
-// entry.S needs one stack per CPU.
+// entry.S はCPU事に1つスタックを必要とする.
 __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
 
 #ifdef CONFIG_RISCV_M_MODE
-// a scratch area per CPU for machine-mode timer interrupts.
+// マシンモードタイマー割り込み用のCPUごとのスクラッチ領域。
 uint64_t timer_scratch[NCPU][5];
 #endif
 
-// assembly code in kernelvec.S for machine-mode timer interrupt.
+// kernelvec.Sにあるマシンモードタイマー割り込み用のアセンブリコード。
 extern void timervec();
 
-// entry.S jumps here in supervisor/machine mode on stack0.
+// entry.Sは、stack0上でスーパーバイザ／マシンモードでここにジャンプする
 void
 start(unsigned long hartid, unsigned long fdt)
 {
 #ifdef CONFIG_RISCV_M_MODE
-  // set M Previous Privilege mode to Supervisor, for mret.
-  unsigned long x = r_mstatus();
-  x &= ~MSTATUS_MPP_MASK;
-  x |= MSTATUS_MPP_S;
-  w_mstatus(x);
+    // set M Previous Privilege mode to Supervisor, for mret.
+    unsigned long x = r_mstatus();
+    x &= ~MSTATUS_MPP_MASK;
+    x |= MSTATUS_MPP_S;
+    w_mstatus(x);
 
-  // set M Exception Program Counter to main, for mret.
-  // requires gcc -mcmodel=medany
-  w_mepc((uint64_t)main);
+    // set M Exception Program Counter to main, for mret.
+    // requires gcc -mcmodel=medany
+    w_mepc((uint64_t)main);
 #endif
 
-  // disable paging for now.
-  w_satp(0);
-  sfence_vma();
+    // ページングを無効にする.
+    w_satp(0);
+    sfence_vma();
 
 #ifdef CONFIG_RISCV_M_MODE
-  // delegate all exceptions to supervisor mode.
-  w_medeleg(0xffff);
-  // delegate supervisor interrupts to supervisor mode.
-  w_mideleg(0x222);
+    // すべての例外をスーパーバイザモードに委譲する.
+    w_medeleg(0xffff);
+    // スーパーバイザ割り込みをスーバーバイザモードに委譲する.
+    w_mideleg(0x222);
 #endif
-  w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
+    w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
 #ifdef CONFIG_RISCV_M_MODE
-  // configure Physical Memory Protection to give supervisor mode
-  // access to all of physical memory.
-  w_pmpaddr0(0x3fffffffffffffull);
-  w_pmpcfg0(0xf);
+    // スーパーバイザモードがすべての物理メモリにアクセス
+    // できるように Physical Memory Protection を構成する.
+    w_pmpaddr0(0x3fffffffffffffull);
+    w_pmpcfg0(0xf);
 
-  // ask for clock interrupts.
-  timerinit();
+    // クロック割り込みを要求する.
+    timerinit();
 
-  // keep each CPU's hartid in its tp register, for cpuid().
-  int id = r_mhartid();
-  w_tp(id);
+    // cpuid()用に各CPUのhartidをそのtpレジスタに保持する。.
+    int id = r_mhartid();
+    w_tp(id);
 
-  // switch to supervisor mode and jump to main().
-  asm volatile("mret");
+    // スーパーバイザモードに切り替えて、main()にジャンプする.
+    asm volatile("mret");
 #endif
-  w_tp(hartid);
-  main();
+    w_tp(hartid);
+    main();
 }
 
-// arrange to receive timer interrupts.
-// they will arrive in machine mode at
-// at timervec in kernelvec.S,
-// which turns them into software interrupts for
-// devintr() in trap.c.
+// タイマ割り込みを受け取るようにする。
+// この割り込みはマシンモードでkernelvec.Sの
+// timervecに到着し、trap.cのdevintr()用に
+// ソフトウェア割り込みに変換される
 #ifdef CONFIG_RISCV_M_MODE
 void
 timerinit()

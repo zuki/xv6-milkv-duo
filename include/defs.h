@@ -16,6 +16,7 @@ struct stat;
 struct superblock;
 struct emmc;
 struct slab_cache;
+struct rusage;
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
@@ -45,10 +46,14 @@ struct file*    filealloc(void);
 void            fileclose(struct file*);
 struct file*    filedup(struct file*);
 void            fileinit(void);
-int             fileread(struct file*, uint64_t, int n);
+int             fileread(struct file*, uint64_t, int n, int user);
 int             filestat(struct file*, uint64_t addr);
 int             filewrite(struct file*, uint64_t, int n);
 int             fileioctl(struct file*, unsigned long, void *argp);
+long            filelink(char *old, char *new);
+long            fileunlink(char *path, int flags);
+struct inode *  create(char *path, short type, short major, short minor, mode_t mode);
+long            fileopen(char *path, int flags, mode_t mode);
 
 // fs.c
 void            fsinit(int);
@@ -69,6 +74,8 @@ int             readi(struct inode*, int, uint64_t, uint32_t, uint32_t);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64_t, uint32_t, uint32_t);
 void            itrunc(struct inode*);
+int             unlink(struct inode *dp, uint32_t off);
+int             getdents(struct file *f, char *data, size_t size);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -94,7 +101,7 @@ struct page *   page_find_head(const struct page *page);
 void            page_cleanup(struct page **page);
 
 // pipe.c
-int             pipealloc(struct file**, struct file**);
+int             pipealloc(struct file**, struct file**, int);
 void            pipeclose(struct pipe*, int);
 int             piperead(struct pipe*, uint64_t, int);
 int             pipewrite(struct pipe*, uint64_t, int);
@@ -103,36 +110,37 @@ int             pipewrite(struct pipe*, uint64_t, int);
 int             printf(const char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
+void            debug_bytes(char *buf, int size);
 
 // proc.c
 int             cpuid(void);
+void            delayms(unsigned long n);
+void            delayus(unsigned long n);
+int             either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len);
+int             either_copyin(void *dst, int user_src, uint64_t src, uint64_t len);
 void            exit(int);
 int             fork(void);
+struct cpu*     getmycpu(void);
+uint64_t        get_timer(uint64_t start);
 int             growproc(int);
+void            kdelay(unsigned long n);
+int             kill(int);
+int             killed(struct proc*);
+struct cpu*     mycpu(void);
+struct proc*    myproc();
+void            procdump(void);
+void            procinit(void);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64_t);
-int             kill(int);
-int             killed(struct proc*);
-void            setkilled(struct proc*);
-struct cpu*     mycpu(void);
-struct cpu*     getmycpu(void);
-struct proc*    myproc();
-void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
+void            setkilled(struct proc*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
-int             wait(uint64_t);
+int             wait4(pid_t pid, int *status, int options, struct rusage *ru);
 void            wakeup(void*);
 void            yield(void);
-int             either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len);
-int             either_copyin(void *dst, int user_src, uint64_t src, uint64_t len);
-void            procdump(void);
-void            kdelay(unsigned long n);
-void            delayms(unsigned long n);
-void            delayus(unsigned long n);
-uint64_t        get_timer(uint64_t start);
 
 // rtc.c
 void            rtc_init(void);
@@ -180,12 +188,14 @@ int             strncmp(const char*, const char*, uint32_t);
 char*           strncpy(char*, const char*, int);
 
 // syscall.c
+void            argaddr(int, uint64_t *);
 void            argint(int, int*);
 int             argstr(int, char*, int);
-void            argaddr(int, uint64_t *);
+void            argu64(int n, uint64_t *u64);
 int             fetchstr(uint64_t, char*, int);
 int             fetchaddr(uint64_t, uint64_t*);
-void            syscall();
+int             fdalloc(struct file *f, int from);
+void            syscall(void);
 
 // trap.c
 extern uint64_t     ticks;

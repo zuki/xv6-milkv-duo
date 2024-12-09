@@ -13,7 +13,7 @@ uint64_t ticks;
 
 extern char trampoline[], uservec[], userret[];
 
-// in kernelvec.S, calls kerneltrap().
+// kernelvec.S で kerneltrap() を呼び出す.
 void kernelvec();
 
 extern int devintr();
@@ -21,225 +21,246 @@ extern int devintr();
 void
 trapinit(void)
 {
-  initlock(&tickslock, "time");
+    initlock(&tickslock, "time");
 }
 
-// set up to take exceptions and traps while in the kernel.
+// カーネルにいる間、例外とトラップを受けるように設定する.
 void
 trapinithart(void)
 {
-  w_stvec((uint64_t)kernelvec);
+    // 割り込み/例外発生時はkernelvecにジャンプする
+    w_stvec((uint64_t)kernelvec);
 }
 
 //
-// handle an interrupt, exception, or system call from user space.
-// called from trampoline.S
+// ユーザ空間からの割り込み、例外、システムコールを処理する
+// trampoline.S から呼び出される
 //
 void
 usertrap(void)
 {
-  int which_dev = 0;
+    int which_dev = 0;
 
-  if((r_sstatus() & SSTATUS_SPP) != 0)
-    panic("usertrap: not from user mode");
+    if ((r_sstatus() & SSTATUS_SPP) != 0)
+        panic("usertrap: not from user mode");
 
-  // send interrupts and exceptions to kerneltrap(),
-  // since we're now in the kernel.
-  w_stvec((uint64_t)kernelvec);
+    // 割り込みと例外を kerneltrap() に送る
+    // 現在はカーネルにいるからである。
+    w_stvec((uint64_t)kernelvec);
 
-  struct proc *p = myproc();
+    struct proc *p = myproc();
 
-  // save user program counter.
-  p->trapframe->epc = r_sepc();
+    // 例外が発生したユーザpcを保存する.
+    p->trapframe->epc = r_sepc();
 
-  if(r_scause() == 8){
-    // system call
+    which_dev = devintr();
+    trace("scause: %d, which_dev: %d", r_scause(), which_dev);
 
-    if(killed(p)) {
-        debug("scause(8): killed pid: %d", p->pid);
+    if (r_scause() == 8) {
+        // システムコール
+        trace("1: scratch: 0x%l016x, tp: 0x%l016x, pid: %d, p: %p", r_sscratch(), r_tp(), p->pid, p);
+
+        if (killed(p)) {
+            debug("scause(8): killed pid: %d", p->pid);
+            exit(-1);
+        }
+
+        // sepc はecall命令を指しているがその次の命令に復帰したい
+        p->trapframe->epc += 4;
+
+        // 割り込みは sepc, scause, sstatus を変更するので
+        // これらのレジスタを使い終わった今、割り込みを有効にする
+        intr_on();
+        syscall();
+        trace("syscall return = 0x%l016x", p->trapframe->a0);
+    //} else if((which_dev = devintr()) != 0) {
+    } else if (which_dev != 0) {
+        // ok
+    } else {
+        printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+        printf("            sepc=%p stval=%p, tp=0x%l016x\n", r_sepc(), r_stval(), r_tp());
+        trace("3: tp: 0x%l016x, pid: %d, p: %p", r_tp(), p->pid, p);
+        setkilled(p);
+    }
+
+    if (killed(p)) {
+        debug("killed pid: %d", p->pid);
         exit(-1);
     }
 
 
-    // sepc points to the ecall instruction,
-    // but we want to return to the next instruction.
-    p->trapframe->epc += 4;
+    // タイマー割り込みの場合はCPUを明け渡す.
+    if (which_dev == 2)
+        yield();
 
-    // an interrupt will change sepc, scause, and sstatus,
-    // so enable only now that we're done with those registers.
-    intr_on();
-
-    syscall();
-  } else if((which_dev = devintr()) != 0){
-    // ok
-  } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    setkilled(p);
-  }
-
-  if(killed(p)) {
-    debug("killed pid: %d", p->pid);
-    exit(-1);
-  }
-
-
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
-
-  usertrapret();
+    usertrapret();
 }
 
 //
-// return to user space
+// ユーザ空間に復帰する
 //
 void
 usertrapret(void)
 {
     struct proc *p = myproc();
 
-    // we're about to switch the destination of traps from
-    // kerneltrap() to usertrap(), so turn off interrupts until
-    // we're back in user space, where usertrap() is correct.
+    // トラップ先をkerneltrap()からusertrap()に切り替える。
+    // usertrap()が正しいユーザ空間に戻るまで割り込みを無効にする。
     intr_off();
 
-    // send syscalls, interrupts, and exceptions to uservec in trampoline.S
+    // システムコール、割り込み、例外の送り先をtrampoline.Sのuservecにする
     uint64_t trampoline_uservec = TRAMPOLINE + (uservec - trampoline);
     w_stvec(trampoline_uservec);
 
-    // set up trapframe values that uservec will need when
-    // the process next traps into the kernel.
-    p->trapframe->kernel_satp = r_satp();         // kernel page table
-    p->trapframe->kernel_sp = p->kstack + PGSIZE; // process's kernel stack
+    // プロセスが次にカーネルにトラップするときにuservecが必要とする
+    // トラップフレーム値を設定する
+    p->trapframe->kernel_satp = r_satp();         // カーネルページテーブル
+    p->trapframe->kernel_sp = p->kstack + PGSIZE; // プロセスのカーネルスタック
     p->trapframe->kernel_trap = (uint64_t)usertrap;
+    // FIXME: cpuは１つしか使わない。tpを別の目的で使用する
+    //p->trapframe->kernel_hartid = (uint64_t)p;
     p->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
 
-    // set up the registers that trampoline.S's sret will use
-    // to get to user space.
+    // trampoline.Sのsretがユーザ空間に移動するために使用する
+    // レジスタを設定する
 
-    // set S Previous Privilege mode to User.
+    // S Previous PrivilegeモードをUserに設定する。
     unsigned long x = r_sstatus();
-    x &= ~SSTATUS_SPP; // clear SPP to 0 for user mode
-    x |= SSTATUS_SPIE; // enable interrupts in user mode
+    x &= ~SSTATUS_SPP; // ユーザモードを示すようにSPPを0にクリアする
+    x |= SSTATUS_SPIE; // ユーザモードでの割り込みを有効にする
     w_sstatus(x);
 
-    // set S Exception Program Counter to the saved user pc.
+    // S Exception Program Counterに保存していたユーザPCをセットする
     w_sepc(p->trapframe->epc);
 
-    // tell trampoline.S the user page table to switch to.
+    // trampoline.Sに切り替えるユーザページテーブルを伝える
     uint64_t satp = MAKE_SATP(p->pagetable);
 
-    // jump to userret in trampoline.S at the top of memory, which
-    // switches to the user page table, restores user registers,
-    // and switches to user mode with sret.
+    // メモリの先頭にあるtrampoline.S内のuserret()を呼び出す。
+    // この関数はユーザページテーブルに切り替え、ユーザレジスタを
+    // 復元し、sretでユーザモードに切り替える
     uint64_t trampoline_userret = TRAMPOLINE + (userret - trampoline);
-    //debug("trampoline_userret: 0x%016x", trampoline_userret);
+    trace("tp: 0x%l016x, pid: %d, p: %p", r_tp(), p->pid, p);
     ((void (*)(uint64_t))trampoline_userret)(satp);
 }
 
-// interrupts and exceptions from kernel code go here via kernelvec,
-// on whatever the current kernel stack is.
+// カーネルコードからの割り込みと例外は現在のカーネル
+// スタックが何であれkernelvec経由でここに来る
 void
 kerneltrap()
 {
-  int which_dev = 0;
-  uint64_t sepc = r_sepc();
-  uint64_t sstatus = r_sstatus();
-  uint64_t scause = r_scause();
+    int which_dev = 0;
+    uint64_t sepc = r_sepc();
+    uint64_t sstatus = r_sstatus();
+    uint64_t scause = r_scause();
 
-  if((sstatus & SSTATUS_SPP) == 0)
-    panic("kerneltrap: not from supervisor mode");
-  if(intr_get() != 0)
-    panic("kerneltrap: interrupts enabled");
+#if 0
+    uint64_t scratch = r_sscratch();
+    uint64_t tp = r_tp();
+    static int count = 0;
+#endif
 
-  if((which_dev = devintr()) == 0){
-    printf("scause %p\n", scause);
-    printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
-    panic("kerneltrap");
-  }
+    if ((sstatus & SSTATUS_SPP) == 0)
+        panic("kerneltrap: not from supervisor mode");
+    if (intr_get() != 0)
+        panic("kerneltrap: interrupts enabled");
 
-  // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
-    yield();
+    if ((which_dev = devintr()) == 0){
+        printf("scause %p\n", scause);
+        printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
+        panic("kerneltrap");
+    }
 
-  // the yield() may have caused some traps to occur,
-  // so restore trap registers for use by kernelvec.S's sepc instruction.
-  w_sepc(sepc);
-  w_sstatus(sstatus);
+    // タイマー割り込みの場合はCPUを明け渡す.
+    if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING) {
+        trace("yield");
+        yield();
+    }
+
+#if 0
+    if (which_dev == 1) {
+        if ((++count % 100) == 0)
+            debug("scratch: 0x%l016x, tp: 0x%l016x", scratch, tp);
+    }
+#endif
+
+    // yield()でトラップが発生した可能性があるので、kernelvec.Sの
+    // sepc命令で使用できるようにトラップレジスタを復元する。
+    w_sepc(sepc);
+    w_sstatus(sstatus);
 }
 
 void
 clockintr()
 {
-  acquire(&tickslock);
-  ticks++;
-  wakeup(&ticks);
-  release(&tickslock);
+    acquire(&tickslock);
+    ticks++;
+    wakeup(&ticks);
+    release(&tickslock);
 }
 
-// check if it's an external interrupt or software interrupt,
-// and handle it.
-// returns 2 if timer interrupt,
-// 1 if other device,
-// 0 if not recognized.
-int
-devintr()
+// 外部割り込みかソフトウェア割り込み化を判断して
+// それを処理する。
+// タイマー割り込みの場合は 2 を返す,
+// その他のデバイスからの割り込みの場合は 1 を返す
+// 認識できない場合は 0 を返す
+int devintr()
 {
-  uint64_t scause = r_scause();
+    uint64_t scause = r_scause();
 
-  if((scause & 0x8000000000000000L) &&
-     (scause & 0xff) == 9){
-    // this is a supervisor external interrupt, via PLIC.
+    if ((scause & 0x8000000000000000L) && (scause & 0xff) == 9) {
+        // PLIC経由のスーバーバイザ外部割り込みである.
 
-    // irq indicates which device interrupted.
-    int irq = plic_claim();
+        // irq はどのデバイスが割り込んだかを示している.
+        int irq = plic_claim();
 
-    if(irq == UART0_IRQ){
-      uartintr();
-    //} else if(irq == VIRTIO0_IRQ){
-    //  virtio_disk_intr();
-    } else if (irq == SD0_IRQ) {
-      //sd_intr();
-    } else if(irq){
-      printf("unexpected interrupt irq=%d\n", irq);
-    }
+        if (irq == UART0_IRQ) {
+            //debug("uart");
+            uartintr();
+        //} else if(irq == VIRTIO0_IRQ){
+            //  virtio_disk_intr();
+        } else if (irq == SD0_IRQ) {
+            //debug("sd0");
+            //sd_intr();
+        } else if (irq) {
+            warn("unexpected interrupt irq=%d", irq);
+        }
 
-    // the PLIC allows each device to raise at most one
-    // interrupt at a time; tell the PLIC the device is
-    // now allowed to interrupt again.
-    if(irq)
-      plic_complete(irq);
+        // PLICは各デバイスが一度に最大1つしか割り込みの発生を
+        // 許可していない。PLICにデバイスに再び割り込みを許可
+        // するよう伝える。
+        if (irq)
+            plic_complete(irq);
 
-    return 1;
+        return 1;
 #ifdef CONFIG_RISCV_M_MODE
-  } else if(scause == 0x8000000000000001L){
-    // software interrupt from a machine-mode timer interrupt,
-    // forwarded by OpenSBI or timervec in kernelvec.S.
+    } else if (scause == 0x8000000000000001L) {
+        // OpenSBIまたはkernelvec.Sのtimervecから転送された
+        // マシンモードタイマー割り込みからのソフトウェア割り込み,
 
-    if(cpuid() == 0){
-      clockintr();
-    }
+        if (cpuid() == 0){
+            clockintr();
+        }
 
-    // acknowledge the software interrupt by clearing
-    // the SSIP bit in sip.
-    w_sip(r_sip() & ~2);
-    return 2;
+        // sipのSSIPビットをクリアすることによりソフトウェア
+        // 割り込みにacknowledgeする
+        w_sip(r_sip() & ~2);
+        return 2;
 #else
-  } else if((scause & 0x8000000000000000L) &&
-     (scause & 0xff) == 5){
-    // S-mode timer interrupt,
-    unsigned long next;
+    } else if ((scause & 0x8000000000000000L) && (scause & 0xff) == 5) {
+        // S-modeのタイマー割り込み,
+        unsigned long next;
 
-    csr_clear(CSR_IE, 1 << 5);
-    clockintr();
-    next = csr_read(CSR_TIME) + INTERVAL;
-    sbi_set_timer(next);
-    csr_set(CSR_IE, 1 << 5);
+        csr_clear(CSR_IE, 1 << 5);
+        clockintr();
+        next = csr_read(CSR_TIME) + INTERVAL;
+        sbi_set_timer(next);
+        csr_set(CSR_IE, 1 << 5);
+        //debug("timer");
 
-    return 2;
-#endif
-  } else {
-    return 0;
-  }
+        return 2;
+    #endif
+    } else {
+        return 0;
+    }
 }

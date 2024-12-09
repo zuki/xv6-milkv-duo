@@ -27,11 +27,25 @@
         "cstring": "c",
         "cstddef": "c",
         "__config": "c",
-        "ios": "c"
+        "ios": "c",
+        "__hash_table": "c",
+        "__split_buffer": "c",
+        "deque": "c",
+        "initializer_list": "c",
+        "queue": "c",
+        "stack": "c",
+        "unordered_map": "c"
     },
     "editor.tokenColorCustomizations": {
         "comments":{
             "foreground":"#d17f13"
         }
-    }
+    },
+	"C_Cpp.files.exclude": {
+        "/": true,
+        "**/.vscode": true,
+        "**/.vs": true,
+        "**/.git": true
+    },
+    "C_Cpp.exclusionPolicy": "checkFilesAndFolders"
 }

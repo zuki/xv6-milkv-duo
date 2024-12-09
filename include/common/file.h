@@ -2,22 +2,27 @@
 #define INC_COMMON_FILE_H
 
 #include <common/fs.h>
+#include <linux/fcntl.h>
 #include <sleeplock.h>
 
 struct file {
     enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
     int ref;            // reference count
-    char readable;
-    char writable;
     struct pipe *pipe;  // FD_PIPE
     struct inode *ip;   // FD_INODE and FD_DEVICE
     uint32_t off;       // FD_INODE
+    int flags;          //
     short major;        // FD_DEVICE
+    char readable;
+    char writable;
 };
 
-#define major(dev)  ((dev) >> 16 & 0xFFFF)
-#define minor(dev)  ((dev) & 0xFFFF)
 #define	mkdev(m,n)  ((uint)((m)<<16| (n)))
+
+#define FILE_STATUS_FLAGS (O_APPEND|O_ASYNC|O_DIRECT|O_DSYNC|O_NOATIME|O_NONBLOCK|O_SYNC)
+#define FILE_READABLE(flags) ((((flags) & O_ACCMODE) == O_RDWR) || (((flags) & O_ACCMODE) == O_RDONLY));
+#define FILE_WRITABLE(flags) ((((flags) & O_ACCMODE) == O_RDWR) || (((flags) & O_ACCMODE) == O_WRONLY));
+
 
 // in-memory copy of an inode
 struct inode {

@@ -5,16 +5,11 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include "common/types.h"
-#include "common/fs.h"
-#include "v6_stat.h"
-#include "common/param.h"
+#include "mkfs.h"
 
 #ifndef static_assert
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
 #endif
-
-#define NINODES 256
 
 // Disk layout:
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
@@ -129,25 +124,25 @@ main(int argc, char *argv[])
     strcpy(de.name, "..");
     iappend(rootino, &de, sizeof(de));
 
-    for(i = 2; i < argc; i++){
+    for (i = 2; i < argc; i++) {
         // get rid of "user/"
         char *shortname;
-        if(strncmp(argv[i], "user/", 5) == 0)
-        shortname = argv[i] + 5;
+        if (strncmp(argv[i], "obj/usr/bin/", 12) == 0)
+            shortname = argv[i] + 12;
         else
-        shortname = argv[i];
+            shortname = argv[i];
 
         assert(index(shortname, '/') == 0);
 
         if((fd = open(argv[i], 0)) < 0)
-        die(argv[i]);
+            die(argv[i]);
 
         // Skip leading _ in name when writing to file system.
         // The binaries are named _rm, _cat, etc. to keep the
         // build operating system from trying to execute them
         // in place of system binaries like rm and cat.
-        if(shortname[0] == '_')
-        shortname += 1;
+        if (shortname[0] == '_')
+            shortname += 1;
 
         inum = ialloc(T_FILE);
 
