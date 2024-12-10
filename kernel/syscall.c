@@ -58,16 +58,26 @@ static uint64_t argraw(int n)
     return -1;
 }
 
-void argu64(int n, uint64_t *u64)
+int argu64(int n, uint64_t *u64)
 {
     //debug("n: %d, u64: %p", n, u64);
+    if (n > 5) {
+        warn("too many system call parameters");
+        return -1;
+    }
     *u64 = argraw(n);
+    return 0;
 }
 
 // n番目のシステムコール引数を取得する
-void argint(int n, int *ip)
+int argint(int n, int *ip)
 {
+    if (n > 5) {
+        warn("too many system call parameters");
+        return -1;
+    }
     *ip = argraw(n);
+    return 0;
 }
 
 // 引数をアドレス値として取り出す.
@@ -85,7 +95,8 @@ void argaddr(int n, uint64_t *ip)
 int argstr(int n, char *buf, int max)
 {
     uint64_t addr;
-    argu64(n, &addr);
+    if (argu64(n, &addr) < 0)
+        return -1;
     return fetchstr(addr, buf, max);
 }
 
@@ -128,10 +139,10 @@ long sys_rt_sigprocmask(void) {
     int how;
     uint64_t set, oldset, size;
 
-    argint(0, &how);
-    argu64(1, &set);
-    argu64(2, &oldset);
-    argu64(3, &size);
+    if (argint(0, &how) < 0 || argu64(1, &set) < 0
+     || argu64(2, &oldset) < 0 || argu64(3, &size) < 0) {
+        return -EINVAL;
+    }
     trace("how: %d, set: 0x%l016x, oldset:0x%l016x, size: 0x%l016x", how, set, oldset, size);
 
     return 0;
@@ -143,12 +154,11 @@ long sys_futex(void) {
     struct timespec *timeout;
     static int count = 0;
 
-    argu64(0, (uint64_t *)&uaddr);
-    argint(1, &op);
-    argint(2, &val);
-    argu64(3, (uint64_t *)&timeout);
-    argu64(4, (uint64_t *)&uaddr2);
-    argint(5, &val3);
+    if (argu64(0, (uint64_t *)&uaddr) < 0 || argint(1, &op) < 0
+     || argint(2, &val) < 0 || argu64(3, (uint64_t *)&timeout) < 0
+     || argu64(4, (uint64_t *)&uaddr2) < 0 || argint(5, &val3) < 0) {
+        return -EINVAL;
+    }
 
     if (++count < 5) {
         debug("uaddr: %p, op: %d, val: %d, timeout: %p, uaddr2: %p, val3: %d", uaddr, op, val, timeout, uaddr2, val3);

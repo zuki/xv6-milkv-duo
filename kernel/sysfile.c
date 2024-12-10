@@ -27,7 +27,8 @@ static int argfd(int n, int *pfd, struct file **pf)
     int fd;
     struct file *f;
 
-    argint(n, &fd);
+    if (argint(n, &fd) < 0)
+        return -1;
     if (fd < 0 || fd >= NOFILE || (f = myproc()->ofile[fd]) == 0)
         return -1;
     if (pfd)
@@ -68,7 +69,8 @@ long sys_dup(void)
 {
     int fd;
 
-    argint(0, &fd);
+    if (argint(0, &fd) < 0)
+        return -EINVAL;
     return dupfd(fd, 0);
 
 #if 0
@@ -91,8 +93,8 @@ long sys_read(void)
     int n;
     uint64_t p;
 
-    argu64(1, &p);
-    argint(2, &n);
+    if (argu64(1, &p) < 0 || argint(2, &n) < 0)
+        return -EINVAL;
     if (argfd(0, 0, &f) < 0)
         return -EBADF;
     return fileread(f, p, n, 1);
@@ -104,8 +106,8 @@ long sys_write(void)
     int n;
     uint64_t p;
 
-    argu64(1, &p);
-    argint(2, &n);
+    if (argu64(1, &p) < 0 || argint(2, &n) < 0)
+        return -EINVAL;
     if (argfd(0, 0, &f) < 0)
         return -EBADF;
 
@@ -123,8 +125,8 @@ long sys_readv(void)
     int iovcnt;
     struct iovec *iov, *pp;
 
-    argu64(1, (uint64_t *)&iov);    // iovはuser
-    argint(2, &iovcnt);
+    if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
+        return -EINVAL;
     if (argfd(0, 0, &f) < 0)
         return -EBADF;
 
@@ -142,9 +144,9 @@ ssize_t sys_writev(void)
     struct iovec *iov, *pp, iov_k;
     struct proc *p = myproc();
 
-    argu64(1, (uint64_t *)&iov);
+    if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
+        return -EINVAL;
     trace("n: 1, iov: %p", iov);
-    argint(2, &iovcnt);
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
 
@@ -185,7 +187,8 @@ long sys_fstat(void)
     uint64_t st; // user pointer to struct stat
     int fd;
 
-    argu64(1, &st);
+    if (argu64(1, &st) < 0)
+        return -EINVAL;
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
     trace("fd: %d, st: %p", fd, (struct st *)st);
@@ -201,11 +204,11 @@ long sys_fstatat(void)
     struct inode *ip;
     struct stat st;
 
-    argint(0, &dirfd);
+    if (argint(0, &dirfd) < 0 || argu64(2, &staddr) < 0
+     || argint(3, &flags) < 0)
+        return -EINVAL;
     if (argstr(1, path, MAXPATH) < 0)
         return -EFAULT;
-    argu64(2, &staddr);
-    argint(3, &flags);
 
     trace("dirfd: %d, path: %s, staddr: 0x%lx, flags: %d", dirfd, path, staddr, flags);
 
@@ -240,10 +243,10 @@ long sys_linkat(void)
     char newpath[MAXPATH], oldpath[MAXPATH];
     int oldfd, newfd, flags;
 
-    argint(0, &oldfd);
-    argint(2, &newfd);
-    argint(4, &flags);
-    if (argstr(1, oldpath, MAXPATH) < 0 || argstr(3, newpath, MAXPATH) < 0)
+    if (argint(0, &oldfd) < 0 || argint(2, &newfd) < 0
+     || argint(4, &flags) < 0
+     || argstr(1, oldpath, MAXPATH) < 0
+     || argstr(3, newpath, MAXPATH) < 0)
         return -EINVAL;
 
     trace("oldfd: %d, oldpath: %s, newfd: %d, newpath: %s, flags: %d", oldfd, oldpath, newfd, newpath, flags);
@@ -263,9 +266,8 @@ long sys_unlinkat(void)
     char path[MAXPATH];
     int dirfd, flags;
 
-    argint(0, &dirfd);
-    argint(2, &flags);
-    if (argstr(1, path, MAXPATH) < 0)
+    if (argint(0, &dirfd) < 0 || argint(2, &flags) < 0
+     || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
     if (dirfd != AT_FDCWD)
@@ -283,11 +285,9 @@ long sys_openat(void)
     int dirfd, flags;
     mode_t mode;
 
-    argint(0, &dirfd);
-    argint(2, &flags);
-    argint(3, (int *)&mode);
-
-    if (argstr(1, path, MAXPATH) < 0)
+    if (argint(0, &dirfd) < 0 || argint(2, &flags) < 0
+     || argint(3, (int *)&mode) < 0
+     || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
     if (dirfd != AT_FDCWD) {
@@ -318,9 +318,8 @@ long sys_mkdirat(void)
     mode_t mode;
     struct inode *ip;
 
-    argint(0, &dirfd);
-    argint(2, (int *)&mode);
-    if (argstr(1, path, MAXPATH) < 0)
+    if (argint(0, &dirfd) < 0 || argint(2, (int *)&mode) < 0
+     || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
     trace("dirfd %d, path '%s', mode 0x%x", dirfd, path, mode);
@@ -350,10 +349,8 @@ long sys_mknodat(void)
     dev_t  dev;
     uint16_t major=0, minor=0, type;
 
-    argint(0, &dirfd);
-    argint(2, (int *)&mode);
-    argu64(3, &dev);
-    if (argstr(1, path, MAXPATH) < 0)
+    if (argint(0, &dirfd) < 0 || argint(2, (int *)&mode) < 0
+     || argu64(3, &dev) < 0 || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
     if (dirfd != AT_FDCWD) {
@@ -433,7 +430,8 @@ long sys_execve(void)
     int i, error = 0;
     uint64_t uargv, uarg;
 
-    argu64(1, &uargv);
+    if (argu64(1, &uargv) < 0)
+        return -EINVAL;
 
     if (argstr(0, path, MAXPATH) < 0) {
         debug("parse path error");
@@ -493,11 +491,9 @@ long sys_pipe2(void)
     int fd0, fd1, flags;
     struct proc *p = myproc();
 
-    argint(1, &flags);
-    argu64(0, &fdarray);
-    if (pipealloc(&rf, &wf, flags) < 0)
+    if (argint(1, &flags) < 0 || argu64(0, &fdarray) < 0
+     || pipealloc(&rf, &wf, flags) < 0)
         return -ENFILE;
-
 
     if (flags & ~PIPE2_FLAGS) {
         warn("invalid flags=%d", flags);
@@ -537,9 +533,8 @@ long sys_ioctl(void)
     uint64_t argp;
     int fd;
 
-    argu64(1, &req);
-    argu64(2, &argp);
-    if (argfd(0, &fd, &f) < 0)
+    if (argu64(1, &req) < 0 || argu64(2, &argp) < 0
+     || argfd(0, &fd, &f) < 0)
         return -EINVAL;
 
     trace("fd: %d, f.type: %d, f.major: %d, req: 0x%l016x, p: %p", fd, f->type, f->major, req, argp);
@@ -558,12 +553,9 @@ long sys_fcntl(void)
     struct proc *p = myproc();
     int fd, cmd, args;
 
-    if (argfd(0, &fd, &f) < 0) {
+    if (argfd(0, &fd, &f) < 0
+     || argint(1, &cmd) < 0 || argint(2, &args) < 0)
         return -EINVAL;
-    }
-
-    argint(1, &cmd);
-    argint(2, &args);
 
     trace("fd=%d, cmd=0x%x, args=%d", fd, cmd, args);
 
@@ -602,8 +594,8 @@ long sys_getdents64(void)
     if (argfd(0, &fd, &f) < 0)
         return -EINVAL;
 
-    argu64(1, (uint64_t *)&dirp);
-    argu64(2, &size);
+    if (argu64(1, (uint64_t *)&dirp) < 0 || argu64(2, &size) <0)
+        return -EINVAL;
 
     trace("fd: %d, dirp: %p, count: %ld", fd, dirp, size);
     if (f->ip->type != T_DIR)

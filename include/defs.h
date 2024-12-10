@@ -188,10 +188,10 @@ int             strncmp(const char*, const char*, uint32_t);
 char*           strncpy(char*, const char*, int);
 
 // syscall.c
-void            argaddr(int, uint64_t *);
-void            argint(int, int*);
+int             argaddr(int, uint64_t *);
+int             argint(int, int*);
 int             argstr(int, char*, int);
-void            argu64(int n, uint64_t *u64);
+int             argu64(int n, uint64_t *u64);
 int             fetchstr(uint64_t, char*, int);
 int             fetchaddr(uint64_t, uint64_t*);
 int             fdalloc(struct file *f, int from);

@@ -14,7 +14,8 @@
 long sys_exit(void)
 {
     int n;
-    argint(0, &n);
+    if (argint(0, &n) < 0)
+        return -EINVAL;
     trace("n: %d", n);
     exit(n);
     return 0;  // not reached
@@ -23,7 +24,8 @@ long sys_exit(void)
 long sys_exit_group(void)
 {
     int n;
-    argint(0, &n);
+    if (argint(0, &n) < 0)
+        return -EINVAL;
     trace("n: %d", n);
     exit(n);
     return 0;  // not reached
@@ -40,11 +42,10 @@ long sys_clone(void)
     uint64_t flag, tls;
     int ptid, ctid;
 
-    argu64(0, &flag);
-    argu64(1, (uint64_t *) &childstk);
-    argint(2, &ptid);
-    argu64(3, &tls);
-    argint(4, &ctid);
+    if (argu64(0, &flag) < 0 || argu64(1, (uint64_t *) &childstk) < 0
+     || argint(2, &ptid) < 0 || argu64(3, &tls) < 0
+     || argint(4, &ctid) < 0)
+        return -EINVAL;
 
     trace("flag: 0x%lx, cstk: %p, ptid: %d, tls: 0x%lx, ctid: %d", flag, childstk, ptid, tls, ctid);
     // FIXME: vforkの実装
@@ -64,11 +65,11 @@ long sys_wait4(void)
     int pid, options;
     uint64_t status;
 
-    argint(0, &pid);
-    argu64(1, (uint64_t *)&wstatus);
-    argu64(1, &status);
-    argint(2, &options);
-    argu64(3, (uint64_t *)&ru);
+    if (argint(0, &pid) < 0 || argu64(1, (uint64_t *)&wstatus) < 0
+     || argu64(1, &status) < 0 || argint(2, &options) < 0
+     || argu64(3, (uint64_t *)&ru) < 0)
+        return -EINVAL;
+
     if (ru != 0)
         return -EINVAL;
 
@@ -82,7 +83,9 @@ long sys_brk(void)
     struct proc *p = myproc();
     long newsz, oldsz = (long)p->sz;
 
-    argu64(0, (uint64_t *)&newsz);
+    if (argu64(0, (uint64_t *)&newsz) < 0)
+        return -EINVAL;
+
     if (newsz < 0)
         return oldsz;
 
@@ -104,12 +107,10 @@ size_t sys_mmap(void)
     int prot, flags, fd;
     struct file *f;
 
-    argu64(0, (uint64_t *) &addr);
-    argu64(1, &len);
-    argint(2, &prot);
-    argint(3, &flags);
-    argint(4, &fd);
-    argu64(5, &off);
+    if (argu64(0, (uint64_t *) &addr) < 0 || argu64(1, &len) < 0
+     || argint(2, &prot) < 0 || argint(3, &flags) < 0
+     || argint(4, &fd) < 0 || argu64(5, &off) < 0)
+        return -EINVAL;
 
     debug("addr: %p, len: %ld, prot: 0x%08x, flags: 0x%08x, fd: %d, off: %ld", addr, len, prot, flags, fd, off);
 
@@ -172,8 +173,8 @@ long sys_nanosleep(void)
     struct timespec *req, *rem, t;
     uint64_t expire;
 
-    argu64(0, (uint64_t *)&req);
-    argu64(1, (uint64_t *)&rem);
+    if (argu64(0, (uint64_t *)&req) < 0 || argu64(1, (uint64_t *)&rem) < 0)
+        return -EINVAL;
 
     memmove(&t, req, sizeof(struct timespec));
 
@@ -196,8 +197,8 @@ long sys_kill(void)
 {
     int pid, sig;
 
-    argint(0, &pid);
-    argint(1, &sig);
+    if (argint(0, &pid) < 0 || argint(1, &sig) < 0)
+        return -EINVAL;
 
     // TODO: SIGKILL以外のsignalの処理
     if (sig != 9)
