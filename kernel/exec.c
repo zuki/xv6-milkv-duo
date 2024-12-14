@@ -129,6 +129,7 @@ exec(char *path, char **argv)
     uvmclear(pagetable, sz - 2*PGSIZE);
     sp = sz;
     stackbase = sp - PGSIZE;
+    trace("sp: 0x%lx, base: 0x%lx", sp, stackbase);
 
     // tls用に1ページ確保する
     if ((sz1 = uvmalloc(pagetable, sz, sz + PGSIZE, PTE_W)) == 0) {

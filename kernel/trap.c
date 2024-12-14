@@ -34,7 +34,7 @@ trapinithart(void)
 
 //
 // ユーザ空間からの割り込み、例外、システムコールを処理する
-// trampoline.S から呼び出される
+// trampoline.S から呼び出される(pagetableはカーネル用になっている)
 //
 void
 usertrap(void)
@@ -61,15 +61,15 @@ usertrap(void)
         trace("1: scratch: 0x%l016x, tp: 0x%l016x, pid: %d, p: %p", r_sscratch(), r_tp(), p->pid, p);
 
         if (killed(p)) {
-            debug("scause(8): killed pid: %d", p->pid);
+            warn("scause(8): pid %d has been killed", p->pid);
             exit(-1);
         }
 
-        // sepc はecall命令を指しているがその次の命令に復帰したい
+        // sepc はecall命令を指しているのでその次の命令に復帰するようにする
         p->trapframe->epc += 4;
 
-        // 割り込みは sepc, scause, sstatus を変更するので
-        // これらのレジスタを使い終わった今、割り込みを有効にする
+        // 割り込みは sepc, scause, sstatus を変更するが
+        // これらのレジスタはもう使い終わったので割り込みを有効にする
         intr_on();
         syscall();
         trace("syscall return = 0x%l016x", p->trapframe->a0);
@@ -77,21 +77,22 @@ usertrap(void)
     } else if (which_dev != 0) {
         // ok
     } else {
-        printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-        printf("            sepc=%p stval=%p, tp=0x%l016x\n", r_sepc(), r_stval(), r_tp());
-        trace("3: tp: 0x%l016x, pid: %d, p: %p", r_tp(), p->pid, p);
+        debug("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, r_scause(), r_sepc(), r_stval());
         setkilled(p);
     }
 
     if (killed(p)) {
-        debug("killed pid: %d", p->pid);
+        warn("pid[%d] was killed", p->pid);
         exit(-1);
     }
 
+    // 保留中のシグナルを処理する
+    check_pending_signal();
 
     // タイマー割り込みの場合はCPUを明け渡す.
-    if (which_dev == 2)
+    if (which_dev == 2) {
         yield();
+    }
 
     usertrapret();
 }
@@ -121,7 +122,7 @@ usertrapret(void)
     //p->trapframe->kernel_hartid = (uint64_t)p;
     p->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
 
-    // trampoline.Sのsretがユーザ空間に移動するために使用する
+    // trampoline.Sのsretがユーザ空間に移動できるように
     // レジスタを設定する
 
     // S Previous PrivilegeモードをUserに設定する。
@@ -166,8 +167,8 @@ kerneltrap()
         panic("kerneltrap: interrupts enabled");
 
     if ((which_dev = devintr()) == 0){
-        printf("scause %p\n", scause);
-        printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
+        debug("scause %d", scause);
+        printf("  sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
         panic("kerneltrap");
     }
 

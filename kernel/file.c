@@ -216,6 +216,8 @@ int fileioctl(struct file *f, unsigned long request, void *argp)
     if (f->major < 0 || f->major >= NDEV || !devsw[f->major].ioctl)
         return -EINVAL;
 
+    // FIXME: argpはローカルアドレスがセットされているのでポインタとして
+    // 使用する際は適切にcopyin()すること
     return devsw[f->major].ioctl(1, request, argp);
 }
 

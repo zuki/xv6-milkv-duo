@@ -17,6 +17,9 @@ struct superblock;
 struct emmc;
 struct slab_cache;
 struct rusage;
+struct k_sigaction;
+struct pollfd;
+struct timespec;
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
@@ -75,7 +78,7 @@ void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64_t, uint32_t, uint32_t);
 void            itrunc(struct inode*);
 int             unlink(struct inode *dp, uint32_t off);
-int             getdents(struct file *f, char *data, size_t size);
+int             getdents(struct file *f, uint64_t data, size_t size);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -124,7 +127,7 @@ struct cpu*     getmycpu(void);
 uint64_t        get_timer(uint64_t start);
 int             growproc(int);
 void            kdelay(unsigned long n);
-int             kill(int);
+int             kill(pid_t pid, int sig);
 int             killed(struct proc*);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
@@ -138,9 +141,19 @@ void            sched(void);
 void            setkilled(struct proc*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
-int             wait4(pid_t pid, int *status, int options, struct rusage *ru);
+int             wait4(pid_t pid, uint64_t status, int options, uint64_t ru);
 void            wakeup(void*);
 void            yield(void);
+void            check_pending_signal(void);
+long            sigsuspend(sigset_t *mask);
+long            sigaction(int sig, struct k_sigaction *act, uint64_t oldact);
+long            sigpending(uint64_t pending);
+long            sigprocmask(int how, sigset_t *set, uint64_t oldset);
+long            sigreturn(void);
+//void            flush_signal_handlers(struct proc *p);
+long            ppoll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout_ts, sigset_t *sigmask);
+pid_t           getpgid(pid_t pid);
+long            setpgid(pid_t pid, pid_t pgid);
 
 // rtc.c
 void            rtc_init(void);
@@ -152,6 +165,22 @@ void sbi_set_timer(unsigned long stime_value);
 #else
 static inline void sbiinit(void) { }
 #endif
+
+// signal.c
+int     sigemptyset(sigset_t *set);
+int     sigfillset(sigset_t *set);
+int     sigaddset(sigset_t *set, int signum);
+int     sigdelset(sigset_t *set, int signum);
+int     sigismember(const sigset_t *set, int signum);
+int     sigisemptyset(const sigset_t *set);
+int     signotset(sigset_t *dest, const sigset_t *src);
+int     sigorset(sigset_t *dest, const sigset_t *left, const sigset_t *right);
+int     sigandset(sigset_t *dest, const sigset_t *left, const sigset_t *right);
+int     siginitset(sigset_t *dest, sigset_t *src);
+
+// sigret_syscall.S
+void execute_sigret_syscall_start(void);
+void execute_sigret_syscall_end(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -192,6 +221,7 @@ int             argaddr(int, uint64_t *);
 int             argint(int, int*);
 int             argstr(int, char*, int);
 int             argu64(int n, uint64_t *u64);
+int             argptr(int n, char *pp, size_t size);
 int             fetchstr(uint64_t, char*, int);
 int             fetchaddr(uint64_t, uint64_t*);
 int             fdalloc(struct file *f, int from);

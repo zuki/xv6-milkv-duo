@@ -23,6 +23,7 @@ typedef long        ssize_t;
 
 typedef uint64_t    pde_t;
 typedef int         boot;
+typedef int         pid_t;
 
 typedef uint64_t    dma_addr_t;
 
@@ -52,6 +53,8 @@ typedef int64_t         intptr_t;
 typedef unsigned        wint_t;
 typedef uint16_t        kdev_t;
 typedef uint64_t        handler_t;
+typedef uint64_t        sigset_t;
+typedef uint64_t        nfds_t;
 
 typedef uint32_t    __be32;
 

@@ -9,10 +9,17 @@
 #include <printf.h>
 #include <linux/resources.h>
 #include <linux/wait.h>
+#include <linux/ppoll.h>
+#include <linux/time.h>
 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
+
+struct _q {
+    struct spinlock lock;
+    struct spinlock siglock;
+} q;
 
 struct proc *initproc;
 
@@ -55,6 +62,8 @@ procinit(void)
 
     initlock(&pid_lock, "nextpid");
     initlock(&wait_lock, "wait_lock");
+    initlock(&q.lock, "qlock");
+    initlock(&q.siglock, "siglock");
     for (p = proc; p < &proc[NPROC]; p++) {
         initlock(&p->lock, "proc");
         p->state = UNUSED;
@@ -149,6 +158,7 @@ allocproc(void)
 
 found:
     p->pid = allocpid();
+    p->pgid = p->sid = p->pid;
     p->state = USED;
 
     // Allocate a trapframe page.
@@ -190,12 +200,15 @@ freeproc(struct proc *p)
     p->pagetable = 0;
     p->sz = 0;
     p->pid = 0;
+    p->pgid = 0;
+    p->sid = 0;
     p->fdflag = 0;
     p->parent = 0;
     p->name[0] = 0;
     p->chan = 0;
     p->killed = 0;
     p->xstate = 0;
+    memset(&p->signal, 0, sizeof(struct signal));
     p->state = UNUSED;
 }
 
@@ -326,6 +339,8 @@ fork(void)
         return -1;
     }
     np->sz = p->sz;
+    np->pgid = p->pgid;
+    np->sid = p->sid;
 
     // copy saved user registers.
     *(np->trapframe) = *(p->trapframe);
@@ -339,6 +354,7 @@ fork(void)
             np->ofile[i] = filedup(p->ofile[i]);
     np->fdflag = p->fdflag;
     np->cwd = idup(p->cwd);
+    memmove(&np->signal, &p->signal, sizeof(struct signal));
 
     safestrcpy(np->name, p->name, sizeof(p->name));
 
@@ -361,14 +377,14 @@ fork(void)
 // Caller must hold wait_lock.
 static void reparent(struct proc *p)
 {
-  struct proc *pp;
+    struct proc *pp;
 
-  for(pp = proc; pp < &proc[NPROC]; pp++){
-    if(pp->parent == p){
-      pp->parent = initproc;
-      wakeup(initproc);
+    for (pp = proc; pp < &proc[NPROC]; pp++) {
+        if (pp->parent == p) {
+            pp->parent = initproc;
+            wakeup(initproc);
+        }
     }
-  }
 }
 
 // Exit the current process.  Does not return.
@@ -420,9 +436,9 @@ exit(int status)
 }
 
 // Wait for a child process to exit and return its pid.
-// Return -1 if this process has no children.
+// Return -1 if this process has no children. int *status, struct rusage *ru
 int
-wait4(pid_t pid, int *status, int options, struct rusage *ru)
+wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
 {
     struct proc *pp;
     int rpid, kids;
@@ -437,11 +453,11 @@ wait4(pid_t pid, int *status, int options, struct rusage *ru)
             if (pid > 0) {
                 if (pp->pid != pid) continue;
             } else if (pid == 0) {
-                //if (pp->pgid != p->pgid)
-                //        continue;
+                if (pp->pgid != p->pgid)
+                    continue;
             } else if (pid != -1) {
-                //if (pp->pgid != -pid)
-                //        continue;
+                if (pp->pgid != -pid)
+                    continue;
             }
             // make sure the child isn't still in exit() or swtch().
             acquire(&pp->lock);
@@ -451,14 +467,23 @@ wait4(pid_t pid, int *status, int options, struct rusage *ru)
                 || (options & WNOHANG)) {
                 if (status) {
                     int xstate = (pp->xstate << 8);
-                    if (copyout(p->pagetable, (uint64_t)status, (char *)&xstate,
+                    trace("pp->xstate: 0x%08x, xstate: 0x%08x, &xstate: 0x%lx, status: 0x%lx, size: %ld", pp->xstate, xstate, &xstate, status, sizeof(int));
+                    if (copyout(p->pagetable, status, (char *)&xstate,
                                         sizeof(int)) < 0) {
                         release(&pp->lock);
                         release(&wait_lock);
-                        return -EINVAL;
+                        return -EFAULT;
                     }
                 }
-                if (ru) memset(ru, 0, sizeof(struct rusage));
+                if (ru) {
+                    struct rusage rusage;
+                    if (copyout(p->pagetable, ru, (char *)&rusage,
+                                        sizeof(struct rusage)) < 0) {
+                        release(&pp->lock);
+                        release(&wait_lock);
+                        return -EFAULT;
+                    }
+                }
                 rpid = pp->pid;
                 freeproc(pp);
                 release(&pp->lock);
@@ -557,11 +582,11 @@ sched(void)
 void
 yield(void)
 {
-  struct proc *p = myproc();
-  acquire(&p->lock);
-  p->state = RUNNABLE;
-  sched();
-  release(&p->lock);
+    struct proc *p = myproc();
+    acquire(&p->lock);
+    p->state = RUNNABLE;
+    sched();
+    release(&p->lock);
 }
 
 
@@ -571,30 +596,30 @@ yield(void)
 void
 sleep(void *chan, struct spinlock *lk)
 {
-  struct proc *p = myproc();
+    struct proc *p = myproc();
 
-  // Must acquire p->lock in order to
-  // change p->state and then call sched.
-  // Once we hold p->lock, we can be
-  // guaranteed that we won't miss any wakeup
-  // (wakeup locks p->lock),
-  // so it's okay to release lk.
+    // Must acquire p->lock in order to
+    // change p->state and then call sched.
+    // Once we hold p->lock, we can be
+    // guaranteed that we won't miss any wakeup
+    // (wakeup locks p->lock),
+    // so it's okay to release lk.
 
-  acquire(&p->lock);  //DOC: sleeplock1
-  release(lk);
+    acquire(&p->lock);  //DOC: sleeplock1
+    release(lk);
 
-  // Go to sleep.
-  p->chan = chan;
-  p->state = SLEEPING;
+    // Go to sleep.
+    p->chan = chan;
+    p->state = SLEEPING;
 
-  sched();
+    sched();
 
-  // Tidy up.
-  p->chan = 0;
+    // Tidy up.
+    p->chan = 0;
 
-  // Reacquire original lock.
-  release(&p->lock);
-  acquire(lk);
+    // Reacquire original lock.
+    release(&p->lock);
+    acquire(lk);
 }
 
 // Wake up all processes sleeping on chan.
@@ -602,41 +627,218 @@ sleep(void *chan, struct spinlock *lk)
 void
 wakeup(void *chan)
 {
-  struct proc *p;
+    struct proc *p;
 
-  for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
-      acquire(&p->lock);
-      if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
-      }
-      release(&p->lock);
+    for(p = proc; p < &proc[NPROC]; p++) {
+        if (p != myproc()) {
+            acquire(&p->lock);
+            if (p->state == SLEEPING && p->chan == chan) {
+                p->state = RUNNABLE;
+            }
+            release(&p->lock);
+        }
     }
-  }
+}
+
+// プロセスを停止する
+static void term_handler(struct proc *p)
+{
+    trace("pid=%d", p->pid);
+    acquire(&p->lock);
+    p->killed = 1;
+    if (p->state == SLEEPING)
+        p->state = RUNNABLE;
+    release(&p->lock);
+}
+
+// プロセスを継続する
+static void cont_handler(struct proc *p)
+{
+    trace("pid=%d", p->pid);
+    wakeup(p);
+}
+
+// プロセスを停止する
+static void stop_handler(struct proc *p)
+{
+    trace("pid=%d", p->pid);
+    acquire(&q.lock);
+    sleep(p, &q.lock);
+    release(&q.lock);
+}
+
+// ユーザハンドラを処理する
+static void user_handler(struct proc *p, int sig)
+{
+    trace("sig=%d", sig);
+#if 0
+    uint64_t sp = p->trapframe->sp;
+
+    // カレントトラップフレームをカーネルスタックからユーザスタックへ保存する
+    sp -= sizeof(struct trapframe);
+    sp -= sp % 16;
+    trace("[0]: 0x%lx, tf: 0x%lx, size: %ld", sp, p->trapframe, sizeof(struct trapframe));
+    either_copyout(1, sp, (char *)p->trapframe, sizeof(struct trapframe));
+    p->oldtf = (struct trapframe *)sp;
+
+    p->trapframe->sp = sp;
+    // ここまではsys_rt_sigreturnに必要か?
+
+    // sigret_syscall.S のコードをユーザスタックにセットする
+    void *sig_ret_code_addr = (void *)&execute_sigret_syscall_start;
+    uint64_t sig_ret_code_size = (uint64_t)&execute_sigret_syscall_end - (uint64_t)&execute_sigret_syscall_start;
+    trace("sigret: 0x%lx - 0x%lx, len: %ld", &execute_sigret_syscall_end, &execute_sigret_syscall_start, sig_ret_code_size);
+
+    // return addr for handler
+    sp -= sig_ret_code_size;
+    sp -= sp % 16;
+    uint64_t handler_ret_addr = sp;
+    debug("[1]: 0x%lx, start: 0x%lx, size: %ld", sp, sig_ret_code_addr, sig_ret_code_size);
+    either_copyout(1, sp, (char *)sig_ret_code_addr, sig_ret_code_size);
+
+    p->trapframe->a0 = sig;
+
+    // Push the return address of sigret function
+    sp -= sizeof(uint64_t);
+    sp -= sp % 16;
+    debug("sp: 0x%lx, ra: 0x%lx", sp, handler_ret_addr);
+    either_copyout(1, sp, (char *)&handler_ret_addr, sizeof(uint64_t));
+
+    // change the sp stored in tf
+    p->trapframe->sp = sp;
+#endif
+
+    // now change the eip to point to the user handler
+    trace("act[%d].handler: %p", sig, p->signal.actions[sig].sa_handler);
+    p->trapframe->epc = (uint64_t)p->signal.actions[sig].sa_handler;
+}
+
+// シグナルを処理する
+static void handle_signal(struct proc *p, int sig)
+{
+    trace("[%d]: sig=%d, handler=0x%lx", p->pid, sig, p->signal.actions[sig].sa_handler);
+
+    if (!sig) return;
+
+    if (p->signal.actions[sig].sa_handler == SIG_IGN) {
+        trace("sig %d handler is SIG_IGN", sig);
+    } else if (p->signal.actions[sig].sa_handler == SIG_DFL) {
+        switch(sig) {
+            case SIGSTOP:
+            case SIGTSTP:
+            case SIGTTIN:
+            case SIGTTOU:
+                stop_handler(p);
+                break;
+            case SIGCONT:
+                cont_handler(p);
+                break;
+            case SIGABRT:
+            case SIGBUS:
+            case SIGFPE:
+            case SIGILL:
+            case SIGQUIT:
+            case SIGSEGV:
+            case SIGSYS:
+            case SIGTRAP:
+            case SIGXCPU:
+            case SIGXFSZ:
+                // Core: through
+            case SIGALRM:
+            case SIGHUP:
+            case SIGINT:
+            case SIGIO:
+            case SIGKILL:
+            case SIGPIPE:
+            case SIGPROF:
+            case SIGPWR:
+            case SIGTERM:
+            case SIGSTKFLT:
+            case SIGUSR1:
+            case SIGUSR2:
+            case SIGVTALRM:
+                term_handler(p);
+                break;
+            case SIGCHLD:
+            case SIGURG:
+            case SIGWINCH:
+                // Doubt - ignore handler()
+                break;
+            default:
+                break;
+        }
+    } else {
+        trace("call user_handler: sig = %d", sig);
+        user_handler(p, sig);
+    }
+
+    // clear the pending signal flag
+    acquire(&q.siglock);
+    sigdelset(&p->signal.pending, sig);
+    release(&q.siglock);
+}
+
+// IDがpidのプロセスにシグナルsigを送信する
+static void send_signal(struct proc *p, int sig)
+{
+    trace("pid=%d, sig=%d, state=%d, paused=%d", p->pid, sig, p->state, p->paused);
+    if (sig == SIGKILL) {
+        p->killed = 1;
+    } else {
+        if (!sigismember(&p->signal.pending, sig))
+            sigaddset(&p->signal.pending, sig);
+        else
+            debug("sig already pending");
+    }
+
+    if (p->state == SLEEPING) {
+        if (p->paused == 1 && (sig == SIGTERM || sig == SIGINT || sig == SIGKILL)) {
+            // For process which are SLEEPING by pause()
+            p->paused = 0;
+            handle_signal(p, SIGCONT);
+        } else if (p->paused == 0 && p->killed != 1) {
+            // For stopped process
+            handle_signal(p, sig);
+        }
+    }
 }
 
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
 // to user space (see usertrap() in trap.c).
-int
-kill(int pid)
+int kill(pid_t pid, int sig)
 {
-  struct proc *p;
+    struct proc *p, *cp = myproc();
+    pid_t pgid;
+    int err = -EINVAL;
 
-  for(p = proc; p < &proc[NPROC]; p++){
-    acquire(&p->lock);
-    if(p->pid == pid){
-      p->killed = 1;
-      if(p->state == SLEEPING){
-        // Wake process from sleep().
-        p->state = RUNNABLE;
-      }
-      release(&p->lock);
-      return 0;
+    if (pid == 0 || pid < -1) {
+        pgid = pid == 0 ? cp->pgid : -pid;
+        if (pgid > 0) {
+            err = -ESRCH;
+            for (p = proc; p < &proc[NPROC]; p++) {
+                if (p->pgid == pgid) {
+                    send_signal(p, sig);
+                    err = 0;
+                }
+            }
+        }
+    } else if (pid == -1) {
+        for (p = proc; p < &proc[NPROC]; p++) {
+            if (p->pid > 1 && p != cp) {
+                send_signal(p, sig);
+                err = 0;
+            }
+        }
+    } else {
+        for (p = proc; p < &proc[NPROC]; p++) {
+            if (p->pid == pid) {
+                send_signal(p, sig);
+                err = 0;
+            }
+        }
     }
-    release(&p->lock);
-  }
-  return -1;
+    return err;
 }
 
 void
@@ -664,13 +866,13 @@ killed(struct proc *p)
 int
 either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len)
 {
-  struct proc *p = myproc();
-  if(user_dst){
-    return copyout(p->pagetable, dst, src, len);
-  } else {
-    memmove((char *)dst, src, len);
-    return 0;
-  }
+    struct proc *p = myproc();
+    if (user_dst) {
+        return copyout(p->pagetable, dst, src, len);
+    } else {
+        memmove((char *)dst, src, len);
+        return 0;
+    }
 }
 
 /*
@@ -750,4 +952,225 @@ delayus(unsigned long n)
 uint64_t get_timer(uint64_t start)
 {
     return (r_time() / US_INTERVAL) / 1000 - start;
+}
+
+// sys_rt_sigsuspendの実装
+long sigsuspend(sigset_t *mask)
+{
+    struct proc *p = myproc();
+    sigset_t oldmask;
+
+    acquire(&q.siglock);
+    p->paused = 1;
+    sigdelset(mask, SIGKILL);
+    sigdelset(mask, SIGSTOP);
+    oldmask = p->signal.mask;
+    siginitset(&p->signal.mask, mask);
+    release(&q.siglock);
+
+    acquire(&q.lock);
+    sleep(p, &q.lock);
+    release(&q.lock);
+
+    acquire(&q.siglock);
+    p->signal.mask = oldmask;
+    release(&q.siglock);
+    return -EINTR;
+}
+
+// sys_rt_sigactionの実装
+
+long sigaction(int sig, struct k_sigaction *act,  uint64_t oldact)
+{
+    acquire(&q.siglock);
+    struct signal *signal = &myproc()->signal;
+
+    if (oldact) {
+        struct sigaction *action = &signal->actions[sig];
+        struct k_sigaction kaction;
+        kaction.handler = action->sa_handler;
+        kaction.flags = (unsigned long)action->sa_flags;
+        memmove((void *)&kaction.mask, &action->sa_mask, 8);
+        if (copyout(myproc()->pagetable, oldact, (char *)&kaction, sizeof(struct k_sigaction)) < 0)
+            return -EFAULT;
+    }
+
+    if (act) {
+        struct sigaction *action = &signal->actions[sig];
+        action->sa_handler = act->handler;
+        action->sa_flags = (int)act->flags;
+        memmove((void *)&action->sa_mask, &act->mask, 8);
+        signal->mask = action->sa_mask;
+        sigdelset(&signal->mask, SIGKILL);
+        sigdelset(&signal->mask, SIGSTOP);
+    }
+    release(&q.siglock);
+
+    return 0;
+}
+
+// sys_rt_sigpendingの実装
+long sigpending(uint64_t pending)
+{
+    long err = 0;
+
+    acquire(&q.siglock);
+    struct proc *p = myproc();
+    if (copyout(p->pagetable, pending, (char *)&p->signal.pending, sizeof(sigset_t)) < 0)
+        err = -EFAULT;
+    release(&q.siglock);
+    return err;
+}
+
+// sys_rt_sigprocmaskの実装
+long sigprocmask(int how, sigset_t *set, uint64_t oldset)
+{
+    long ret = 0;
+
+    acquire(&q.siglock);
+    struct signal *signal = &myproc()->signal;
+    if (oldset) {
+        if (copyout(myproc()->pagetable, oldset, (char *)&signal->mask, sizeof(sigset_t)) < 0)
+            return -EFAULT;
+    }
+
+    if (set) {
+        switch(how) {
+            case SIG_BLOCK:
+                sigorset(&signal->mask, &signal->mask, set);
+                break;
+            case SIG_UNBLOCK:
+                signotset(set, set);
+                sigandset(&signal->mask, &signal->mask, set);
+                break;
+            case SIG_SETMASK:
+                siginitset(&signal->mask, set);
+                break;
+            default:
+                ret = -EINVAL;
+        }
+    }
+    trace(" newmask=0x%lx", signal->mask);
+    release(&q.siglock);
+    return ret;
+}
+
+// sys_rt_sigreturnの実装
+//   signal_handler処理後の後始末をする
+long sigreturn(void)
+{
+    memmove((void *)myproc()->trapframe, (void *)myproc()->oldtf, sizeof(struct trapframe));
+    return 0;
+}
+
+// trap処理終了後、ユーザモードに戻る前に実行される
+void check_pending_signal(void)
+{
+    struct proc *p = myproc();
+
+    for (int sig = 0; sig < NSIG; sig++) {
+        if (sigismember(&p->signal.pending, sig) == 1) {
+            trace("pid=%d, sig=%d", p->pid, sig);
+            handle_signal(p, sig);
+            break;
+        }
+    }
+}
+
+long ppoll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout_ts, sigset_t *sigmask) {
+    struct proc *p = myproc();
+    sigset_t origmask = p->signal.mask;
+
+    if (fds == NULL) {
+        p->paused = 1;
+        acquire(&q.lock);
+        sleep(p, &q.lock);
+        release(&q.lock);
+    }
+
+    // FIXME:
+    for (int i = 0; i < nfds; i++) {
+        fds[i].revents = fds[i].fd == 0 ? POLLIN : POLLOUT;
+    }
+
+    siginitset(&p->signal.mask, &origmask);
+
+    if (fds)
+        kfree(fds);
+
+    return 0;
+}
+
+long setpgid(pid_t pid, pid_t pgid)
+{
+    struct proc *cp = myproc(), *p = 0, *pp;
+    long error = -EINVAL;
+
+    if (!pid) pid = cp->pid;
+    if (!pgid) pgid = pid;
+    if (pgid < 0) return -EINVAL;
+
+    if (pid != cp->pid) {
+        for (pp = proc; pp < &proc[NPROC]; pp++) {
+            acquire(&pp->lock);
+            if (pp->pid == pid) {
+                p = pp;
+                release(&pp->lock);
+                break;
+            }
+            release(&pp->lock);
+        }
+        error = -ESRCH;
+        if (!p) goto out;
+    } else {
+        p = cp;
+    }
+
+    error = -EINVAL;
+    if (p->parent == cp) {
+        error = -EPERM;
+        if (p->sid != cp->sid) goto out;
+    } else {
+        error = -ESRCH;
+        if (p != cp) goto out;
+    }
+
+    if (pgid != pid) {
+        for (pp = proc; pp < &proc[NPROC]; pp++) {
+            acquire(&pp->lock);
+            if (pp->sid == cp->sid) {
+                release(&pp->lock);
+                goto ok_pgid;
+            }
+            release(&pp->lock);
+        }
+        goto out;
+    }
+
+ok_pgid:
+    if (cp->pgid != pgid) {
+        cp->pgid = pgid;
+    }
+    error = 0;
+out:
+    return error;
+}
+
+pid_t getpgid(pid_t pid)
+{
+    struct proc *p;
+
+    if (!pid) {
+        return myproc()->pgid;
+    } else {
+        for (p = proc; p < &proc[NPROC]; p++) {
+            acquire(&p->lock);
+            if (p->pid == pid) {
+                release(&p->lock);
+                return p->pgid;
+            }
+            release(&p->lock);
+        }
+        return -ESRCH;
+    }
 }

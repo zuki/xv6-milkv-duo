@@ -8,13 +8,26 @@
 #include <defs.h>
 #include <printf.h>
 #include <errno.h>
+#include <linux/time.h>
+
+// 指定されたアドレスがカレントプロセスのユーザアドレス範囲にあるかチェックする
+static int in_user(uint64_t addr, size_t n)
+{
+    struct proc *p = myproc();
+    if (addr >= p->sz || addr + sizeof(uint64_t) > p->sz) {
+        debug("wrong addr: 0x%lx, p->sz: 0x%lx", addr, p->sz);
+        return 0;
+    }
+    return 1;
+}
 
 // カレントプロセスのaddrにあるuint64_tを取得する
+// TODO: argptrに置き換え
 int fetchaddr(uint64_t addr, uint64_t *ip)
 {
     struct proc *p = myproc();
     if (addr >= p->sz || addr + sizeof(uint64_t) > p->sz) {
-        debug("addr; 0x%l016x, p->sz: 0x%l016x", addr, p->sz);
+        debug("addr; 0x%lx, p->sz: 0x%lx", addr, p->sz);
         return -1;
     }
 
@@ -80,6 +93,33 @@ int argint(int n, int *ip)
     return 0;
 }
 
+// n番目の引数をsizeバイトのブロックへのユーザ空間のアドレスとして
+// カーネル空間のppにcopinする
+// そのポインタがカレントプロセスのユーザ空間にあるかチェックする
+//  *p = 0 の場合は成功とする
+int argptr(int n, char *pp, size_t size)
+{
+    uint64_t addr;
+
+    if (argu64(n, &addr) < 0) {
+        return -1;
+    }
+
+    trace("n: %d, pp: %p, addr: 0x%lx", n, pp, addr);
+    if (addr == 0) {
+        pp = (char *)0;
+        return 0;
+    }
+
+    if (in_user(addr, size)) {
+        if (copyin(myproc()->pagetable, pp, addr, size) < 0)
+            return -1;
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 // 引数をアドレス値として取り出す.
 // 値の正当性はcopyin/copyoutで行われるのでここではチェックしない
 #if 0
@@ -123,6 +163,7 @@ extern long sys_brk(void);
 extern long sys_nanosleep(void);
 extern long sys_uptime(void);
 extern long sys_openat(void);
+extern long sys_ppoll(void);
 extern long sys_write(void);
 extern long sys_writev(void);
 extern long sys_mknodat(void);
@@ -132,36 +173,30 @@ extern long sys_mkdirat(void);
 extern long sys_close(void);
 extern long sys_ioctl(void);
 extern long sys_mmap(void);
+extern long sys_rt_sigsuspend(void);
+extern long sys_rt_sigaction(void);
+extern long sys_rt_sigprocmask(void);
+extern long sys_rt_sigpending(void);
+extern long sys_rt_sigreturn(void);
 extern long sys_sysinfo(void);
 extern long sys_set_tid_address(void);
-
-long sys_rt_sigprocmask(void) {
-    int how;
-    uint64_t set, oldset, size;
-
-    if (argint(0, &how) < 0 || argu64(1, &set) < 0
-     || argu64(2, &oldset) < 0 || argu64(3, &size) < 0) {
-        return -EINVAL;
-    }
-    trace("how: %d, set: 0x%l016x, oldset:0x%l016x, size: 0x%l016x", how, set, oldset, size);
-
-    return 0;
-}
+extern long sys_setpgid(void);
+extern long sys_getpgid(void);
 
 long sys_futex(void) {
-    int *uaddr = 0, *uaddr2 = 0;
+    uint64_t uaddr, uaddr2;
     int op, val, val3;
-    struct timespec *timeout;
+    struct timespec timeout;
     static int count = 0;
 
-    if (argu64(0, (uint64_t *)&uaddr) < 0 || argint(1, &op) < 0
-     || argint(2, &val) < 0 || argu64(3, (uint64_t *)&timeout) < 0
-     || argu64(4, (uint64_t *)&uaddr2) < 0 || argint(5, &val3) < 0) {
+    if (argu64(0, &uaddr) < 0 || argint(1, &op) < 0
+     || argint(2, &val) < 0 || argptr(3, (char *)&timeout, sizeof(struct timespec)) < 0
+     || argu64(4, &uaddr2) < 0 || argint(5, &val3) < 0) {
         return -EINVAL;
     }
 
     if (++count < 5) {
-        debug("uaddr: %p, op: %d, val: %d, timeout: %p, uaddr2: %p, val3: %d", uaddr, op, val, timeout, uaddr2, val3);
+        debug("uaddr: 0x%lx, op: %d, val: %d, timeout: %p, uaddr2: 0x%lx, val3: %d", uaddr, op, val, &timeout, uaddr2, val3);
     }
     if (op & 128)
         return -ENOSYS;
@@ -172,38 +207,45 @@ long sys_futex(void) {
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static func syscalls[] = {
-    [SYS_dup]       = sys_dup,
-    [SYS_fcntl]     = sys_fcntl,
-    [SYS_ioctl]     = sys_ioctl,
-    [SYS_mknodat]   = sys_mknodat,
-    [SYS_mkdirat]   = sys_mkdirat,
-    [SYS_unlinkat]  = sys_unlinkat,
-    [SYS_linkat]    = sys_linkat,
-    [SYS_chdir]     = sys_chdir,
-    [SYS_openat]    = sys_openat,
-    [SYS_close]     = sys_close,
-    [SYS_pipe2]     = sys_pipe2,
-    [SYS_getdents64] = sys_getdents64,
-    [SYS_read]      = sys_read,
-    [SYS_write]     = sys_write,
-    [SYS_readv]     = sys_readv,
-    [SYS_writev]    = sys_writev,
-    [SYS_fstat]     = sys_fstat,
-    [SYS_newfstatat] = sys_fstatat,
-    [SYS_exit]      = sys_exit,
-    [SYS_exit_group] = sys_exit_group,
-    [SYS_futex]     = sys_futex,
-    [SYS_nanosleep] = sys_nanosleep,
-    [SYS_kill]      = sys_kill,
-    [SYS_rt_sigprocmask] = sys_rt_sigprocmask,
-    [SYS_getpid]    = sys_getpid,
-    [SYS_sysinfo]   = sys_sysinfo,
-    [SYS_brk]       = sys_brk,
-    [SYS_clone]     = sys_clone,
-    [SYS_execve]    = sys_execve,
-    [SYS_mmap]      = sys_mmap,
-    [SYS_wait4]     = sys_wait4,
-    [SYS_set_tid_address] = sys_set_tid_address,
+    [SYS_dup]       = sys_dup,                  //  23
+    [SYS_fcntl]     = sys_fcntl,                //  25
+    [SYS_ioctl]     = sys_ioctl,                //  29
+    [SYS_mknodat]   = sys_mknodat,              //  33
+    [SYS_mkdirat]   = sys_mkdirat,              //  34
+    [SYS_unlinkat]  = sys_unlinkat,             //  35
+    [SYS_linkat]    = sys_linkat,               //  37
+    [SYS_chdir]     = sys_chdir,                //  49
+    [SYS_openat]    = sys_openat,               //  56
+    [SYS_close]     = sys_close,                //  57
+    [SYS_pipe2]     = sys_pipe2,                //  59
+    [SYS_getdents64] = sys_getdents64,          //  61
+    [SYS_read]      = sys_read,                 //  63
+    [SYS_write]     = sys_write,                //  64
+    [SYS_readv]     = sys_readv,                //  65
+    [SYS_writev]    = sys_writev,               //  66
+    [SYS_ppoll]     = sys_ppoll,                // 73
+    [SYS_newfstatat] = sys_fstatat,             //  79
+    [SYS_fstat]     = sys_fstat,                //  80
+    [SYS_exit]      = sys_exit,                 //  93
+    [SYS_exit_group] = sys_exit_group,          //  94
+    [SYS_set_tid_address] = sys_set_tid_address,    //  96
+    [SYS_futex]     = sys_futex,                //  98
+    [SYS_nanosleep] = sys_nanosleep,            // 101
+    [SYS_kill]      = sys_kill,                 // 129
+    [SYS_rt_sigsuspend] = sys_rt_sigsuspend,    // 133
+    [SYS_rt_sigaction] = sys_rt_sigaction,      // 134
+    [SYS_rt_sigprocmask] = sys_rt_sigprocmask,  // 135
+    [SYS_rt_sigpending] = sys_rt_sigpending,    // 136
+    [SYS_rt_sigreturn] = sys_rt_sigreturn,      // 139
+    [SYS_setpgid]   = sys_setpgid,              // 154
+    [SYS_getpgid]   = sys_getpgid,              // 155
+    [SYS_getpid]    = sys_getpid,               // 172
+    [SYS_sysinfo]   = sys_sysinfo,              // 179
+    [SYS_brk]       = sys_brk,                  // 214
+    [SYS_clone]     = sys_clone,                // 220
+    [SYS_execve]    = sys_execve,               // 221
+    [SYS_mmap]      = sys_mmap,                 // 222
+    [SYS_wait4]     = sys_wait4,                // 260
 };
 
 __attribute__((unused)) static char *syscall_names[] = {
@@ -317,6 +359,8 @@ void syscall(void)
     if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
         // Use num to lookup the system call function for num, call it,
         // and store its return value in p->trapframe->a0
+        trace("[%s] a0: 0x%l016x, a1: 0x%l016x, a2: 0x%l016x, a3: 0x%l016x, a4: 0x%l016x", syscall_names[num],
+            p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3);
         ret = syscalls[num]();
 #if 0
         if (num == SYS_mmap || num == SYS_brk  || num == SYS_getdents64) {

@@ -734,7 +734,7 @@ int unlink(struct inode *dp, uint32_t off)
     return 0;
 }
 
-int getdents(struct file *f, char *data, size_t size)
+int getdents(struct file *f, uint64_t data, size_t size)
 {
     ssize_t n;
     int namelen, reclen, tlen = 0, off = 0;
@@ -742,7 +742,7 @@ int getdents(struct file *f, char *data, size_t size)
     struct dirent64 de64;
     struct inode *dirip;
 
-    trace("ip: %d, data: %p, size: %ld", f->ip->inum, data, size);
+    trace("ip: %d, data: 0x%lx, size: %ld", f->ip->inum, data, size);
     while (1) {
         n = fileread(f, (uint64_t)&de, sizeof(struct dirent), 0);
         //debug("n: %kd, de: de.inum: %d, name: %s", n, de.inum, de.name);
@@ -796,9 +796,9 @@ int getdents(struct file *f, char *data, size_t size)
 
         strncpy(de64.d_name, de.name, namelen);
 
-        if (copyout(myproc()->pagetable, (uint64_t)data + tlen, (char *)&de64, reclen) < 0) {
+        if (copyout(myproc()->pagetable, data + tlen, (char *)&de64, reclen) < 0) {
             error("failed copyout");
-            return -EINVAL;
+            return -EFAULT;
         }
 
         tlen += reclen;

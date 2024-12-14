@@ -434,7 +434,7 @@ long sys_execve(void)
         return -EINVAL;
 
     if (argstr(0, path, MAXPATH) < 0) {
-        debug("parse path error");
+        warn("parse path error");
         return -EINVAL;
     }
     memset(argv, 0, sizeof(argv));
@@ -444,6 +444,7 @@ long sys_execve(void)
             error = -E2BIG;
             goto bad;
         }
+        // TODO: arg@trで書き換え
         if (fetchaddr(uargv + sizeof(uint64_t)*i, (uint64_t*)&uarg) < 0) {
             error("fetchaddr error: uarg[%d]", i);
             error = -EFAULT;
@@ -540,7 +541,7 @@ long sys_ioctl(void)
     trace("fd: %d, f.type: %d, f.major: %d, req: 0x%l016x, p: %p", fd, f->type, f->major, req, argp);
 
     if (f->type != FD_INODE && f->ip->type != T_DEVICE) {
-        debug("bad type: %d, %d", f->type, f->ip->type);
+        warn("bad type: %d, %d", f->type, f->ip->type);
         return -ENOTTY;
     }
 
@@ -587,17 +588,21 @@ long sys_fcntl(void)
 long sys_getdents64(void)
 {
     int fd;
-    char *dirp;
+    uint64_t dirp;
     uint64_t size;
     struct file *f;
 
-    if (argfd(0, &fd, &f) < 0)
+    if (argfd(0, &fd, &f) < 0) {
+        if (f == 0)
+            return -ENOENT;
+        else
+            return -EINVAL;
+    }
+
+    if (argu64(1, &dirp) < 0 || argu64(2, &size) <0)
         return -EINVAL;
 
-    if (argu64(1, (uint64_t *)&dirp) < 0 || argu64(2, &size) <0)
-        return -EINVAL;
-
-    trace("fd: %d, dirp: %p, count: %ld", fd, dirp, size);
+    trace("fd: %d, dirp: 0x%lx, count: %ld", fd, dirp, size);
     if (f->ip->type != T_DIR)
         return -ENOTDIR;
 

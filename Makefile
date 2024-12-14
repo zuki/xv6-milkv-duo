@@ -35,7 +35,8 @@ OBJS = \
   $K/buddy.o \
   $K/slab.o \
   $K/page.o \
-  $K/rtc.o
+  $K/rtc.o \
+  $K/signal.o
 
 $K/ramdisk_data.o: fs.img
 
@@ -114,7 +115,10 @@ UPROGS=\
 	$U/rm\
 	$U/sh\
 	$U/wc\
-	$U/zombie
+	$U/zombie \
+	$U/sigtest\
+	$U/sigtest2\
+	$U/sigtest3
 
 fs.img: mkfs/mkfs README.md $(UPROGS)
 	mkfs/mkfs fs.img README.md $(UPROGS)

@@ -1,12 +1,13 @@
 #include <common/param.h>
 #include <common/types.h>
 #include <common/memlayout.h>
-#include "elf.h"
+#include <elf.h>
 #include <common/riscv.h>
-#include "defs.h"
+#include <defs.h>
 #include <common/fs.h>
-#include "config.h"
-#include "emmc.h"
+#include <config.h>
+#include <emmc.h>
+#include <printf.h>
 
 /*
  * the kernel's page table.
@@ -314,34 +315,34 @@ uvmfree(pagetable_t pagetable, uint64_t sz)
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
 {
-  pte_t *pte;
-  uint64_t pa, i;
-  uint64_t flags;
-  char *mem;
+    pte_t *pte;
+    uint64_t pa, i;
+    uint64_t flags;
+    char *mem;
 
-  for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64_t)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+    for (i = 0; i < sz; i += PGSIZE) {
+        if ((pte = walk(old, i, 0)) == 0)
+            panic("uvmcopy: pte should exist");
+        if ((*pte & PTE_V) == 0)
+            panic("uvmcopy: page not present");
+        pa = PTE2PA(*pte);
+        flags = PTE_FLAGS(*pte);
+        if ((mem = kalloc()) == 0)
+            goto err;
+        memmove(mem, (char*)pa, PGSIZE);
+        if (mappages(new, i, PGSIZE, (uint64_t)mem, flags) != 0) {
+            kfree(mem);
+            goto err;
+        }
     }
-  }
-  // Synchronize the instruction and data streams,
-  // since we may copy pages with instructions.
-  asm volatile("fence.i");
-  return 0;
+    // Synchronize the instruction and data streams,
+    // since we may copy pages with instructions.
+    asm volatile("fence.i");
+    return 0;
 
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
+    err:
+    uvmunmap(new, 0, i / PGSIZE, 1);
+    return -1;
 }
 
 // ユーザーアクセスに対してPTEを無効とマークする。
@@ -369,12 +370,19 @@ copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
     while (len > 0) {
         va0 = PGROUNDDOWN(dstva);
         pa0 = walkaddr(pagetable, va0);
-        if (pa0 == 0)
+        if (pa0 == 0) {
+            trace("pa0 = 0: dstva: 0x%lx (va0: 0x%lx)", dstva, va0);
             return -1;
+        }
+
         n = PGSIZE - (dstva - va0);
         if (n > len)
             n = len;
-        memmove((void *)(pa0 + (dstva - va0)), src, n);
+        trace("memmove: dst: 0x%lx (pa0: 0x%lx + dstva: 0x%lx - va0: 0x%lx), src: %p, n: %ld", pa0 + (dstva - va0), pa0, dstva, va0, src, n);
+        if (memmove((void *)(pa0 + (dstva - va0)), src, n) < 0) {
+            warn("memmove error: dst: 0x%lx (pa0: 0x%lx + dstva: 0x%lx - va0: 0x%lx), src: %p, n: %ld", pa0 + (dstva - va0), pa0, dstva, va0, src, n);
+            return -1;
+        }
 
         len -= n;
         src += n;
@@ -389,18 +397,23 @@ copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
 // 成功したら0を返し、エラーなら-1を返す。
 int copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)
 {
+    trace("dst: %p, srcva: 0x%lx, len: %ld", dst, srcva, len);
     uint64_t n, va0, pa0;
 
     while (len > 0) {
         va0 = PGROUNDDOWN(srcva);
         pa0 = walkaddr(pagetable, va0);
-        if (pa0 == 0)
+        if (pa0 == 0) {
+            trace("pa0 = 0: srcva: 0x%lx (va0: 0x%lx)", srcva, va0);
             return -1;
+        }
         n = PGSIZE - (srcva - va0);
         if (n > len)
             n = len;
-        memmove(dst, (void *)(pa0 + (srcva - va0)), n);
-
+        if (memmove(dst, (void *)(pa0 + (srcva - va0)), n) < 0) {
+            warn("memmove error: dst: %p, src: 0x%lx, n: %ld, (pa0: 0x%lx + srcva: 0x%lx - va0: 0x%lx)", dst, pa0 + (srcva - va0), n, pa0, srcva, va0);
+            return -1;
+        }
         len -= n;
         dst += n;
         srcva = va0 + PGSIZE;

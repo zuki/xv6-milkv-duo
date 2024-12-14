@@ -1,6 +1,10 @@
 #ifndef INC_PROC_H
 #define INC_PROC_H
 
+#include <common/types.h>
+#include <common/param.h>
+#include <linux/signal.h>
+
 // カーネルコンテキストスイッチ用に保存するレジスタ.
 struct context {
     uint64_t ra;
@@ -84,6 +88,12 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct signal {
+    sigset_t mask;
+    sigset_t pending;
+    struct sigaction actions[NSIG];
+};
+
 // プロセスごとの状態
 struct proc {
     struct spinlock lock;
@@ -92,8 +102,11 @@ struct proc {
     enum procstate state;           // プロセスの状態
     void *chan;                     // 0でない場合、chanでsleep中
     int killed;                     // 0でない場合、プロセスはkillされた
+    int paused;                     // 一時停止しているか
     int xstate;                     // 親のwait()に返すExit状態
-    int pid;                        // プロセス ID
+    pid_t pid;                      // プロセス ID
+    pid_t pgid;                     // プロセスグループ ID
+    pid_t sid;                      // セッション ID
 
     // 次の項目を使用する場合はwait_lockを保持する必要がある:
     struct proc *parent;            // 親プロセスへのポインタ
@@ -108,6 +121,8 @@ struct proc {
     struct file *ofile[NOFILE];     // オープンしているフィル
     struct inode *cwd;              // カレントワーキングディレクトリ
     char name[16];                  // プロセス名（デバッグ用）
+    struct signal signal;           // シグナル
+    struct trapframe *oldtf;        // 旧trapframeを保存
 };
 
 #endif
