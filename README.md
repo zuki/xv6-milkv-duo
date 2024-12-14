@@ -10,3 +10,4 @@
 2. [cyanurus](https://github.com/redcap97/cyanurus)からBuddy, Slabシステムを取り込み`kalloc`の代わりに使用 (tag: v0.1.2)
 3. SDカード上のxv6ファイルシステムが稼働 (tag: v0.1.3)
 4. ユーザライブラリとしてmuslを使用 (tag: v0.1.4)
+5. シグナル機能を追加 (tag: v0.1.5)
