@@ -787,8 +787,8 @@ static void send_signal(struct proc *p, int sig)
     } else {
         if (!sigismember(&p->signal.pending, sig))
             sigaddset(&p->signal.pending, sig);
-        else
-            debug("sig already pending");
+        //else
+            //debug("sig already pending");
     }
 
     if (p->state == SLEEPING) {

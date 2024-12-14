@@ -28,7 +28,7 @@ void D(int d) {
 void E(int e) {
     printf("PID %d function E got %d\n", getpid(), e);
     printf("bye bye\n");
-    _exit(0);
+    exit(0);
 }
 
 struct sigaction act_a = { A, 0, 0, 0 };
@@ -45,7 +45,7 @@ int main (int argc, char *argv[]) {
     printf("part1 start\n");
     int ppid = getpid();
     // should print default handler.
-    kill(ppid, SIGUSR1);
+    //kill(ppid, SIGUSR1);
 
     sigaction(SIGUSR1, &act_a, 0);
     // now should print the A message.

@@ -67,7 +67,7 @@ usertrap(void)
 
         // sepc はecall命令を指しているのでその次の命令に復帰するようにする
         p->trapframe->epc += 4;
-
+        trace("epc: 0x%lx", p->trapframe->epc);
         // 割り込みは sepc, scause, sstatus を変更するが
         // これらのレジスタはもう使い終わったので割り込みを有効にする
         intr_on();
@@ -86,13 +86,13 @@ usertrap(void)
         exit(-1);
     }
 
-    // 保留中のシグナルを処理する
-    check_pending_signal();
-
     // タイマー割り込みの場合はCPUを明け渡す.
     if (which_dev == 2) {
         yield();
     }
+
+    // 保留中のシグナルを処理する
+    check_pending_signal();
 
     usertrapret();
 }
