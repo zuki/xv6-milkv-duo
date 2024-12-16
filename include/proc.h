@@ -4,6 +4,7 @@
 #include <common/types.h>
 #include <common/param.h>
 #include <linux/signal.h>
+#include <spinlock.h>
 
 // カーネルコンテキストスイッチ用に保存するレジスタ.
 struct context {

@@ -15,25 +15,38 @@ struct timeval {
 
 struct timespec {
     time_t  tv_sec;         /* 秒 */
-    long    tv_nsec;        /* マイクロ秒 */
+    long    tv_nsec;        /* ナノ秒 */
 };
+
+struct tm {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
+};
+
 
 struct itimerval {
     struct timeval it_interval; /* 周期的タイマーのInterval */
     struct timeval it_value;    /* 次の時間切れまでの時間 */
 };
 
-/*
+#if 0
 struct timer_list {
     struct list_head list;
     uint64_t expires;
     uint64_t data;
     void (*function)(uint64_t);
 };
+#endif
 
 extern uint64_t jiffies;
 extern struct timespec xtime;
-*/
 
 #define CURRENT_TIME (xtime.tv_sec)
 
@@ -57,7 +70,7 @@ extern struct timespec xtime;
 
 #define TIME_UTC                1
 
-/*
+#if 0
 // FIXEME: externは必要？
 // タイマーの登録
 extern void add_timer(struct timer_list *timer);
@@ -91,6 +104,6 @@ void run_timer_list(void);
 long getitimer(int, struct itimerval *);
 void it_real_fn(uint64_t);
 long setitimer(int, struct itimerval *, struct itimerval *);
-*/
+#endif
 
 #endif

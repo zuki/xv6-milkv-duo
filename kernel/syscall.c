@@ -183,6 +183,33 @@ extern long sys_set_tid_address(void);
 extern long sys_setpgid(void);
 extern long sys_getpgid(void);
 
+long sys_clock_gettime()
+{
+    clockid_t clk_id;
+    uint64_t tp;
+
+    if (argint(0, (clockid_t *)&clk_id) < 0 || argu64(1, &tp) < 0)
+        return -EINVAL;
+
+    trace("clk_id: %d, tp: 0x%p\n", clk_id, tp);
+
+    return clock_gettime(clk_id, tp);
+}
+
+long sys_clock_settime()
+{
+    clockid_t clk_id;
+    struct timespec tp;
+
+    if (argint(0, (clockid_t *)&clk_id) < 0 || argptr(1, (char *)&tp, sizeof(struct timespec)) < 0)
+        return -EINVAL;
+
+    debug("clk_id: %d, tp.sec: %ld\n", clk_id, tp.tv_sec);
+
+    return clock_settime(clk_id, &tp);
+}
+
+
 long sys_futex(void) {
     uint64_t uaddr, uaddr2;
     int op, val, val3;
@@ -231,6 +258,8 @@ static func syscalls[] = {
     [SYS_set_tid_address] = sys_set_tid_address,    //  96
     [SYS_futex]     = sys_futex,                //  98
     [SYS_nanosleep] = sys_nanosleep,            // 101
+    [SYS_clock_settime] = sys_clock_settime,    // 112
+    [SYS_clock_gettime] = sys_clock_gettime,    // 113
     [SYS_kill]      = sys_kill,                 // 129
     [SYS_rt_sigsuspend] = sys_rt_sigsuspend,    // 133
     [SYS_rt_sigaction] = sys_rt_sigaction,      // 134

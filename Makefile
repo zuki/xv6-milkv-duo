@@ -36,7 +36,8 @@ OBJS = \
   $K/slab.o \
   $K/page.o \
   $K/rtc.o \
-  $K/signal.o
+  $K/signal.o \
+  $K/clock.o
 
 $K/ramdisk_data.o: fs.img
 
@@ -104,6 +105,7 @@ mkfs/mkfs: mkfs/mkfs.c
 
 UPROGS=\
 	$U/cat\
+	$U/date\
 	$U/echo\
 	$U/grep\
 	$U/init\

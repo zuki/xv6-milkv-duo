@@ -20,6 +20,7 @@ struct rusage;
 struct k_sigaction;
 struct pollfd;
 struct timespec;
+struct tm;
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
@@ -35,6 +36,14 @@ void            bunpin(struct buf*);
 void            buddy_init(void);
 struct page *   buddy_alloc(size_t size);
 void            buddy_free(struct page *page);
+
+// clock.c
+void            clockinit(void);
+void            clockintr(void);
+int             clock_gettime(clockid_t clk_id, uint64_t tp);
+int             clock_settime(clockid_t clk_id, const struct timespec *tp);
+long            get_uptime(void);
+long            get_ticks(void);
 
 // console.c
 void            consoleinit(void);
@@ -157,6 +166,14 @@ long            setpgid(pid_t pid, pid_t pgid);
 
 // rtc.c
 void            rtc_init(void);
+void            set_second_clock(uint32_t t);
+time_t          get_second_clock(void);
+time_t          rtc_time(time_t *t);
+int             rtc_time_to_tm(time_t time, struct tm *tm);
+int             rtc_gettime(struct timespec *tp);
+int             rtc_settime(const struct timespec *tp);
+void            rtc_strftime(struct tm *tm);
+void            rtc_now(void);
 
 // sbi.c
 #ifndef CONFIG_RISCV_M_MODE
@@ -228,10 +245,8 @@ int             fdalloc(struct file *f, int from);
 void            syscall(void);
 
 // trap.c
-extern uint64_t     ticks;
 void            trapinit(void);
 void            trapinithart(void);
-extern struct spinlock tickslock;
 void            usertrapret(void);
 
 // uart.c

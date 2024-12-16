@@ -34,6 +34,7 @@ main()
         __sync_synchronize();
         procinit();         // process table
         trapinit();         // trap vectors
+        clockinit();        // clock system
         trapinithart();     // install kernel trap vector
         plicinit();         // set up interrupt controller
         plicinithart();     // ask PLIC for device interrupts

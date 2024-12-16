@@ -445,7 +445,7 @@ long fileopen(char *path, int flags, mode_t mode)
 //loop:
         if ((ip = namei(path)) == 0) {
             end_op();
-            warn("%s is not found", path);
+            trace("%s is not found", path);
             return -ENOENT;
         }
         ilock(ip);

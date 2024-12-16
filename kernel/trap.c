@@ -8,20 +8,17 @@
 #include <config.h>
 #include <printf.h>
 
-struct spinlock tickslock;
-uint64_t ticks;
-
 extern char trampoline[], uservec[], userret[];
 
 // kernelvec.S で kerneltrap() を呼び出す.
 void kernelvec();
 
-extern int devintr();
+static int devintr();
 
 void
 trapinit(void)
 {
-    initlock(&tickslock, "time");
+    info("trapint ok");
 }
 
 // カーネルにいる間、例外とトラップを受けるように設定する.
@@ -53,7 +50,7 @@ usertrap(void)
     // 例外が発生したユーザpcを保存する.
     p->trapframe->epc = r_sepc();
 
-    which_dev = devintr();
+    //which_dev = devintr();
     trace("scause: %d, which_dev: %d", r_scause(), which_dev);
 
     if (r_scause() == 8) {
@@ -73,8 +70,7 @@ usertrap(void)
         intr_on();
         syscall();
         trace("syscall return = 0x%l016x", p->trapframe->a0);
-    //} else if((which_dev = devintr()) != 0) {
-    } else if (which_dev != 0) {
+    } else if((which_dev = devintr()) != 0) {
         // ok
     } else {
         debug("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, r_scause(), r_sepc(), r_stval());
@@ -191,21 +187,13 @@ kerneltrap()
     w_sstatus(sstatus);
 }
 
-void
-clockintr()
-{
-    acquire(&tickslock);
-    ticks++;
-    wakeup(&ticks);
-    release(&tickslock);
-}
 
 // 外部割り込みかソフトウェア割り込み化を判断して
 // それを処理する。
 // タイマー割り込みの場合は 2 を返す,
 // その他のデバイスからの割り込みの場合は 1 を返す
 // 認識できない場合は 0 を返す
-int devintr()
+static int devintr()
 {
     uint64_t scause = r_scause();
 
