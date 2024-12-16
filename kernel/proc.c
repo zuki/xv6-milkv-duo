@@ -202,6 +202,8 @@ freeproc(struct proc *p)
     p->pid = 0;
     p->pgid = 0;
     p->sid = 0;
+    p->uid = -1;
+    p->gid = -1;
     p->fdflag = 0;
     p->parent = 0;
     p->name[0] = 0;
@@ -291,6 +293,7 @@ userinit(void)
 
     safestrcpy(p->name, "initcode", sizeof(p->name));
     p->cwd = namei("/");
+    p->uid = p->gid = 0;
 
     p->state = RUNNABLE;
 
@@ -341,6 +344,8 @@ fork(void)
     np->sz = p->sz;
     np->pgid = p->pgid;
     np->sid = p->sid;
+    np->uid = p->uid;
+    np->gid = p->gid;
 
     // copy saved user registers.
     *(np->trapframe) = *(p->trapframe);

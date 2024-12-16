@@ -1,7 +1,9 @@
 #ifndef INC_COMMON_FS_H
 #define INC_COMMON_FS_H
 
+#include <common/types.h>
 #include <sd.h>
+#include <linux/time.h>
 
 // ディスク上のファイルシステムフォーマット.
 // カーネル/ユーザプログラムの両者がこのヘッダーファイルを使用する.
@@ -32,17 +34,24 @@ struct superblock {
 #define NINDIRECT   (BSIZE / sizeof(uint))  // 間接指定のブロック数
 #define MAXFILE     (NDIRECT + NINDIRECT)   // 1ファイルの最大ブロック数
 
-// ディスク上のinode構造体(64バイト)
+// ディスク上のinode構造体(128バイト)
 struct dinode {
-    short type;         // ファイルタイプ
-    short major;        // メジャーデバイス番号 (T_DEVICE only)
-    short minor;        // マイナーデバイス番号 (T_DEVICE only)
-    short nlink;        // inodeへのリンク数
-    uint32_t size;      // ファイルサイズ（バイト単位）(bytes)
-    uint32_t addrs[NDIRECT+1];   // データブロックのアドレス
+    short type;                 // ファイルタイプ
+    short major;                // メジャーデバイス番号 (T_DEVICE only)
+    short minor;                // マイナーデバイス番号 (T_DEVICE only)
+    short nlink;                // inodeへのリンク数
+    uint32_t size;              // ファイルサイズ（バイト単位）(bytes)
+    mode_t mode;                // ファイルモード
+    uid_t  uid;                 // 所有者のユーザーID
+    gid_t  gid;                 // 所有者のグループID
+    struct timespec atime;      // 最新アクセス日時
+    struct timespec mtime;      // 最新更新日時
+    struct timespec ctime;      // 作成日時
+    uint32_t addrs[NDIRECT+1];  // データブロックのアドレス
+    char _dummy[4];
 };
 
-// ブロックあたりのInode数 = 1024 / 64 = 16
+// ブロックあたりのInode数 = 1024 / 128 = 8
 #define IPB             (BSIZE / sizeof(struct dinode))
 
 // inode iを含むブロックの番号

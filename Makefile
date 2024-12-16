@@ -113,7 +113,6 @@ UPROGS=\
 	$U/ln\
 	$U/ls\
 	$U/mkdir\
-	$U/myls\
 	$U/rm\
 	$U/sh\
 	$U/wc\

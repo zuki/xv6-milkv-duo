@@ -1,46 +1,93 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <dirent.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <time.h>
+#include <sys/stat.h>
 
-#define DIRSIZE  32
-#define MIN(a, b)   ((a) <= (b) ? (a) : (b))
+#define DIRSIZ 14
+
+struct v6_dirent {
+  uint16_t inum;
+  char name[DIRSIZ];
+};
 
 char *fmtname(char *path)
 {
-    static char buf[DIRSIZE+1];
+    static char buf[DIRSIZ + 1];
     char *p;
-
     // Find first character after last slash.
-    for (p = path + strlen(path); p >= path && *p != '/'; p--)
-        ;
+    for (p = path + strlen(path); p >= path && *p != '/'; p--) ;
     p++;
 
     // Return blank-padded name.
-    //fprintf(stderr, "path: %s, len: %ld : p: %s, len: %ld\n", path, strlen(path), p, strlen(p));
-    //size_t len = MIN(strlen(p), DIRSIZE);
-    //fprintf(stderr, "path: %s, len: %ld, buf: %p\n", path, len, buf);
-    //memset(buf, 0, DIRSIZE+1);
-    //memcpy(buf, p, len);
-    size_t len = MIN(strlen(p), DIRSIZE);
-    memmove(buf, p, len);
-    buf[len] = 0;
+    /*
+    if (strlen(p) >= DIRSIZ)
+        return p;
+    */
+    memmove(buf, p, DIRSIZ);
+    buf[DIRSIZ] = 0;
+    //memset(buf + strlen(p), ' ', DIRSIZ - strlen(p));
     return buf;
 }
 
-void ls(char *path, int indir)
+char * fmttime(time_t time)
 {
+    static char mtime_s[12];
+
+    struct tm *tm = localtime(&time);
+    sprintf(mtime_s, "%2d %2d %02d:%02d",
+        tm->tm_mon + 1, tm->tm_mday,  tm->tm_hour, tm->tm_min);
+    return mtime_s;
+}
+
+char * fmtmode(mode_t mode)
+{
+    static char fmod[11];
+
+    if (S_ISDIR(mode)) fmod[0] = 'd';
+    else if (S_ISCHR(mode)) fmod[0] = 'c';
+    else if (S_ISBLK(mode)) fmod[0] = 'b';
+    else if (S_ISFIFO(mode)) fmod[0] = 'f';
+    else if (S_ISLNK(mode)) fmod[0] = 'l';
+    else if (S_ISSOCK(mode)) fmod[0] = 's';
+    else fmod[0] = '-';
+
+    fmod[1] = (S_IRUSR & mode) ? 'r' : '-';
+    fmod[2] = (S_IWUSR & mode) ? 'w' : '-';
+    fmod[3] = (S_IXUSR & mode) ? 'x' : '-';
+    fmod[4] = (S_IRGRP & mode) ? 'r' : '-';
+    fmod[5] = (S_IWGRP & mode) ? 'w' : '-';
+    fmod[6] = (S_IXGRP & mode) ? 'x' : '-';
+    fmod[7] = (S_IROTH & mode) ? 'r' : '-';
+    fmod[8] = (S_IWOTH & mode) ? 'w' : '-';
+    fmod[9] = (S_IXOTH & mode) ? 'x' : '-';
+    if (S_ISUID & mode) fmod[3] = 's';
+    if (S_ISGID & mode) fmod[6] = 's';
+    if (S_ISVTX & mode) fmod[9] = 't';
+    fmod[10] = 0;
+
+    return fmod;
+}
+
+char *fmtuser(uid_t uid, gid_t gid)
+{
+    if (uid == 0 && gid == 0)
+        return "root wheel";
+    else if (uid == 1000 && gid == 1000)
+        return "zuki staff";
+    else
+        return "anon anon ";
+}
+
+void ls(char *path)
+{
+    char buf[128], *p;
     int fd;
-    DIR *dir;
-    struct dirent *de;
+    struct v6_dirent de;
     struct stat st;
-    //fprintf(stderr, "path: %s, indir: %d\n", path, indir);
-    if (path == "") return;
 
     if ((fd = open(path, O_RDONLY)) < 0) {
         fprintf(stderr, "ls: cannot open %s\n", path);
@@ -53,37 +100,51 @@ void ls(char *path, int indir)
         return;
     }
 
-    //fprintf(stderr, "indir: %d, path: '%s', dev: %ld, ino: %ld, mode: 0x%x, dir?: %d\n", indir, path, st.st_dev, st.st_ino, st.st_mode, S_ISDIR(st.st_mode));
-
-    close(fd);
-
-    if (S_ISDIR(st.st_mode) && indir) {
-        dir = opendir(path);
-        if (!dir) {
-            fprintf(stderr, "ls: cannot open directory %s\n", path);
-            return;
+#if 0
+    if (S_ISREG(st.st_mode)) {
+        printf("%s %4ld %s %5ld %s\n", fmtmode(st.st_mode), st.st_ino,
+               fmtuser(0, 0), st.st_size, fmtname(path));
+        //fflush(stdout);
+#endif
+     if (S_ISDIR(st.st_mode)) {
+        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof(buf)) {
+            fprintf(stderr, "ls: path too long\n");
+        } else {
+            strcpy(buf, path);
+            p = buf + strlen(buf);
+            *p++ = '/';
+            while (read(fd, &de, sizeof(de)) == sizeof(de)) {
+                if (de.inum == 0)
+                    continue;
+                memmove(p, de.name, DIRSIZ);
+                p[DIRSIZ] = 0;
+                if (stat(buf, &st) < 0) {
+                    fprintf(stderr, "ls: cannot stat %s\n", buf);
+                    continue;
+                }
+                printf("%s %4ld %s %5ld %s %s\n", fmtmode(st.st_mode),
+                       st.st_ino, fmtuser(0, 0), st.st_size, fmttime(st.st_mtime), fmtname(buf));
+                //fflush(stdout);
+            }
         }
-        while ((de = readdir(dir))) {
-            ls(de->d_name, 1);
-        }
-        closedir(dir);
     } else {
-        printf("%03o %3ld %10ld %s \n", (st.st_mode & 0777), st.st_ino, st.st_size, fmtname(path));
+        printf("%s %4ld %s %5ld %s %s\n", fmtmode(st.st_mode), st.st_ino,
+               fmtuser(0, 0), st.st_size, fmttime(st.st_mtime), fmtname(path));
+        //fflush(stdout);
     }
+    close(fd);
 }
 
 int main(int argc, char *argv[])
 {
-    int i;
-
-    if (argc < 2) {
-        ls(".", 0);
-        return 0;
-    }
-
-    for (i=1; i<argc; i++)
-        ls(argv[i], 0);
-
-    //return 0;
+    if (argc < 2)
+        ls(".");
+    else
+        for (int i = 1; i < argc; i++)
+            ls(argv[i]);
+    //printf("main ended\n");
+    fflush(stdout);
+    fflush(stderr);
     _exit(0);
+    //return 0;
 }

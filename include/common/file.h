@@ -26,17 +26,23 @@ struct file {
 
 // in-memory copy of an inode
 struct inode {
-    uint32_t dev;           // Device number
-    uint32_t inum;          // Inode number
-    int ref;                // Reference count
-    struct sleeplock lock;  // protects everything below here
-    int valid;              // inode has been read from disk?
-    short type;             // copy of disk inode
-    short major;
-    short minor;
-    short nlink;
-    uint32_t size;
-    uint32_t addrs[NDIRECT+1];
+    uint32_t dev;               // Device number
+    uint32_t inum;              // Inode number
+    int ref;                    // Reference count
+    struct sleeplock lock;      // protects everything below here
+    int valid;                  // inode has been read from disk?
+    short type;                 // copy of disk inode
+    short major;                // メジャーデバイス番号 (T_DEVICE only)
+    short minor;                // マイナーデバイス番号 (T_DEVICE only)
+    short nlink;                // inodeへのリンク数
+    uint32_t size;              // ファイルサイズ（バイト単位）(bytes)
+    mode_t mode;                // ファイルモード
+    uid_t uid;                  // 所有者のユーザーID
+    gid_t gid;                  // 所有者のグループID
+    struct timespec atime;      // 最新アクセス日時
+    struct timespec mtime;      // 最新更新日時
+    struct timespec ctime;      // 作成日時
+    uint32_t addrs[NDIRECT+1];  // データブロックのアドレス
 };
 
 // map major device number to device functions.

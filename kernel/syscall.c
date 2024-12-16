@@ -204,7 +204,7 @@ long sys_clock_settime()
     if (argint(0, (clockid_t *)&clk_id) < 0 || argptr(1, (char *)&tp, sizeof(struct timespec)) < 0)
         return -EINVAL;
 
-    debug("clk_id: %d, tp.sec: %ld\n", clk_id, tp.tv_sec);
+    trace("clk_id: %d, tp.sec: %ld\n", clk_id, tp.tv_sec);
 
     return clock_settime(clk_id, &tp);
 }

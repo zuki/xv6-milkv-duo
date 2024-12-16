@@ -19,6 +19,8 @@
 #define T_FILE    2   // File
 #define T_DEVICE  3   // Device
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 struct superblock {
     uint magic;        // Must be FSMAGIC
     uint size;         // ファイルシステムのサイズ（ブロック単位）
@@ -31,12 +33,19 @@ struct superblock {
 };
 
 struct dinode {
-    short type;         // ファイルタイプ
-    short major;        // メジャーデバイス番号 (T_DEVICE only)
-    short minor;        // マイナーデバイス番号 (T_DEVICE only)
-    short nlink;        // inodeへのリンク数
-    uint  size;      // ファイルサイズ（バイト単位）(bytes)
-    uint  addrs[NDIRECT+1];   // データブロックのアドレス
+    short type;                 // ファイルタイプ
+    short major;                // メジャーデバイス番号 (T_DEVICE only)
+    short minor;                // マイナーデバイス番号 (T_DEVICE only)
+    short nlink;                // inodeへのリンク数
+    uint  size;                 // ファイルサイズ（バイト単位）(bytes)
+    mode_t mode;                // ファイルモード
+    uid_t  uid;                 // 所有者のユーザーID
+    gid_t  gid;                 // 所有者のグループID
+    struct timespec atime;      // 最新アクセス日時
+    struct timespec mtime;      // 最新更新日時
+    struct timespec ctime;      // 作成日時
+    uint  addrs[NDIRECT+1];     // データブロックのアドレス
+    char _dummy[4];
 };
 
 struct dirent {

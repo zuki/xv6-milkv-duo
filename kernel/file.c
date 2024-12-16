@@ -12,6 +12,7 @@
 #include <common/file.h>
 #include <linux/fcntl.h>
 #include <linux/stat.h>
+#include <linux/time.h>
 #include <proc.h>
 #include <errno.h>
 #include <printf.h>
@@ -148,6 +149,7 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
             //debug("inum: %d, off: %d, read: %d", f->ip->inum, f->off, r);
             f->off += r;
         }
+        rtc_gettime(&f->ip->atime);
         iunlock(f->ip);
     } else {
         panic("fileread");
@@ -162,6 +164,7 @@ int
 filewrite(struct file *f, uint64_t addr, int n)
 {
     int r, ret = 0;
+    struct timespec ts;
 
     if (f->writable == 0)
         return -1;
@@ -190,6 +193,8 @@ filewrite(struct file *f, uint64_t addr, int n)
             ilock(f->ip);
             if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
                 f->off += r;
+            rtc_gettime(&ts);
+            f->ip->mtime = f->ip->atime = ts;
             iunlock(f->ip);
             end_op();
 
@@ -356,7 +361,7 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
 {
     struct inode *ip, *dp;
     char name[DIRSIZ];
-    (void) mode;
+    struct timespec ts;
 
     //debug("path: %s, type: %d, major: %d, minor: %s, mode: %x", path, type, major, minor, mode);
 
@@ -385,6 +390,12 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
     ip->major = major;
     ip->minor = minor;
     ip->nlink = 1;
+    ip->mode  = mode;
+    ip->type  = type;
+    rtc_gettime(&ts);
+    ip->atime = ip->mtime = ip->ctime = ts;
+    ip->uid = myproc()->uid;
+    ip->gid = myproc()->gid;
     iupdate(ip);
 
     if (type == T_DIR) {  // Create . and .. entries.

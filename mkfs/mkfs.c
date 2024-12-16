@@ -4,6 +4,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <time.h>
 
 #include "mkfs.h"
 
@@ -32,13 +33,17 @@ void wsect(uint, void*);
 void winode(uint, struct dinode*);
 void rinode(uint inum, struct dinode *ip);
 void rsect(uint sec, void *buf);
-uint ialloc(ushort type);
+uint ialloc(ushort type, uid_t uid, gid_t gid, mode_t mode);
 void iappend(uint inum, void *p, int n);
 void die(const char *);
+uint make_dir(uint parent, char *name, uid_t uid, gid_t gid, mode_t mode);
+uint make_dev(uint parent, char *name, int major, int minor, uid_t uid, gid_t gid, mode_t mode);
+uint make_file(uint parent, char *name, uid_t uid, gid_t gid, mode_t mode);
+void make_dirent(uint inum, ushort type, uint parent, char *name);
+void copy_file(int start, int argc, char *files[], uint parent, uid_t uid, gid_t gid, mode_t mode);
 
 // convert to riscv byte order
-ushort
-xshort(ushort x)
+ushort xshort(ushort x)
 {
     ushort y;
     uchar *a = (uchar*)&y;
@@ -47,8 +52,7 @@ xshort(ushort x)
     return y;
 }
 
-uint
-xint(uint x)
+uint xint(uint x)
 {
     uint y;
     uchar *a = (uchar*)&y;
@@ -59,12 +63,27 @@ xint(uint x)
     return y;
 }
 
+ulong xlong(ulong x)
+{
+    ulong y;
+    uchar *a = (uchar*)&y;
+    a[0] = x;
+    a[1] = x >> 8;
+    a[2] = x >> 16;
+    a[3] = x >> 24;
+    a[4] = x >> 32;
+    a[5] = x >> 40;
+    a[6] = x >> 48;
+    a[7] = x >> 56;
+    return y;
+}
+
+
 int
 main(int argc, char *argv[])
 {
-    int i, cc, fd;
-    uint rootino, inum, off;
-    struct dirent de;
+    int i;
+    uint rootino, off;
     char buf[BSIZE];
     struct dinode din;
 
@@ -111,9 +130,13 @@ main(int argc, char *argv[])
     memmove(buf, &sb, sizeof(sb));
     wsect(1, buf);
 
-    rootino = ialloc(T_DIR);
+    rootino = ialloc(T_DIR, 0, 0, (S_IFDIR | 0775));
     assert(rootino == ROOTINO);
+    make_dirent(rootino, T_DIR, rootino, ".");
+    make_dirent(rootino, T_DIR, rootino, "..");
 
+    copy_file(2, argc, argv, rootino, 0, 0, (S_IFREG | 0755));
+#if 0
     bzero(&de, sizeof(de));
     de.inum = xshort(rootino);
     strcpy(de.name, ".");
@@ -123,6 +146,7 @@ main(int argc, char *argv[])
     de.inum = xshort(rootino);
     strcpy(de.name, "..");
     iappend(rootino, &de, sizeof(de));
+
 
     for (i = 2; i < argc; i++) {
         // get rid of "user/"
@@ -156,6 +180,7 @@ main(int argc, char *argv[])
 
         close(fd);
     }
+#endif
 
     // fix size of root inode dir
     rinode(rootino, &din);
@@ -167,6 +192,90 @@ main(int argc, char *argv[])
     balloc(freeblock);
 
     exit(0);
+}
+
+// ディレクトリエントリの作成
+void make_dirent(uint inum, ushort type, uint parent, char *name)
+{
+    struct dirent de;
+
+    bzero(&de, sizeof(de));
+    de.inum = xint(inum);
+    //de.type = xshort(type);
+    strncpy(de.name, name, DIRSIZ);
+    //printf("DIRENT: inum=%d, name='%s' to PARNET[%d]\n", de.inum, de.name, parent);
+    iappend(parent, &de, sizeof(de));
+}
+
+// ディレクトリの作成
+uint make_dir(uint parent, char *name, uid_t uid, gid_t gid, mode_t mode)
+{
+    // Create parent/name
+    uint inum = ialloc(T_DIR, uid, gid, mode);
+    make_dirent(inum, T_DIR, parent, name);
+
+    // Create parent/name/.
+    make_dirent(inum, T_DIR, inum, ".");
+
+    // Create parent/name/..
+    make_dirent(parent, T_DIR, inum, "..");
+
+    return inum;
+}
+
+// デバイスファイルの作成
+uint make_dev(uint parent, char *name, int major, int minor, uid_t uid, gid_t gid, mode_t mode)
+{
+    struct dinode din;
+
+    uint inum = ialloc(T_DEVICE, uid, gid, mode);
+    make_dirent(inum, T_DEVICE, parent, name);
+    rinode(inum, &din);
+    din.major = xshort(major);
+    din.minor = xshort(minor);
+    winode(inum, &din);
+    return inum;
+}
+
+// ファイルの作成
+uint make_file(uint parent, char *name, uid_t uid, gid_t gid, mode_t mode)
+{
+    uint inum = ialloc(T_FILE, uid, gid, mode);
+    make_dirent(inum, T_FILE, parent, name);
+    return inum;
+}
+
+// 複数ファイルの作成
+void copy_file(int start, int argc, char *argv[], uint parent, uid_t uid, gid_t gid, mode_t mode)
+{
+    int fd, cc;
+    uint inum;
+    char buf[BSIZE];
+
+    for (int i = start; i < argc; i++) {
+        char *shortname;
+        if (strncmp(argv[i], "obj/usr/bin/", 12) == 0)
+            shortname = argv[i] + 12;
+        else
+            shortname = argv[i];
+
+        assert(index(shortname, '/') == 0);
+
+        if((fd = open(argv[i], 0)) < 0)
+            die(argv[i]);
+
+        // Skip leading _ in name when writing to file system.
+        // The binaries are named _rm, _cat, etc. to keep the
+        // build operating system from trying to execute them
+        // in place of system binaries like rm and cat.
+        if (shortname[0] == '_')
+            shortname += 1;
+
+        inum = make_file(parent, shortname, uid, gid, mode);
+        while ((cc = read(fd, buf, sizeof(buf))) > 0)
+            iappend(inum, buf, cc);
+        close(fd);
+    }
 }
 
 void
@@ -208,22 +317,31 @@ rinode(uint inum, struct dinode *ip)
 void
 rsect(uint sec, void *buf)
 {
-    if(lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
+    if (lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
         die("lseek");
-    if(read(fsfd, buf, BSIZE) != BSIZE)
+    if (read(fsfd, buf, BSIZE) != BSIZE)
         die("read");
 }
 
 uint
-ialloc(ushort type)
+ialloc(ushort type, uid_t uid, gid_t gid, mode_t mode)
 {
     uint inum = freeinode++;
     struct dinode din;
+    struct timespec ts1, ts2;
 
+    clock_gettime(CLOCK_REALTIME, &ts1);
+    ts2.tv_sec = xlong(ts1.tv_sec);
+    ts2.tv_nsec = xlong(ts1.tv_nsec);
+    //printf("inum[%d] ts: sec %ld, nsec %ld\n", inum, ts2.tv_sec, ts2.tv_nsec);
     bzero(&din, sizeof(din));
-    din.type = xshort(type);
+    din.type  = xshort(type);
     din.nlink = xshort(1);
-    din.size = xint(0);
+    din.size  = xint(0);
+    din.mode  = xint(mode);
+    din.uid   = xint(uid);
+    din.gid   = xint(gid);
+    din.atime = din.mtime = din.ctime = ts2;
     winode(inum, &din);
     return inum;
 }
@@ -232,19 +350,22 @@ void
 balloc(int used)
 {
     uchar buf[BSIZE];
-    int i;
+    int i, j, k;
 
     //printf("balloc: first %d blocks have been allocated\n", used);
-    assert(used < BSIZE*8);
-    bzero(buf, BSIZE);
-    for(i = 0; i < used; i++){
-        buf[i/8] = buf[i/8] | (0x1 << (i%8));
-    }
-    //printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
-    wsect(sb.bmapstart, buf);
-}
+    assert(used < nbitmap * BSIZE * 8);
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
+    int used_blk = (used - 1) / (BSIZE * 8) + 1;
+
+    for (j = 0; j < used_blk; j++) {
+        bzero(buf, BSIZE);
+        k = min(BSIZE * 8, used - j * BSIZE * 8);
+        for (i = 0; i < k; i++) {
+            buf[i/8] = buf[i/8] | (0x1 << (i % 8));
+        }
+        wsect(sb.bmapstart + j, buf);
+    }
+}
 
 void
 iappend(uint inum, void *xp, int n)

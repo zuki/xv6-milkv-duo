@@ -101,7 +101,7 @@ void runcmd(struct cmd *cmd)
     case REDIR:
         rcmd = (struct redircmd *)cmd;
         close(rcmd->fd);
-        if (open(rcmd->file, rcmd->mode) < 0){
+        if (open(rcmd->file, rcmd->mode, 0755) < 0){
             fprintf(stderr, "open %s failed\n", rcmd->file);
             exit(1);
         }
