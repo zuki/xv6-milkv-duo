@@ -429,7 +429,7 @@ exit(int status)
 
     acquire(&p->lock);
 
-    p->xstate = status; // & 0x7f;      バイト縁を削除?
+    p->xstate = status;
     p->state = ZOMBIE;
 
     release(&wait_lock);
@@ -471,7 +471,8 @@ wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
                 || (options & WUNTRACED && pp->state == SLEEPING)
                 || (options & WNOHANG)) {
                 if (status) {
-                    int xstate = (pp->xstate << 8);
+                    //int xstate = (pp->xstate << 8);
+                    int xstate = pp->xstate;
                     trace("pp->xstate: 0x%08x, xstate: 0x%08x, &xstate: 0x%lx, status: 0x%lx, size: %ld", pp->xstate, xstate, &xstate, status, sizeof(int));
                     if (copyout(p->pagetable, status, (char *)&xstate,
                                         sizeof(int)) < 0) {
@@ -653,6 +654,7 @@ static void term_handler(struct proc *p)
     p->killed = 1;
     if (p->state == SLEEPING)
         p->state = RUNNABLE;
+
     release(&p->lock);
 }
 
@@ -762,6 +764,7 @@ static void handle_signal(struct proc *p, int sig)
             case SIGUSR1:
             case SIGUSR2:
             case SIGVTALRM:
+                p->xstate = (sig & 0x7f);
                 term_handler(p);
                 break;
             case SIGCHLD:

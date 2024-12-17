@@ -13,13 +13,15 @@
 #include <linux/signal.h>
 #include <common/file.h>
 
+#define WAIT_EXIT_CODE(status) (((status) & 0xff) << 8)
+
 long sys_exit(void)
 {
     int n;
     if (argint(0, &n) < 0)
         return -EINVAL;
     trace("n: %d", n);
-    exit(n);
+    exit(WAIT_EXIT_CODE(n));
     return 0;  // not reached
 }
 
@@ -29,7 +31,7 @@ long sys_exit_group(void)
     if (argint(0, &n) < 0)
         return -EINVAL;
     trace("n: %d", n);
-    exit(n);
+    exit(WAIT_EXIT_CODE(n));
     return 0;  // not reached
 }
 

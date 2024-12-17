@@ -58,8 +58,9 @@ usertrap(void)
         trace("1: scratch: 0x%l016x, tp: 0x%l016x, pid: %d, p: %p", r_sscratch(), r_tp(), p->pid, p);
 
         if (killed(p)) {
-            warn("scause(8): pid %d has been killed", p->pid);
-            exit(-1);
+            int xstate = p->xstate ? p->xstate : -1;
+            warn("scause(8): pid %d has been killed, xstate: %d", p->pid, xstate);
+            exit(xstate);
         }
 
         // sepc はecall命令を指しているのでその次の命令に復帰するようにする
@@ -78,8 +79,9 @@ usertrap(void)
     }
 
     if (killed(p)) {
-        warn("pid[%d] was killed", p->pid);
-        exit(-1);
+        int xstate = p->xstate ? p->xstate : -1;
+        warn("pid[%d] was killed, xstate: %d", p->pid, xstate);
+        exit(xstate);
     }
 
     // タイマー割り込みの場合はCPUを明け渡す.
