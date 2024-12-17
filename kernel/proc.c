@@ -429,7 +429,7 @@ exit(int status)
 
     acquire(&p->lock);
 
-    p->xstate = status & 0x7f;      // バイト縁を削除?
+    p->xstate = status; // & 0x7f;      バイト縁を削除?
     p->state = ZOMBIE;
 
     release(&wait_lock);
