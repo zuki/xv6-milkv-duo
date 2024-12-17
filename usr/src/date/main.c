@@ -30,9 +30,8 @@ int main(int argc, char *argv[])
         }
 
     } else {
-        fprintf(stderr, "Usage: date [yyyymmddhhmmss]\n");
+        fprintf(stderr, "Usage: date [epoc]\n");
     }
-
     fflush(stdout);
     fflush(stderr);
     _exit(0);
