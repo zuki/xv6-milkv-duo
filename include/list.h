@@ -20,113 +20,124 @@ struct list_head {
 };
 
 // リストを初期化
-static inline void
-list_init(struct list_head *head)
+static inline void list_init(struct list_head *list)
 {
-    head->next = head->prev = head;
+    list->next = list->prev = list;
 }
 
 // リストは空か?
-static inline int
-list_empty(struct list_head *head)
+static inline int list_empty(struct list_head *list)
 {
-    return head->next == head;
+    return list->next == list;
 }
 
 // リストの先頭のエントリを返す
-static inline struct list_head *
-list_front(struct list_head *head)
+static inline struct list_head * list_front(struct list_head *list)
 {
-    return head->next;
+    return list->next;
 }
 
 // リストの最後のエントリを返す
-static inline struct list_head *
-list_back(struct list_head *head)
+static inline struct list_head * list_back(struct list_head *list)
 {
-    return head->prev;
+    return list->prev;
 }
 
-// prev -> cur -> next : curをprevとnextの間に挿入
-static inline void
-list_insert(struct list_head *cur, struct list_head *prev, struct list_head *next)
+// prev -> item -> next : itemをprevとnextの間に挿入
+static inline void list_insert(struct list_head *item, struct list_head *prev, struct list_head *next)
 {
-    next->prev = cur;
-    cur->next = next;
-    cur->prev = prev;
-    prev->next = cur;
+    next->prev = item;
+    item->next = next;
+    item->prev = prev;
+    prev->next = item;
 }
 
-// cur -> head : curをheadのheadの前に挿入
-static inline void
-list_push_front(struct list_head *head, struct list_head *cur)
+// item -> list : itemをlistの先頭に挿入
+static inline void list_push_front(struct list_head *list, struct list_head *item)
 {
-    list_insert(cur, head, head->next);
+    list_insert(item, list, list->next);
 }
 
-// head <- cur : curをheadの後ろに挿入
-static inline void
-list_push_back(struct list_head *head, struct list_head *cur)
+// head <- item : itemをheadの後ろに挿入
+static inline void list_push_back(struct list_head *list, struct list_head *item)
 {
-    list_insert(cur, head->prev, head);
+    list_insert(item, list->prev, list);
 }
 
-// prev -> next : prevとnextの間のエントリを削除
-static inline void
-list_del(struct list_head *prev, struct list_head *next)
+// prev -> (item) -> next : item自身をリストから外す
+static inline void list_drop(struct list_head *item)
 {
-    next->prev = prev;
-    prev->next = next;
+    item->prev->next = item->next;
+    item->next->prev = item->prev;
 }
 
-// prev -> (item) -> next : item自身をリストから削除
-static inline void
-list_drop(struct list_head *item)
+// リストの先頭のエントリをリストから外す
+static inline void list_pop_front(struct list_head *list)
 {
-    list_del(item->prev, item->next);
+    list_drop(list_front(list));
 }
 
-// リストの先頭のエントリを削除
-static inline void
-list_pop_front(struct list_head *head)
+// リストの最後のエントリをリストから外す
+static inline void list_pop_back(struct list_head *list)
 {
-    list_drop(list_front(head));
+    list_drop(list_back(list));
 }
 
-// リストの最後のエントリを削除
-static inline void
-list_pop_back(struct list_head *head)
+// リストを結合する
+static inline void list_concat(struct list_head *list, struct list_head *other)
 {
-    list_drop(list_back(head));
+    if (list_empty(other)) {
+        return;
+    }
+
+    other->next->prev = list;
+    other->prev->next = list->next;
+    list->next->prev = other->prev;
+    list->next = other->next;
+
+    list_init(other);
 }
 
 // リストからitemを探す
 static inline struct list_head *
-list_find(struct list_head *head, struct list_head *item)
+list_find(struct list_head *list, struct list_head *item)
 {
-    for (struct list_head *p = head->next; p != head; p = p->next) {
+    for (struct list_head *p = list->next; p != list; p = p->next) {
         if (p == item)
             return item;
     }
     return 0;
 }
 
-// memberを要素に持つheadリストの要素をposに入れてループ
-#define LIST_FOREACH_ENTRY(pos, head, member)                           \
-    for (pos = container_of(list_front(head), typeof(*pos), member);    \
-        &pos->member != (head);                                         \
-        pos = container_of(pos->member.next, typeof(*pos), member))
+// リストの長さを返す
+static inline int list_length(const struct list_head *list) {
+    struct list_head *item;
+    int count = 0;
 
-#define LIST_FOREACH_ENTRY_REVERSE(pos, head, member)                   \
-    for (pos = container_of(list_back(head), typeof(*pos), member);     \
-        &pos->member != (head);                                         \
-        pos = container_of(pos->member.prev, typeof(*pos), member))
+    item = list->next;
+    while (item != list) {
+        item = item->next;
+        count++;
+    }
+    return count;
+}
+
+// memberを要素に持つheadリストの要素をposに入れてループ
+#define list_foreach(item, head, member)                           \
+    for (item = container_of(list_front(head), typeof(*item), member);    \
+        &item->member != (head);                                         \
+        item = container_of(item->member.next, typeof(*item), member))
+
+#define list_foreach_reverse(item, head, member)                   \
+    for (item = container_of(list_back(head), typeof(*item), member);     \
+        &item->member != (head);                                         \
+        item = container_of(item->member.prev, typeof(*item), member))
 
 /* Iterate over a list safe against removal of list entry. */
-#define LIST_FOREACH_ENTRY_SAFE(pos, n, head, member)                   \
-    for(pos = container_of(list_front(head), typeof(*pos), member),     \
-        n = container_of(pos->member.next, typeof(*n), member);         \
-        &pos->member != (head);                                         \
-        pos = n, n = container_of(n->member.next, typeof(*n), member))
+#define list_foreach_safe(item, temp, head, member)                   \
+    for(item = container_of(list_front(head), typeof(*item), member),     \
+        temp = container_of(item->member.next, typeof(*temp), member);         \
+        &item->member != (head);                                         \
+        item = temp, temp = container_of(item->member.next, typeof(*temp), member))
 
 #endif
