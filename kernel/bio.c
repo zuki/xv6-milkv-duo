@@ -62,7 +62,7 @@ static struct buf *bget(uint32_t dev, uint32_t bno)
     // 指定のブロックがキャッシュにあるか?
     // get_block()にあたる.ただし、load_block()はしない
 loop:
-    LIST_FOREACH_ENTRY(b, &bcache.head, clink) {
+    list_foreach(b, &bcache.head, clink) {
         if (b->dev == dev && b->blockno == blockno) {
             if (!(b->flags & B_BUSY)) {
                 b->flags |= B_BUSY;
@@ -77,7 +77,7 @@ loop:
     // キャッシュにない.
     // 未使用の最も利用されていないバッファをリサイクルする
     // find_free_entry()にあたる
-    LIST_FOREACH_ENTRY_REVERSE(b, &bcache.head, clink) {
+    list_foreach_reverse(b, &bcache.head, clink) {
         if ((b->flags & B_BUSY) == 0 /* b->refcnt == 0 */ && (b->flags & B_DIRTY) == 0) {
             b->dev = dev;
             b->blockno = blockno;
