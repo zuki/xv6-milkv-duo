@@ -23,14 +23,14 @@ void
 start(unsigned long hartid, unsigned long fdt)
 {
 #ifdef CONFIG_RISCV_M_MODE
-    // set M Previous Privilege mode to Supervisor, for mret.
+    // mretでスーパーバイザに復帰するようにM-以前の権限モードをスーパーバイザとする
     unsigned long x = r_mstatus();
     x &= ~MSTATUS_MPP_MASK;
     x |= MSTATUS_MPP_S;
     w_mstatus(x);
 
-    // set M Exception Program Counter to main, for mret.
-    // requires gcc -mcmodel=medany
+    // mretでmainに復帰するようにM-例外プログラムカウンタをmainとする
+    // これにはgccで -mcmodel=medany のオプションが必要
     w_mepc((uint64_t)main);
 #endif
 
@@ -44,6 +44,7 @@ start(unsigned long hartid, unsigned long fdt)
     // スーパーバイザ割り込みをスーバーバイザモードに委譲する.
     w_mideleg(0x222);
 #endif
+    // 外部、タイマー、ソフトウェア割り込みを有効にする
     w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
 #ifdef CONFIG_RISCV_M_MODE
@@ -56,47 +57,47 @@ start(unsigned long hartid, unsigned long fdt)
     timerinit();
 
     // cpuid()用に各CPUのhartidをそのtpレジスタに保持する。.
-    int id = r_mhartid();
-    w_tp(id);
+    //int id = r_mhartid();
+    //w_tp(id);
 
     // スーパーバイザモードに切り替えて、main()にジャンプする.
     asm volatile("mret");
 #endif
-    w_tp(hartid);
+    //w_tp(hartid);
     main();
 }
 
 // タイマ割り込みを受け取るようにする。
 // この割り込みはマシンモードでkernelvec.Sの
-// timervecに到着し、trap.cのdevintr()用に
-// ソフトウェア割り込みに変換される
+// timervecに到着する。これをtrap.cのdevintr()で
+// 受け取れるようにソフトウェア割り込みに変換する
 #ifdef CONFIG_RISCV_M_MODE
 void
 timerinit()
 {
-  // each CPU has a separate source of timer interrupts.
-  int id = r_mhartid();
+    // CPUは各自専用のタイマー割り込みソースを持つ
+    int id = r_mhartid();
 
-  // ask the CLINT for a timer interrupt.
-  int interval = 1000000; // cycles; about 1/10th second in qemu.
-  *(uint64_t*)CLINT_MTIMECMP(id) = *(uint64_t*)CLINT_MTIME + interval;
+    // CLINTにタイマー割り込みを要求する。.
+    int interval = 1000000; // cycles; about 1/10th second in qemu.
+    *(uint64_t*)CLINT_MTIMECMP(id) = *(uint64_t*)CLINT_MTIME + interval;
 
-  // prepare information in scratch[] for timervec.
-  // scratch[0..2] : space for timervec to save registers.
-  // scratch[3] : address of CLINT MTIMECMP register.
-  // scratch[4] : desired interval (in cycles) between timer interrupts.
-  uint64_t *scratch = &timer_scratch[id][0];
-  scratch[3] = CLINT_MTIMECMP(id);
-  scratch[4] = interval;
-  w_mscratch((uint64_t)scratch);
+    // timervec用のscratch[]に収める情報を準備する
+    // scratch[0..2] : レジスタを保存するためのスペース.
+    // scratch[3] : CLINT MTIMECMPレジスタのアドレス.
+    // scratch[4] : タイマー割り込みの間隔（サイクル単位）.
+    uint64_t *scratch = &timer_scratch[id][0];
+    scratch[3] = CLINT_MTIMECMP(id);
+    scratch[4] = interval;
+    w_mscratch((uint64_t)scratch);
 
-  // set the machine-mode trap handler.
-  w_mtvec((uint64_t)timervec);
+    // マシンモードトラップハンドラをセットする.
+    w_mtvec((uint64_t)timervec);
 
-  // enable machine-mode interrupts.
-  w_mstatus(r_mstatus() | MSTATUS_MIE);
+    // マシンモードの割り込みを有効にする.
+    w_mstatus(r_mstatus() | MSTATUS_MIE);
 
-  // enable machine-mode timer interrupts.
-  w_mie(r_mie() | MIE_MTIE);
+    // マシンモードのタイマー割り込みを有効にする.
+    w_mie(r_mie() | MIE_MTIE);
 }
 #endif
