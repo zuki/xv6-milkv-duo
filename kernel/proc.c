@@ -29,17 +29,15 @@ struct spinlock pid_lock;
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
-//extern char __tls_end[];
 
-// helps ensure that wakeups of wait()ing
-// parents are not lost. helps obey the
-// memory model when using p->parent.
-// must be acquired before any p->lock.
+// waitしている親の起床漏れがないようにする。
+// p->parentを使っている際のメモリモデルに従う。
+// p->lockする前に獲得しなければならない。
 struct spinlock wait_lock;
 
-// Allocate a page for each process's kernel stack.
-// Map it high in memory, followed by an invalid
-// guard page.
+// 各プロセス用のカーネルスタック用のページを割り当て
+// ガードページを挟んでメモリの高位アドレスにマップする
+// KSTACK(p) (TRAMPOLINE - ((p)+1) * 2 * PGSIZE) ; p = 0 - NPROC
 void
 proc_mapstacks(pagetable_t kpgtbl)
 {
@@ -47,14 +45,16 @@ proc_mapstacks(pagetable_t kpgtbl)
 
     for (p = proc; p < &proc[NPROC]; p++) {
         char *pa = kalloc();
-        if(pa == 0)
+        if (pa == 0)
             panic("kalloc");
+        // 2ページを割り当て
         uint64_t va = KSTACK((int) (p - proc));
+        // 1ページ分だけマッピングする
         kvmmap(kpgtbl, va, (uint64_t)pa, PGSIZE, PTE_NORMAL);
     }
 }
 
-// initialize the proc table.
+// プロセステーブルの初期化
 void
 procinit(void)
 {
@@ -71,11 +71,9 @@ procinit(void)
     }
 }
 
-// Must be called with interrupts disabled,
-// to prevent race with process being moved
-// to a different CPU.
-int
-cpuid()
+// 別のCPUに移されるプロセスとの競合を防ぐため、
+// 割り込みを無効にして呼び出さなければならない。
+int cpuid()
 {
 #if 0
     int id = r_tp();
@@ -84,19 +82,17 @@ cpuid()
     return 0;
 }
 
-// Return this CPU's cpu struct.
-// Interrupts must be disabled.
-struct cpu*
-mycpu(void)
+// このCPUのCPU構造体を返す。
+// 割り込みは無効でなければならない。
+struct cpu *mycpu(void)
 {
     int id = cpuid();
     struct cpu *c = &cpus[id];
     return c;
 }
 
-// Return the current struct proc *, or zero if none.
-struct proc*
-myproc(void)
+// 現在稼働中のプロセスを返す。なければ0を返す.
+struct proc *myproc(void)
 {
     push_off();
     struct cpu *c = mycpu();
@@ -105,6 +101,7 @@ myproc(void)
     return p;
 }
 
+// pidを割り当てる
 static int allocpid()
 {
     int pid;
@@ -117,19 +114,19 @@ static int allocpid()
     return pid;
 }
 
-// A fork child's very first scheduling by scheduler()
-// will swtch to forkret.
+// 最初にフォークされた子のscheduler()によるスケジューリングは
+// forkretにswtchされる。
 static void forkret(void)
 {
     static int first = 1;
 
-    // Still holding p->lock from scheduler.
+    // まだschedulerからのp->lockを保持している.
     release(&myproc()->lock);
 
     if (first) {
-        // File system initialization must be run in the context of a
-        // regular process (e.g., because it calls sleep), and thus cannot
-        // be run from main().
+        // ファイルシステムの初期化は通常プロセスのコンテキストで
+        // 実行されなければならない（たとえば、sleepを呼び出すため）
+        // ので、main()から実行することはできない。
         first = 0;
         fsinit(ROOTDEV);
     }

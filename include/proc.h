@@ -28,10 +28,10 @@ struct context {
 
 // CPUごとの状態.
 struct cpu {
-  struct proc *proc;          // このCPUで現在稼働中のプロセス、または null.
-  struct context context;     // scheduler()に入るためにここにswtch()する.
-  int noff;                   // push_off() ネスティングの深さ.
-  int intena;                 // push_off()の前に割り込みが有効であったか?
+    struct proc *proc;          // このCPUで現在稼働中のプロセス、または null.
+    struct context context;     // コンテキストスイッチ用のコンテキスト(scheduler()に入るためにここにswtch()する)
+    int noff;                   // push_off() した回数.
+    int intena;                 // push_off() 最初にpush_off()した際に割り込みが有効であったか?
 };
 
 extern struct cpu cpus[NCPU];

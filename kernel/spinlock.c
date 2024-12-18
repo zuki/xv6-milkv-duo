@@ -87,13 +87,15 @@ holding(struct spinlock *lk)
     return r;
 }
 
-// push_off/pop_off are like intr_off()/intr_on() except that they are matched:
-// it takes two pop_off()s to undo two push_off()s.  Also, if interrupts
-// are initially off, then push_off, pop_off leaves them off.
-
+// push_off/pop_off は intr_off()/intr_on()に似ているが
+// マッチする点（実行回数が記録される）が異なる。
+// すなわち、2回のpush_off()を取り消すには、pop_off()を
+// 2回実行する必要がある。 また、最初に割り込みが無効の場合、
+// push_off, pop_off と実行しても割り込みは無効である。
 void
 push_off(void)
 {
+    // 現在割り込みが有効であるか否か
     int old = intr_get();
 
     intr_off();

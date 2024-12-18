@@ -5,7 +5,7 @@
 
 #include <common/types.h>
 
-// which hart (core) is this?
+// これはどのhart (core) か?
 static inline uint64_t
 r_mhartid()
 {
@@ -14,13 +14,13 @@ r_mhartid()
   return x;
 }
 
-// Machine Status Register, mstatus
+// mstatus: マシンステータスレジスタ
 
-#define MSTATUS_MPP_MASK (3L << 11) // previous mode.
+#define MSTATUS_MPP_MASK (3L << 11) // 以前のモード.
 #define MSTATUS_MPP_M (3L << 11)
 #define MSTATUS_MPP_S (1L << 11)
 #define MSTATUS_MPP_U (0L << 11)
-#define MSTATUS_MIE (1L << 3)    // machine-mode interrupt enable.
+#define MSTATUS_MIE (1L << 3)       // マシンモードの割り込みを有効にする
 
 static inline uint64_t
 r_mstatus()
@@ -36,18 +36,18 @@ w_mstatus(uint64_t x)
   asm volatile("csrw mstatus, %0" : : "r" (x));
 }
 
-// machine exception program counter, holds the
-// instruction address to which a return from
-// exception will go.
+// mepc: machine exception program counter
+// 例外から復帰した際に実行する命令アドレスを保持する
+// (例外の生じた目入れの次のアドレス）
 static inline void
 w_mepc(uint64_t x)
 {
   asm volatile("csrw mepc, %0" : : "r" (x));
 }
 
-// Supervisor Status Register, sstatus
+// sstatus: スーパーバイザステータスレジスタ
 
-#define SSTATUS_SPP (1L << 8)  // Previous mode, 1=Supervisor, 0=User
+#define SSTATUS_SPP (1L << 8)  // 以前のモード, 1=スーパーバイザ, 0=ユーザ
 #define SSTATUS_SPIE (1L << 5) // Supervisor Previous Interrupt Enable
 #define SSTATUS_UPIE (1L << 4) // User Previous Interrupt Enable
 #define SSTATUS_SIE (1L << 1)  // Supervisor Interrupt Enable
@@ -56,170 +56,171 @@ w_mepc(uint64_t x)
 static inline uint64_t
 r_sstatus()
 {
-  uint64_t x;
-  asm volatile("csrr %0, sstatus" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, sstatus" : "=r" (x) );
+    return x;
 }
 
 static inline void
 w_sstatus(uint64_t x)
 {
-  asm volatile("csrw sstatus, %0" : : "r" (x));
+    asm volatile("csrw sstatus, %0" : : "r" (x));
 }
 
-// Supervisor Interrupt Pending
+// sip: スーパーバイザ割り込み保留レジスタ
 static inline uint64_t
 r_sip()
 {
-  uint64_t x;
-  asm volatile("csrr %0, sip" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, sip" : "=r" (x) );
+    return x;
 }
 
 static inline void
 w_sip(uint64_t x)
 {
-  asm volatile("csrw sip, %0" : : "r" (x));
+    asm volatile("csrw sip, %0" : : "r" (x));
 }
 
-// Supervisor Interrupt Enable
-#define SIE_SEIE (1L << 9) // external
-#define SIE_STIE (1L << 5) // timer
-#define SIE_SSIE (1L << 1) // software
+// sie: スーパーバイザ割り込みテーブル
+#define SIE_SEIE (1L << 9) // 外部割り込み
+#define SIE_STIE (1L << 5) // タイマー割り込み
+#define SIE_SSIE (1L << 1) // ソフトウェア割り込み
+
 static inline uint64_t
 r_sie()
 {
-  uint64_t x;
-  asm volatile("csrr %0, sie" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, sie" : "=r" (x) );
+    return x;
 }
 
 static inline void
 w_sie(uint64_t x)
 {
-  asm volatile("csrw sie, %0" : : "r" (x));
+    asm volatile("csrw sie, %0" : : "r" (x));
 }
 
-// Machine-mode Interrupt Enable
+// mie: マシンモード割り込みテーブル
 #define MIE_MEIE (1L << 11) // external
 #define MIE_MTIE (1L << 7)  // timer
 #define MIE_MSIE (1L << 3)  // software
+
 static inline uint64_t
 r_mie()
 {
-  uint64_t x;
-  asm volatile("csrr %0, mie" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, mie" : "=r" (x) );
+    return x;
 }
 
 static inline void
 w_mie(uint64_t x)
 {
-  asm volatile("csrw mie, %0" : : "r" (x));
+    asm volatile("csrw mie, %0" : : "r" (x));
 }
 
-// supervisor exception program counter, holds the
-// instruction address to which a return from
-// exception will go.
+// sepc: supervisor exception program counter
+// 例外から復帰した際に実行する命令アドレスを保持する
 static inline void
 w_sepc(uint64_t x)
 {
-  asm volatile("csrw sepc, %0" : : "r" (x));
+    asm volatile("csrw sepc, %0" : : "r" (x));
 }
 
 static inline uint64_t
 r_sepc()
 {
-  uint64_t x;
-  asm volatile("csrr %0, sepc" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, sepc" : "=r" (x) );
+    return x;
 }
 
-// Machine Exception Delegation
+// medeleg: マシン例外委譲レジスタ
 static inline uint64_t
 r_medeleg()
 {
-  uint64_t x;
-  asm volatile("csrr %0, medeleg" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, medeleg" : "=r" (x) );
+    return x;
 }
 
 static inline void
 w_medeleg(uint64_t x)
 {
-  asm volatile("csrw medeleg, %0" : : "r" (x));
+    asm volatile("csrw medeleg, %0" : : "r" (x));
 }
 
-// Machine Interrupt Delegation
+// mideleg: マシン割り込み委譲レジスタ
 static inline uint64_t
 r_mideleg()
 {
-  uint64_t x;
-  asm volatile("csrr %0, mideleg" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, mideleg" : "=r" (x) );
+    return x;
 }
 
 static inline void
 w_mideleg(uint64_t x)
 {
-  asm volatile("csrw mideleg, %0" : : "r" (x));
+    asm volatile("csrw mideleg, %0" : : "r" (x));
 }
 
-// Supervisor Trap-Vector Base Address
-// low two bits are mode.
+// stvec: スーパーバイザトラップベクタ基底アドレス
+// 低位2ビットはモード
 static inline void
 w_stvec(uint64_t x)
 {
-  asm volatile("csrw stvec, %0" : : "r" (x));
+    asm volatile("csrw stvec, %0" : : "r" (x));
 }
 
 static inline uint64_t
 r_stvec()
 {
-  uint64_t x;
-  asm volatile("csrr %0, stvec" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, stvec" : "=r" (x) );
+    return x;
 }
 
-// Machine-mode interrupt vector
+// mtvec: マシンモード割り込みベクタ
 static inline void
 w_mtvec(uint64_t x)
 {
-  asm volatile("csrw mtvec, %0" : : "r" (x));
+    asm volatile("csrw mtvec, %0" : : "r" (x));
 }
 
-// Physical Memory Protection
+// 物理メモリ保護レジスタ
 static inline void
 w_pmpcfg0(uint64_t x)
 {
-  asm volatile("csrw pmpcfg0, %0" : : "r" (x));
+    asm volatile("csrw pmpcfg0, %0" : : "r" (x));
 }
 
 static inline void
 w_pmpaddr0(uint64_t x)
 {
-  asm volatile("csrw pmpaddr0, %0" : : "r" (x));
+    asm volatile("csrw pmpaddr0, %0" : : "r" (x));
 }
 
-// use riscv's sv39 page table scheme.
+// riscvのsv39ページテーブルスキームを使用する.
 #define SATP_SV39 (8L << 60)
 
 #define MAKE_SATP(pagetable) (SATP_SV39 | (((uint64_t)pagetable) >> 12))
 
-// supervisor address translation and protection;
-// holds the address of the page table.
+// SATP (supervisor address translation and protection)レジスタ
+// ページテーブルのアドレスを保持する
 static inline void
 w_satp(uint64_t x)
 {
-  asm volatile("csrw satp, %0" : : "r" (x));
+    asm volatile("csrw satp, %0" : : "r" (x));
 }
 
 static inline uint64_t
 r_satp()
 {
-  uint64_t x;
-  asm volatile("csrr %0, satp" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, satp" : "=r" (x) );
+    return x;
 }
 
 static inline void
@@ -236,7 +237,7 @@ r_sscratch()
     return x;
 }
 
-// Supervisor Trap Cause
+// スーパーバイザトラップ理由
 static inline uint64_t
 r_scause()
 {
@@ -245,75 +246,75 @@ r_scause()
     return x;
 }
 
-// Supervisor Trap Value
+// スーパーバイザトラップ値
 static inline uint64_t
 r_stval()
 {
-  uint64_t x;
-  asm volatile("csrr %0, stval" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, stval" : "=r" (x) );
+    return x;
 }
 
 // Machine-mode Counter-Enable
 static inline void
 w_mcounteren(uint64_t x)
 {
-  asm volatile("csrw mcounteren, %0" : : "r" (x));
+    asm volatile("csrw mcounteren, %0" : : "r" (x));
 }
 
 static inline uint64_t
 r_mcounteren()
 {
-  uint64_t x;
-  asm volatile("csrr %0, mcounteren" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, mcounteren" : "=r" (x) );
+    return x;
 }
 
 // r_time() / US_INTERVAL がマイクロ秒
 static inline uint64_t
 r_time()
 {
-  uint64_t x;
-  asm volatile("csrr %0, time" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, time" : "=r" (x) );
+    return x;
 }
 
 static inline uint64_t
 r_cycle()
 {
-  uint64_t x;
-   asm volatile("csrr %0, cycle" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("csrr %0, cycle" : "=r" (x) );
+    return x;
 }
 
-// enable device interrupts
+// デバイスの割り込みを許可する
 static inline void
 intr_on()
 {
-  w_sstatus(r_sstatus() | SSTATUS_SIE);
+    w_sstatus(r_sstatus() | SSTATUS_SIE);
 }
 
-// disable device interrupts
+// デバイスの割り込みを無効にする
 static inline void
 intr_off()
 {
-  w_sstatus(r_sstatus() & ~SSTATUS_SIE);
+    w_sstatus(r_sstatus() & ~SSTATUS_SIE);
 }
 
-// are device interrupts enabled?
+// デバイスは割り込みが許可されているか?
 static inline int
 intr_get()
 {
-  uint64_t x = r_sstatus();
-  return (x & SSTATUS_SIE) != 0;
+    uint64_t x = r_sstatus();
+    return (x & SSTATUS_SIE) != 0;
 }
 
 static inline uint64_t
 r_sp()
 {
-  uint64_t x;
-  asm volatile("mv %0, sp" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("mv %0, sp" : "=r" (x) );
+    return x;
 }
 
 // スレッドポインタtpを読み書きする。xv6ではtpをこのコアのhartid
@@ -321,9 +322,9 @@ r_sp()
 static inline uint64_t
 r_tp()
 {
-  uint64_t x;
-  asm volatile("mv %0, tp" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("mv %0, tp" : "=r" (x) );
+    return x;
 }
 
 static inline void
@@ -335,17 +336,17 @@ w_tp(uint64_t x)
 static inline uint64_t
 r_ra()
 {
-  uint64_t x;
-  asm volatile("mv %0, ra" : "=r" (x) );
-  return x;
+    uint64_t x;
+    asm volatile("mv %0, ra" : "=r" (x) );
+    return x;
 }
 
 // flush the TLB.
 static inline void
 sfence_vma()
 {
-  // the zero, zero means flush all TLB entries.
-  asm volatile("sfence.vma zero, zero");
+    // the zero, zero means flush all TLB entries.
+    asm volatile("sfence.vma zero, zero");
 }
 
 typedef uint64_t pte_t;
