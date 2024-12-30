@@ -16,6 +16,8 @@
 
 #define MAXARGS 10
 
+//char *envp[] = { "TZ=JST-9", NULL };
+
 struct cmd {
     int type;
 };

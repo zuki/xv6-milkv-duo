@@ -5,7 +5,7 @@
 
 #define ELF_MAGIC 0x464C457FU  // "\x7FELF" in little endian
 
-// File header
+// File header 20 + 4 + 24 + 4 + 12 = 64
 struct elfhdr {
     uint32_t magic;  // must equal ELF_MAGIC
     uchar elf[12];

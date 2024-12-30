@@ -45,7 +45,8 @@ $K/ramdisk_data.o: fs.img
 # perhaps in /opt/riscv/bin
 #GCCPATH = /home/vagrant/riscv-gnu-toolchain/bin
 #TOOLPREFIX = $(GCCPATH)/riscv64-unknown-elf-
-TOOLPREFIX = riscv64-linux-gnu-
+#TOOLPREFIX = riscv64-linux-gnu-
+TOOLPREFIX = /home/vagrant/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX

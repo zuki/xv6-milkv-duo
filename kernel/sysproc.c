@@ -319,22 +319,34 @@ long sys_ppoll(void) {
 
     if (argu64(1, &nfds) < 0
      || argptr(2, (char *)&timeout_ts, sizeof(struct timespec)) < 0
-     || argptr(3, (char *)&sigmask, sizeof(sigset_t)) < 0)
+     || argptr(3, (char *)&sigmask, sizeof(sigset_t)) < 0) {
+        error("invald either of nfds, timeout, sigmask");
         return -EINVAL;
+     }
+
 
     if (nfds > 0) {
         // FIXME: kmallocを作成する
         fds = (struct pollfd *)kalloc();
-        if (fds == 0)
+        if (fds == 0) {
+            error("no memory");
             return -ENOMEM;
-        if (argptr(0, (char *)fds, nfds * sizeof(struct pollfd)) < 0)
+        }
+
+        if (argptr(0, (char *)fds, nfds * sizeof(struct pollfd)) < 0) {
+            error("invalid fds");
             return -EINVAL;
+        }
+
     } else {
         fds = NULL;
     }
 
-    trace("[1]: fds: %p, nfds: %ld, timeout: 0x%lx, sigmask: 0x%lx", fds, nfds, &timeout_ts, sigmask);
-    return ppoll(fds, nfds, &timeout_ts, &sigmask);
+    debug("fds: %p, nfds: %ld, timeout: 0x%lx, sigmask: 0x%lx", fds, nfds, &timeout_ts, sigmask);
+    long ret= ppoll(fds, nfds, &timeout_ts, &sigmask);
+    debug("ret: %ld", ret);
+    return ret;
+    //return ppoll(fds, nfds, &timeout_ts, &sigmask);
 }
 
 long sys_getpgid(void) {

@@ -105,7 +105,7 @@ int argptr(int n, char *pp, size_t size)
         return -1;
     }
 
-    trace("n: %d, pp: %p, addr: 0x%lx", n, pp, addr);
+    trace("n: %d, pp: %p, addr: 0x%lx, size: %ld", n, pp, addr, size);
     if (addr == 0) {
         pp = (char *)0;
         return 0;
@@ -388,7 +388,7 @@ void syscall(void)
     if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
         // Use num to lookup the system call function for num, call it,
         // and store its return value in p->trapframe->a0
-        trace("[%s] a0: 0x%l016x, a1: 0x%l016x, a2: 0x%l016x, a3: 0x%l016x, a4: 0x%l016x", syscall_names[num],
+        trace("[%s] a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", syscall_names[num],
             p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3);
         ret = syscalls[num]();
 #if 0

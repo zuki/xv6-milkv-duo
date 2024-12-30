@@ -12,12 +12,12 @@
 
 #define CONSOLE     1
 
-char *argv[] = { "sh", 0 };
-char *envp[] = { "HOME=/", 0 };
+char *argv[] = { "sh", NULL };
+//char *envp[] = { "TZ=JST-9", NULL };
 
 int main(void)
 {
-    int pid, wpid;
+    int pid, wpid, status;
     int fd0, fd1, fd2;
 
     if (open("/console", O_RDWR) < 0) {
@@ -39,7 +39,7 @@ int main(void)
             exit(1);
         }
         if (pid == 0) {
-            execve("sh", argv, envp);
+            execv("sh", argv);
             printf("init: exec sh failed\n");
             exit(1);
         }
@@ -47,7 +47,8 @@ int main(void)
         for (;;) {
         // this call to wait() returns if the shell exits,
         // or if a parentless process exits.
-            wpid = wait((int *) 0);
+            wpid = wait(&status);
+            printf("status: %d\n", status);
             if (wpid == pid) {
                 // the shell exited; restart it.
                 break;
@@ -59,5 +60,6 @@ int main(void)
             }
         }
     }
+
     return 0;
 }

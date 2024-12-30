@@ -51,7 +51,7 @@ void            consoleintr(int);
 void            consputc(int);
 
 // exec.c
-int             exec(char*, char**);
+int             execve(char *path, char *const argv[], char *const envp[], int argc, int envc);
 
 // file.c
 struct file*    filealloc(void);
@@ -82,7 +82,7 @@ void            iupdate(struct inode*);
 int             namecmp(const char*, const char*);
 struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
-int             readi(struct inode*, int, uint64_t, uint32_t, uint32_t);
+int             readi(struct inode *ip, int user_dst, uint64_t dst, uint32_t off, uint32_t n);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64_t, uint32_t, uint32_t);
 void            itrunc(struct inode*);
@@ -234,13 +234,13 @@ int             strncmp(const char*, const char*, uint32_t);
 char*           strncpy(char*, const char*, int);
 
 // syscall.c
-int             argaddr(int, uint64_t *);
-int             argint(int, int*);
-int             argstr(int, char*, int);
+//int             argaddr(int, uint64_t *);
+int             argint(int n, int *ip);
+int             argstr(int n, char *buf, int max);
 int             argu64(int n, uint64_t *u64);
 int             argptr(int n, char *pp, size_t size);
-int             fetchstr(uint64_t, char*, int);
-int             fetchaddr(uint64_t, uint64_t*);
+int             fetchstr(uint64_t addr, char *buf, int max);
+int             fetchaddr(uint64_t addr, uint64_t *ip);
 int             fdalloc(struct file *f, int from);
 void            syscall(void);
 
@@ -259,21 +259,22 @@ int             uartgetc(void);
 // vm.c
 void            kvminit(void);
 void            kvminithart(void);
-void            kvmmap(pagetable_t, uint64_t, uint64_t, uint64_t, uint64_t);
-int             mappages(pagetable_t, uint64_t, uint64_t, uint64_t, uint64_t);
+void            kvmmap(pagetable_t kpgtbl, uint64_t va, uint64_t pa, uint64_t sz, uint64_t perm);
+int             mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_t perm);
 pagetable_t     uvmcreate(void);
-void            uvmfirst(pagetable_t, uchar *, uint32_t);
-uint64_t        uvmalloc(pagetable_t, uint64_t, uint64_t, int);
-uint64_t        uvmdealloc(pagetable_t, uint64_t, uint64_t);
-int             uvmcopy(pagetable_t, pagetable_t, uint64_t);
-void            uvmfree(pagetable_t, uint64_t);
-void            uvmunmap(pagetable_t, uint64_t, uint64_t, int);
-void            uvmclear(pagetable_t, uint64_t);
-pte_t *         walk(pagetable_t, uint64_t, int);
-uint64_t        walkaddr(pagetable_t, uint64_t);
-int             copyout(pagetable_t, uint64_t, char *, uint64_t);
-int             copyin(pagetable_t, char *, uint64_t, uint64_t);
-int             copyinstr(pagetable_t, char *, uint64_t, uint64_t);
+void            uvmfirst(pagetable_t pagetable, uchar *src, uint32_t sz);
+uint64_t        uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm);
+uint64_t        uvmdealloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz);
+int             uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz);
+void            uvmfree(pagetable_t pagetable, uint64_t sz);
+void            uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free);
+void            uvmclear(pagetable_t pagetable, uint64_t va);
+pte_t *         walk(pagetable_t pagetable, uint64_t va, int alloc);
+uint64_t        walkaddr(pagetable_t pagetable, uint64_t va);
+int             copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len);
+int             copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len);
+int             copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max);
+void            uvmdump(pagetable_t pagetable);
 
 // plic.c
 void            plicinit(void);

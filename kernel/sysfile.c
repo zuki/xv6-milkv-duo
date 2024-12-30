@@ -426,61 +426,124 @@ long sys_chdir(void)
 
 long sys_execve(void)
 {
-    char path[MAXPATH], *argv[MAXARG];
-    int i, error = 0;
-    uint64_t uargv, uarg;
-
-    if (argu64(1, &uargv) < 0)
-        return -EINVAL;
+    char path[MAXPATH];
+    char *argv[MAXARG], *envp[MAXARG];
+    uint64_t argvp, envpp;
+    uint64_t arg_p, env_p;
+    int argc = 0, envc = 0, error;
 
     if (argstr(0, path, MAXPATH) < 0) {
         warn("parse path error");
         return -EINVAL;
     }
+
+    if (argu64(1, &argvp) < 0 || argu64(2, &envpp) < 0) {
+        error("wrong argv or envp");
+        return -EINVAL;
+    }
+
+    trace("path: %s, argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
+
     memset(argv, 0, sizeof(argv));
-    for (i = 0; ; i++) {
-        if (i >= NELEM(argv)) {
-            error("too many options");
-            error = -E2BIG;
-            goto bad;
-        }
-        // TODO: arg@trで書き換え
-        if (fetchaddr(uargv + sizeof(uint64_t)*i, (uint64_t*)&uarg) < 0) {
-            error("fetchaddr error: uarg[%d]", i);
-            error = -EFAULT;
-            goto bad;
-        }
-        if (uarg == 0) {
-            argv[i] = 0;
-            break;
-        }
-        // TODO: slabを使う
-        argv[i] = kalloc();
-        if (argv[i] == 0) {
-            error("outof memory");
-            error = -ENOMEM;
-            goto bad;
-        }
+    if (argvp != 0 && argvp != -1) {
+        for (; ; argc++) {
+            if (argc >= MAXARG - 1) {
+                error("too many options: %d", argc);
+                error = -E2BIG;
+                goto bad;
+            }
+            if (fetchaddr(argvp + sizeof(uint64_t) * argc, (uint64_t *)&arg_p) < 0) {
+                error("fetchaddr arg_p[%d]", argc);
+                error = -EFAULT;
+                goto bad;
+            }
+            if (arg_p == 0) {
+                argv[argc] = 0;
+                break;
+            }
+            // TODO: kmallocを作成
+            argv[argc] = kalloc();
+            if (argv[argc] == 0) {
+                error("outof memory");
+                error = -ENOMEM;
+                goto bad;
+            }
 
-        if (fetchstr(uarg, argv[i], PGSIZE) < 0) {
-            error("fetchstr error: argv[%d]", i);
-            error = -EIO;
-            goto bad;
+            if (fetchstr(arg_p, argv[argc], PGSIZE) < 0) {
+                error("fetchstr error: argv[%d]", argc);
+                error = -EIO;
+                goto bad;
+            }
+            trace("argv[%d] (0x%lx) = %s", argc, arg_p, argv[argc]);
+#if 0
+            for (int j=0; j < strlen(argv[argc]); j++) {
+                printf("%02x ", argv[argc][j]);
+            }
+            printf("\n");
+#endif
         }
+    } else {
+        argc = 0;
+    }
 
+    memset(envp, 0, sizeof(envp));
+    if (envpp != 0 && envpp != -1) {
+        for (; ; envc++) {
+            if (envc >= MAXARG - 1) {
+                error("too many environ: %d", envc);
+                error = -E2BIG;
+                goto bad;
+            }
+            // TODO: arg@trで書き換え
+            if (fetchaddr(envpp + sizeof(uint64_t) * envc, (uint64_t*)&env_p) < 0) {
+                error("fetchaddr error: uenv[%d]", envc);
+                error = -EFAULT;
+                goto bad;
+            }
+            if (env_p == 0) {
+                envp[envc] = 0;
+                break;
+            }
+            // TODO: slabを使う
+            envp[envc] = kalloc();
+            if (envp[envc] == 0) {
+                error("outof memory");
+                error = -ENOMEM;
+                goto bad;
+            }
+
+            if (fetchstr(env_p, envp[envc], PGSIZE) < 0) {
+                error("fetchstr error: envp[%d]", envc);
+                error = -EIO;
+                goto bad;
+            }
+            trace("envp[%d] (0x%lx) = %s", envc, env_p, envp[envc]);
+#if 0
+            for (int j=0; j < strlen(envp[envc]); j++) {
+                printf("%02x ", envp[envc][j]);
+            }
+            printf("\n");
+#endif
+        }
+    } else {
+        envc = 0;
     }
 
     //int ret = exec(path, argv);
     trace("path: %s, argv[0]: %s", path, argv[0]);
-    int ret = exec(path, argv);
-    for (i = 0; i < NELEM(argv) && argv[i] != 0; i++)
-        kfree(argv[i]);
+    int ret = execve(path, argv, envp, argc, envc);
+    for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++)
+        kfree(argv[argc]);
+    for (envc = 0; envc < NELEM(envp) && envp[envc] != 0; envc++)
+        kfree(envp[envc]);
 
     return ret;
 
 bad:
-    for (i = 0; i < NELEM(argv) && argv[i] != 0; i++)
-        kfree(argv[i]);
+    for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++)
+        kfree(argv[argc]);
+    for (envc = 0; envc < NELEM(envp) && envp[envc] != 0; envc++)
+        kfree(envp[envc]);
 
     return error;
 }

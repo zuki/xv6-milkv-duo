@@ -70,7 +70,7 @@ usertrap(void)
         // これらのレジスタはもう使い終わったので割り込みを有効にする
         intr_on();
         syscall();
-        trace("syscall return = 0x%l016x", p->trapframe->a0);
+        trace("a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, ", p->trapframe->a0, p->trapframe->a1, p->trapframe->a2);
     } else if((which_dev = devintr()) != 0) {
         // ok
     } else {
@@ -139,7 +139,6 @@ usertrapret(void)
     // この関数はユーザページテーブルに切り替え、ユーザレジスタを
     // 復元し、sretでユーザモードに切り替える
     uint64_t trampoline_userret = TRAMPOLINE + (userret - trampoline);
-    trace("tp: 0x%l016x, pid: %d, p: %p", r_tp(), p->pid, p);
     ((void (*)(uint64_t))trampoline_userret)(satp);
 }
 
@@ -165,8 +164,7 @@ kerneltrap()
         panic("kerneltrap: interrupts enabled");
 
     if ((which_dev = devintr()) == 0){
-        debug("scause %d", scause);
-        printf("  sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+        debug("scause %d sepc=0x%lx stval=0x%lx", scause, r_sepc(), r_stval());
         panic("kerneltrap");
     }
 

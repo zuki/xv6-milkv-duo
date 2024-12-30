@@ -8,6 +8,7 @@
 #include <defs.h>
 #include <elf.h>
 #include <printf.h>
+#include <linux/auxvec.h>
 
 static int loadseg(pde_t *, uint64_t, struct inode *, uint32_t, uint32_t);
 
@@ -22,11 +23,11 @@ int flags2perm(int flags)
 }
 
 int
-exec(char *path, char **argv)
+execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 {
     char *s, *last;
     int i, off;
-    uint64_t argc, sz = 0, sp, ustack[MAXARG], stackbase;
+    uint64_t sz = 0, sp, ustack[MAXARG], estack[MAXARG], stackbase;
     struct elfhdr elf;
     struct inode *ip;
     struct proghdr ph;
@@ -60,7 +61,7 @@ exec(char *path, char **argv)
         goto bad;
     }
 
-    int first = 1;
+    int nph = 0;
 
     // プログラムをメモリにロードする.
     for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)) {
@@ -72,36 +73,51 @@ exec(char *path, char **argv)
         if (ph.type != ELF_PROG_LOAD)
             continue;
         if (ph.memsz < ph.filesz) {
-            warn("size error: memsz 0x%l016x < filesz 0x%l016x", ph.memsz, ph.filesz);
+            warn("size error: memsz 0x%lx < filesz 0x%lx", ph.memsz, ph.filesz);
             goto bad;
         }
 
         if (ph.vaddr + ph.memsz < ph.vaddr) {
-            warn("addr error: vaddr 0x%l016x + memsz 0x%l016x < vaddr 0x%l016x", ph.vaddr, ph.memsz, ph.vaddr);
+            warn("addr error: vaddr 0x%lx + memsz 0x%lx < vaddr 0x%lx", ph.vaddr, ph.memsz, ph.vaddr);
             goto bad;
         }
 
         // 最初のプログラムヘッダーはPGSIZEにアラインされていなければならない
-        if (first) {
-            first = 0;
-            if (ph.vaddr % PGSIZE != 0) {
-                warn("vaddr not align: 0x%l016x", ph.vaddr);
+        if (nph == 0) {
+            sz = ph.vaddr;
+            if (sz % PGSIZE != 0) {
+                warn("first section should be page aligned: 0x%lx", sz);
                 goto bad;
             }
         }
+        nph++;
 
         // コード用のメモリを割り当ててマッピング
         uint64_t sz1;
         if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0) {
-            warn("uvmalloc error: sz1 = 0x%l016x", sz1);
+            warn("uvmalloc error: sz1 = 0x%lx", sz1);
             goto bad;
         }
-        trace("LOAD[%d] sz: %ld, sz1: %ld, flags: 0x%08x", i, sz, sz1, ph.flags);
-        sz = sz1;
+        trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
+        trace("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
+
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
-            warn("loadseg error: inum: %d, off: 0x%l016x", ip->inum, ph.off);
+            warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
             goto bad;
         }
+#if 0
+        pte_t *pte = walk(pagetable, ph.vaddr, 0);
+        debub("va: 0x%lx, pte: %p, *pte: 0x%lx", ph.vaddr, pte, *pte);
+        if (nph == 2) {
+            char var[8];
+            pte_t *pte = walk(pagetable, 0x18648, 0);
+            debug("memsz: 0x18648, pte: %p, *pte: 0x%lx", pte, *pte);
+            copyin(pagetable, var, 0x18648, 8);
+            debug("*0x18648: 0x%02x %02x %02x %02x %02x %02x %02x %02x",
+                var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
+        }
+#endif
+        sz = sz1;
         asm volatile("fence.i");
     }
     iunlockput(ip);
@@ -119,61 +135,110 @@ exec(char *path, char **argv)
     // 2番目をユーザスタックとして使用する。
     sz = PGROUNDUP(sz);
     uint64_t sz1;
-    if ((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0) {
+    if ((sz1 = uvmalloc(pagetable, sz, sz + 3*PGSIZE, PTE_W)) == 0) {
         warn("uvmalloc for page boundary error");
         goto bad;
     }
 
     sz = sz1;
     // 1ページ目をガードページとしてユーザアクセス禁止とする
-    uvmclear(pagetable, sz - 2*PGSIZE);
+    uvmclear(pagetable, sz - 3*PGSIZE);
     sp = sz;
-    stackbase = sp - PGSIZE;
-    trace("sp: 0x%lx, base: 0x%lx", sp, stackbase);
+    stackbase = sp - 2 * PGSIZE;
+    trace("sp: 0x%lx, sbase: 0x%lx", sp, stackbase);
 
     // tls用に1ページ確保する
     if ((sz1 = uvmalloc(pagetable, sz, sz + PGSIZE, PTE_W)) == 0) {
         warn("uvmalloc for tls page error");
         goto bad;
     }
+    trace("tp: 0x%lx", sz1);
 
+    // uint64_t sp_top = sp;
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
-    for (argc = 0; argv[argc]; argc++) {
-        if (argc >= MAXARG) {
-            warn("too big argc: %d", argc);
-            goto bad;
+    if (argc > 0) {
+        for (i = 0; i < argc; i++) {
+            sp -= strlen(argv[i]) + 1;
+            sp -= sp % 16; // riscv sp must be 16-byte aligned
+            if (sp < stackbase) {
+                warn("sp: 0x%lx exeed stackbase for arg[%d]: 0x%lx", sp, i, stackbase);
+                goto bad;
+            }
+            if (copyout(pagetable, sp, argv[i], strlen(argv[i]) + 1) < 0) {
+                warn("copyout error: argv[%d]", i);
+                goto bad;
+            }
+            ustack[i] = sp;
         }
-        sp -= strlen(argv[argc]) + 1;
-        sp -= sp % 16; // riscv sp must be 16-byte aligned
-        if (sp < stackbase) {
-            warn("sp: 0x%l016x exeed stackbase for arg: 0x%l016x", sp, stackbase);
-            goto bad;
-        }
-        if (copyout(pagetable, sp, argv[argc], strlen(argv[argc]) + 1) < 0) {
-            warn("copyout error: argv[%d]", argc);
-            goto bad;
-        }
-
-        ustack[argc] = sp;
     }
-    ustack[argc] = 0;
+    ustack[i] = 0;
+
+    if (envc > 0) {
+        // 引数文字列をプッシュし、残りのスタックをustackに準備する
+        for (i = 0; i < envc; i++) {
+            sp -= strlen(envp[i]) + 1;
+            sp -= sp % 16; // riscv sp must be 16-byte aligned
+            if (sp < stackbase) {
+                warn("sp: 0x%lx exeed stackbase for envp[%d]: 0x%lx", sp, i, stackbase);
+                goto bad;
+            }
+            if (copyout(pagetable, sp, envp[i], strlen(envp[i]) + 1) < 0) {
+                warn("copyout error: envp[%d]", i);
+                goto bad;
+            }
+            estack[i] = sp;
+            trace("estack[%d]: 0x%lx, envp[%d]: 0x%lx", i, estack[i], i, envp[i]);
+        }
+        estack[i] = 0;
+        trace("estack[%d]: 0x%lx", i, estack[i]);
+    }
+
+    uint64_t auxv_sta[][2] = { { AT_PAGESZ, PGSIZE }, { AT_NULL,    0 } };
+    uint64_t auxv_size = sizeof(auxv_sta);
+    sp -= auxv_size;
+    sp -= sp % 16;
+    trace("auxv sp: %p, size: %ld", sp, auxv_size);
+    if (sp < stackbase) {
+        warn("[2] sp: 0x%lx exeed stackbase for aux: 0x%lx", sp, stackbase);
+        goto bad;
+    }
+    if (copyout(pagetable, sp, (char *)auxv_sta, auxv_size) < 0) {
+        warn("copyout error: auxv");
+        goto bad;
+    }
+
+    // push the array of argv[] pointers.
+    uint64_t sp_envp = 0;
+    if (envc > 0) {
+        sp -= (envc + 1) * sizeof(uint64_t);
+        sp -= sp % 16;
+        if (sp < stackbase) {
+            warn("[2] sp: 0x%lx exeed stackbase for env: 0x%lx", sp, stackbase);
+            goto bad;
+        }
+        if (copyout(pagetable, sp, (char *)estack, (envc+1)*sizeof(uint64_t)) < 0) {
+            warn("copyout error: estack: %p", (char *)estack);
+            goto bad;
+        }
+        sp_envp = sp;
+    }
 
     // push the array of argv[] pointers.
     sp -= (argc + 1) * sizeof(uint64_t);
     sp -= sp % 16;
     if (sp < stackbase) {
-        warn("[2] sp: 0x%l016x exeed stackbase for arg: 0x%l016x", sp, stackbase);
+        warn("[2] sp: 0x%lx exeed stackbase for arg: 0x%lx", sp, stackbase);
         goto bad;
     }
-
     if (copyout(pagetable, sp, (char *)ustack, (argc+1)*sizeof(uint64_t)) < 0) {
-        warn("copyout error: ustack: 0x%p", (char *)ustack);
+        warn("copyout error: ustack: %p", (char *)ustack);
         goto bad;
     }
-
-    // ユーザのmain(argc, argv)への引数
+    trace("path: %s, argc: %d, envc: %d", path, argc, envc);
+    // ユーザのmain(argc, argv, envp)への引数
     // argcはシステムコールの戻り値としてa0に入れられて返される。
     p->trapframe->a1 = sp;
+    p->trapframe->a2 = sp_envp;
 
     // デバッグ用にプログラム名を保存する .
     for (last=s=path; *s; s++)
@@ -188,9 +253,18 @@ exec(char *path, char **argv)
     p->trapframe->epc = elf.entry;  // initial program counter = main
     p->trapframe->sp = sp; // initial stack pointer
     p->trapframe->tp = sz1;
-    trace("tp: 0x%l016x", sz1);
+    trace("tp: 0x%lx", sz1);
     proc_freepagetable(oldpagetable, oldsz);
-
+    //uvmdump(p->pagetable);
+#if 0
+    printf("\n== Stack TOP : 0x%l08x ==\n", sp_top);
+    for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
+        uint64_t val;
+        copyin(pagetable, (char *)&val, e, 8);
+        printf("%l08x: %l016x\n", e, val);
+    }
+    printf("== Stack END : ox%l08x ==\n\n", sp);
+#endif
     return argc; // this ends up in a0, the first argument to main(argc, argv)
 
 bad:
@@ -213,7 +287,7 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
     uint32_t i, n;
     uint64_t pa;
 
-    for (i = 0; i < sz; i += PGSIZE){
+    for (i = 0; i < sz; i += PGSIZE) {
         pa = walkaddr(pagetable, va + i);
         if (pa == 0)
             panic("loadseg: address should exist");

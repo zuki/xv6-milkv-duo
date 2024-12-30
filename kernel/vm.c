@@ -65,7 +65,7 @@ kvminit(void)
 // Switch h/w page table register to the kernel's page table,
 // and enable paging.
 void
-kvminithart()
+kvminithart(void)
 {
     // wait for any previous writes to the page table memory to finish.
     asm volatile("fence rw, rw");
@@ -92,21 +92,21 @@ kvminithart()
 pte_t *
 walk(pagetable_t pagetable, uint64_t va, int alloc)
 {
-  if(va >= MAXVA)
-    panic("walk");
+    if (va >= MAXVA)
+        panic("walk");
 
-  for(int level = 2; level > 0; level--) {
-    pte_t *pte = &pagetable[PX(level, va)];
-    if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
-    } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
-        return 0;
-      memset(pagetable, 0, PGSIZE);
-      *pte = PA2PTE(pagetable) | PTE_V;
+    for (int level = 2; level > 0; level--) {
+        pte_t *pte = &pagetable[PX(level, va)];
+        if(*pte & PTE_V) {
+            pagetable = (pagetable_t)PTE2PA(*pte);
+        } else {
+            if (!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+                return 0;
+            memset(pagetable, 0, PGSIZE);
+            *pte = PA2PTE(pagetable) | PTE_V;
+        }
     }
-  }
-  return &pagetable[PX(0, va)];
+    return &pagetable[PX(0, va)];
 }
 
 // Look up a virtual address, return the physical address,
@@ -115,21 +115,21 @@ walk(pagetable_t pagetable, uint64_t va, int alloc)
 uint64_t
 walkaddr(pagetable_t pagetable, uint64_t va)
 {
-  pte_t *pte;
-  uint64_t pa;
+    pte_t *pte;
+    uint64_t pa;
 
-  if(va >= MAXVA)
-    return 0;
+    if (va >= MAXVA)
+        return 0;
 
-  pte = walk(pagetable, va, 0);
-  if(pte == 0)
-    return 0;
-  if((*pte & PTE_V) == 0)
-    return 0;
-  if((*pte & PTE_U) == 0)
-    return 0;
-  pa = PTE2PA(*pte);
-  return pa;
+    pte = walk(pagetable, va, 0);
+    if (pte == 0)
+        return 0;
+    if ((*pte & PTE_V) == 0)
+        return 0;
+    if ((*pte & PTE_U) == 0)
+        return 0;
+    pa = PTE2PA(*pte);
+    return pa;
 }
 
 // add a mapping to the kernel page table.
@@ -138,8 +138,8 @@ walkaddr(pagetable_t pagetable, uint64_t va)
 void
 kvmmap(pagetable_t kpgtbl, uint64_t va, uint64_t pa, uint64_t sz, uint64_t perm)
 {
-  if(mappages(kpgtbl, va, sz, pa, perm) != 0)
-    panic("kvmmap");
+    if(mappages(kpgtbl, va, sz, pa, perm) != 0)
+        panic("kvmmap");
 }
 
 // Create PTEs for virtual addresses starting at va that refer to
@@ -149,27 +149,27 @@ kvmmap(pagetable_t kpgtbl, uint64_t va, uint64_t pa, uint64_t sz, uint64_t perm)
 int
 mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_t perm)
 {
-  uint64_t a, last;
-  pte_t *pte;
+    uint64_t a, last;
+    pte_t *pte;
 
-  if(size == 0)
-    panic("mappages: size");
+    if (size == 0)
+        panic("mappages: size");
 
-  a = PGROUNDDOWN(va);
-  last = PGROUNDDOWN(va + size - 1);
-  for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
-      return -1;
-    if(*pte & PTE_V)
-      panic("mappages: remap");
-    *pte = PA2PTE(pa) | perm | PTE_V | PTE_A | PTE_D;
-    if(a == last)
-      break;
-    a += PGSIZE;
-    pa += PGSIZE;
-  }
-  sfence_vma();
-  return 0;
+    a = PGROUNDDOWN(va);
+    last = PGROUNDDOWN(va + size - 1);
+    for(;;) {
+        if((pte = walk(pagetable, a, 1)) == 0)
+            return -1;
+        if (*pte & PTE_V)
+            panic("mappages: remap");
+        *pte = PA2PTE(pa) | perm | PTE_V | PTE_A | PTE_D;
+        if (a == last)
+            break;
+        a += PGSIZE;
+        pa += PGSIZE;
+    }
+    sfence_vma();
+    return 0;
 }
 
 // Remove npages of mappings starting from va. va must be
@@ -178,32 +178,32 @@ mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_
 void
 uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
 {
-  uint64_t a;
-  pte_t *pte;
+    uint64_t a;
+    pte_t *pte;
 
-  if((va % PGSIZE) != 0)
-    panic("uvmunmap: not aligned");
+    if ((va % PGSIZE) != 0)
+        panic("uvmunmap: not aligned");
 
-  for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
-    if((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0)
-      panic("uvmunmap: not mapped");
-    if((PTE_FLAGS(*pte) & 0x3ff) == PTE_V)
-      panic("uvmunmap: not a leaf");
-    if(do_free){
-      uint64_t pa = PTE2PA(*pte);
-      kfree((void*)pa);
+    for (a = va; a < va + npages*PGSIZE; a += PGSIZE) {
+        if ((pte = walk(pagetable, a, 0)) == 0)
+            panic("uvmunmap: walk");
+        if ((*pte & PTE_V) == 0)
+            panic("uvmunmap: not mapped");
+        if ((PTE_FLAGS(*pte) & 0x3ff) == PTE_V)
+            panic("uvmunmap: not a leaf");
+        if (do_free) {
+            uint64_t pa = PTE2PA(*pte);
+            kfree((void*)pa);
+        }
+        *pte = 0;
     }
-    *pte = 0;
-  }
-  sfence_vma();
+    sfence_vma();
 }
 
 // 空のユーザページテーブルを作成する.
 // メモリ不足の場合は 0 を返す.
 pagetable_t
-uvmcreate()
+uvmcreate(void)
 {
     pagetable_t pagetable;
     pagetable = (pagetable_t) kalloc();
@@ -254,6 +254,7 @@ uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
             uvmdealloc(pagetable, a, oldsz);
             return 0;
         }
+        trace("mapped: 0x%lx - 0x%lx", a, a + PGSIZE);
     }
     return newsz;
 }
@@ -265,35 +266,35 @@ uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
 uint64_t
 uvmdealloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz)
 {
-  if(newsz >= oldsz)
-    return oldsz;
+    if (newsz >= oldsz)
+        return oldsz;
 
-  if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
-    int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
-    uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
-  }
+    if (PGROUNDUP(newsz) < PGROUNDUP(oldsz)) {
+        int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
+        uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
+    }
 
-  return newsz;
+    return newsz;
 }
 
 // Recursively free page-table pages.
 // All leaf mappings must already have been removed.
-void
+static void
 freewalk(pagetable_t pagetable)
 {
-  // there are 2^9 = 512 PTEs in a page table.
-  for(int i = 0; i < 512; i++){
-    pte_t pte = pagetable[i];
-    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
-      // this PTE points to a lower-level page table.
-      uint64_t child = PTE2PA(pte);
-      freewalk((pagetable_t)child);
-      pagetable[i] = 0;
-    } else if(pte & PTE_V){
-      panic("freewalk: leaf");
+    // there are 2^9 = 512 PTEs in a page table.
+    for (int i = 0; i < 512; i++) {
+        pte_t pte = pagetable[i];
+        if ((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0) {
+            // this PTE points to a lower-level page table.
+            uint64_t child = PTE2PA(pte);
+            freewalk((pagetable_t)child);
+            pagetable[i] = 0;
+        } else if(pte & PTE_V) {
+            panic("freewalk: leaf");
+        }
     }
-  }
-  kfree((void*)pagetable);
+    kfree((void*)pagetable);
 }
 
 // ユーザメモリページを解放し、
@@ -347,7 +348,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
 
 // ユーザーアクセスに対してPTEを無効とマークする。
 // execがユーザスタックのガードページとして使用する。
-
 void
 uvmclear(pagetable_t pagetable, uint64_t va)
 {
@@ -461,5 +461,38 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
         return 0;
     } else {
         return -1;
+    }
+}
+
+void uvmdump(pagetable_t pagetable)
+{
+    debug("pagetable: %p", pagetable);
+    uint64_t va_start = 0, va_end = 0;
+
+    for (int i = 0; i < 512; i++) {
+        if (!(pagetable[i] & PTE_V)) continue;
+        pte_t *pgt1 = &pagetable[PX(2, pagetable[i])];
+        for (int j = 0; j < 512; j++) {
+            if (!(pgt1[j] & PTE_V)) continue;
+            uint64_t *pgt2 = (pagetable_t)PTE2PA(*pgt1);
+            for (int k = 0; k < 512; k++) {
+                if (!(pgt2[k] & PTE_V)) continue;
+                    uint64_t pa = PTE2PA(pgt2[k]);
+                    uint64_t va = (uint64_t) i << 30 | (uint64_t) j << 21
+                                | (pa & 0xfff) ;
+                    debug("va: 0x%lx, pa: 0x%lx", va, pa);
+                    if (va == va_end)
+                        va_end = va + PGSIZE;
+                    else {
+                        if (va_start < va_end)
+                            debug("va: [0x%p ~ 0x%p)", va_start, va_end);
+                        va_start = va;
+                        va_end = va + PGSIZE;
+                   }
+            }
+        }
+    }
+    if (va_start < va_end) {
+        debug("va: [0x%p ~ 0x%p)", va_start, va_end);
     }
 }
