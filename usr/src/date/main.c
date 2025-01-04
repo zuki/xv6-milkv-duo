@@ -9,7 +9,8 @@ void print_now(void) {
     time_t t = time(NULL) + 9 * 60 * 60;
     struct tm *tm = gmtime(&t);
 
-    fprintf(stdout, "%04d-%02d-%02d (%s) %02d:%02d:%02d JST\n",
+    //fprintf(stdout, "%04d-%02d-%02d (%s) %02d:%02d:%02d JST\n",
+    printf("%04d-%02d-%02d (%s) %02d:%02d:%02d JST\n",
         tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
         wdays[tm->tm_wday], tm->tm_hour, tm->tm_min, tm->tm_sec);
 }
@@ -28,12 +29,13 @@ int main(int argc, char *argv[])
         } else {
             print_now();
         }
-
-    } else {
-        fprintf(stderr, "Usage: date [epoc]\n");
     }
+
+#if 0
     fflush(stdout);
     fflush(stderr);
     _exit(0);
-    //return 0;
+#endif
+
+    return 0;
 }

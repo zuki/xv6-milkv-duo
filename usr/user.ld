@@ -18,6 +18,16 @@ SECTIONS
     . = ALIGN(0x1000);
   }
 
+  .tdate : {
+    . = ALIGN(16);
+    *(.tdata .tdata.*)
+  }
+
+  .tbss : {
+    . = ALIGN(16);
+    *(.tbss .tbss.*)
+  }
+
   .data : {
     . = ALIGN(16);
     *(.sdata .sdata.*) /* do not need to distinguish this from .data */

@@ -143,8 +143,10 @@ int main(int argc, char *argv[])
         for (int i = 1; i < argc; i++)
             ls(argv[i]);
     //printf("main ended\n");
+#if 1
     fflush(stdout);
     fflush(stderr);
     _exit(0);
+#endif
     //return 0;
 }

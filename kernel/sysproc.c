@@ -40,6 +40,11 @@ long sys_getpid(void)
     return myproc()->pid;
 }
 
+long sys_gettid(void)
+{
+    return myproc()->pid;
+}
+
 long sys_clone(void)
 {
     void *childstk;
