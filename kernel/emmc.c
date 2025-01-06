@@ -747,7 +747,8 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
 
     /* 8. エラーがないかチェックする */
     if ((irpts & 0xffff8001) != 1) {
-    /*
+#if 0
+        // AUTO_CMD_ERRもemmc_do_data_command()で処理
         if ((irpts & SD_INT_ACMD12ERR)) {
             uint32_t cnt2 = read32(SD_CONTROL2);
             debug("auto cmd err: 0x%08x", cnt2);
@@ -756,15 +757,14 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
                 goto cont;
             }
         }
-    */
-
+#endif
         error("waiting for command complete interrupt 1: irpts=0x%08x", irpts);
         self->last_error = irpts & 0xffff0000;
         self->last_interrupt = irpts;
         return;
     }
 
-    /* delayus(2000); */
+    //delayus(2000);
 
     /* 9. レスポンスデータを取得する */
     switch (cmd_reg & SD_CMD_RSPNS_TYPE_MASK) {
@@ -853,6 +853,7 @@ static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
                 error("error occured whilst waiting for transfer complete interrupt 3: irpts=0x%08x", irpts);
                 self->last_error = irpts & 0xffff0000;
                 self->last_interrupt = irpts;
+                write32(SD_INT_STS, 0xffff0002);
                 return;
             }
 
@@ -1243,6 +1244,11 @@ static int emmc_do_data_command(struct emmc *self, int is_write, uint8_t * buf,
             break;
         } else {
             error("error: 0x%08x when sending CMD%d", self->last_error, command);
+            // ACMD_ERRへの対処
+            if (self->last_error & SD_INT_ACMD12ERR) {
+                emmc_issue_command(self, STOP_TRANSMISSION, block_no, 5000000);
+                emmc_reset_dat();
+            }
             if (++retry_count < max_retries) {
                 trace("Retrying");
             } else {
