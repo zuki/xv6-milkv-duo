@@ -163,6 +163,7 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
 int
 filewrite(struct file *f, uint64_t addr, int n)
 {
+    trace("ip: %d, addr: 0x%lx, n: %d", f->ip->inum, addr, n);
     int r, ret = 0;
     struct timespec ts;
 
@@ -182,13 +183,10 @@ filewrite(struct file *f, uint64_t addr, int n)
         // and 2 blocks of slop for non-aligned writes.
         // this really belongs lower down, since writei()
         // might be writing a device like the console.
-        int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
-        int i = 0;
+        ssize_t max = ((MAXOPBLOCKS-1-2-2) / 2) * BSIZE;
+        ssize_t i = 0;
         while (i < n) {
-            int n1 = n - i;
-            if (n1 > max)
-                n1 = max;
-
+            ssize_t n1 = MIN(max, n - i);
             begin_op();
             ilock(f->ip);
             if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)

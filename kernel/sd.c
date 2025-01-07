@@ -133,7 +133,7 @@ void sd_start(void)
 
         list_pop_front(&sdque);
 
-        //disb();
+        asm volatile("fence.i");
         wakeup(b);
     }
 }

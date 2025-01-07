@@ -30,9 +30,10 @@ struct superblock {
 
 #define FSMAGIC     0x10203040
 
-#define NDIRECT     12      // 直接指定のブロック数
-#define NINDIRECT   (BSIZE / sizeof(uint))  // 間接指定のブロック数
-#define MAXFILE     (NDIRECT + NINDIRECT)   // 1ファイルの最大ブロック数
+#define NDIRECT     11      // 直接指定のブロック数
+#define NINDIRECT   (BSIZE / sizeof(uint))      // 第一間接指定のブロック数
+#define NINDIRECT2  (NINDIRECT * NINDIRECT)     // 第二間接指定のブロック数
+#define MAXFILE     (NDIRECT + NINDIRECT + NINDIRECT2)   // 1ファイルの最大ブロック数 - 11 + 256 + 65536 = 65803 : * 1024 = 65.803 KB = 64 MB
 
 // ディスク上のinode構造体(128バイト)
 struct dinode {
@@ -47,7 +48,7 @@ struct dinode {
     struct timespec atime;      // 最新アクセス日時
     struct timespec mtime;      // 最新更新日時
     struct timespec ctime;      // 作成日時
-    uint32_t addrs[NDIRECT+1];  // データブロックのアドレス
+    uint32_t addrs[NDIRECT+2];  // データブロックのアドレス
     char _dummy[4];
 };
 

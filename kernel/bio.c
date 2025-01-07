@@ -64,6 +64,7 @@ static struct buf *bget(uint32_t dev, uint32_t bno)
 loop:
     list_foreach(b, &bcache.head, clink) {
         if (b->dev == dev && b->blockno == blockno) {
+            trace("bno: %d is cached", blockno);
             if (!(b->flags & B_BUSY)) {
                 b->flags |= B_BUSY;
                 release(&bcache.lock);
@@ -78,13 +79,19 @@ loop:
     // 未使用の最も利用されていないバッファをリサイクルする
     // find_free_entry()にあたる
     list_foreach_reverse(b, &bcache.head, clink) {
-        if ((b->flags & B_BUSY) == 0 /* b->refcnt == 0 */ && (b->flags & B_DIRTY) == 0) {
+        if ((b->flags & B_BUSY) == 0 /* && b->refcnt == 0 */ && (b->flags & B_DIRTY) == 0) {
             b->dev = dev;
             b->blockno = blockno;
             b->flags = B_BUSY;
+            trace("bno: %d is recycled", blockno);
             release(&bcache.lock);
             return b;
         }
+    }
+    //debug("bno: %d", bno);
+    for (int i = 0; i < NBUF; i++) {
+        int f = bcache.buf[i].flags;
+        debug("buf[%d]: bn: %d, bvd: %d%d%d", i, bcache.buf[i].blockno, (f % B_BUSY) ? 1 : 0, (f % B_VALID) ? 1 : 0, (f % B_DIRTY) ? 1 : 0 )
     }
     panic("bget: no buffers");
 }
@@ -127,6 +134,7 @@ void brelse(struct buf *b)
     list_drop(&b->clink);
     list_push_back(&bcache.head, &b->clink);
     b->flags &= ~B_BUSY;
+    trace("bno: %d, busy: %d, valid: %d, dirty: %d", b->blockno, (b->flags & B_BUSY) ? 1 : 0, (b->flags & B_VALID) ? 1 : 0, (b->flags & B_DIRTY) ? 1 : 0);
     wakeup(b);
     release(&bcache.lock);
 }

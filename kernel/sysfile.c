@@ -103,14 +103,14 @@ long sys_read(void)
 long sys_write(void)
 {
     struct file *f;
-    int n;
+    int n, fd;
     uint64_t p;
 
     if (argu64(1, &p) < 0 || argint(2, &n) < 0)
         return -EINVAL;
-    if (argfd(0, 0, &f) < 0)
+    if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-
+    trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
     return filewrite(f, p, n);
 }
 
@@ -149,18 +149,13 @@ ssize_t sys_writev(void)
     trace("n: 1, iov: %p", iov);
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-
+    trace("fd: %d, ip: %d", fd, f->ip->inum);
     ssize_t tot = 0;
     for (pp = iov; pp < iov + iovcnt; pp++) {
-#if 0
-        if (!in_user(p->iov_base, p->iov_len)) {
-            if (p->iov_base == 0 && p->iov_len == 0) continue;      // fflushで実行
-            return -EFAULT;
-        }
-#endif
         if (copyin(p->pagetable, (char *)&iov_k, (uint64_t)pp, sizeof(struct iovec)) != 0)
             return -EIO;
         tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len);
+        //debug("pp: %p, base: %p, len: %ld, tot: %ld", pp, iov_k.iov_base, iov_k.iov_len, tot);
     }
     return tot;
 }
@@ -270,6 +265,7 @@ long sys_unlinkat(void)
      || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
+    debug("path: %s, fd: %d, flags: %d", path, dirfd, flags);
     if (dirfd != AT_FDCWD)
         return -EINVAL;
 

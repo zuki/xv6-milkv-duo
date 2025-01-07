@@ -74,7 +74,7 @@ static void bzero(int dev, int bno)
 
 // ゼロクリアしたディスクブロックを割り当て、そのブロック番号を返す。
 // ディスクに空きがない場合は 0 を返す.
-static uint balloc(uint32_t dev)
+static uint32_t balloc(uint32_t dev)
 {
     int b, bi, m;
     struct buf *bp;
@@ -400,12 +400,12 @@ iunlockput(struct inode *ip)
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
 // returns 0 if out of disk space.
-static uint
+static uint32_t
 bmap(struct inode *ip, uint32_t bn)
 {
-    uint32_t addr, *a;
+    uint32_t idx1, idx2, addr, *a;
     struct buf *bp;
-
+    trace("ip: %d, bn: %d", ip->inum, bn);
     if (bn < NDIRECT) {
         if ((addr = ip->addrs[bn]) == 0) {
             addr = balloc(ip->dev);
@@ -415,6 +415,7 @@ bmap(struct inode *ip, uint32_t bn)
         }
         return addr;
     }
+
     bn -= NDIRECT;
 
     if (bn < NINDIRECT) {
@@ -426,7 +427,7 @@ bmap(struct inode *ip, uint32_t bn)
             ip->addrs[NDIRECT] = addr;
         }
         bp = bread(ip->dev, addr);
-        a = (uint*)bp->data;
+        a = (uint32_t*)bp->data;
         if ((addr = a[bn]) == 0) {
             addr = balloc(ip->dev);
             if (addr) {
@@ -434,10 +435,47 @@ bmap(struct inode *ip, uint32_t bn)
                 log_write(bp);
             }
         }
+        trace("bn: %d, addr: 0x%lx", bn, addr);
         brelse(bp);
         return addr;
     }
 
+    bn -= NINDIRECT;
+
+    if (bn < NINDIRECT2) {
+        // Load indirect block, allocating if necessary.
+        if ((addr = ip->addrs[NDIRECT+1]) == 0) {
+            addr = balloc(ip->dev);
+            if (addr == 0)
+                return 0;
+            ip->addrs[NDIRECT+1] = addr;
+        }
+        idx1 = bn / NINDIRECT;
+        idx2 = bn % NINDIRECT;
+        bp = bread(ip->dev, addr);
+        a = (uint32_t*)bp->data;
+        if ((addr = a[idx1]) == 0) {
+            addr = balloc(ip->dev);
+            if (addr == 0)
+                return 0;
+            a[idx1] = addr;
+            log_write(bp);
+        }
+        trace("idx1: %d, addr1: 0x%lx", idx1, addr);
+        brelse(bp);
+        bp = bread(ip->dev, addr);
+        a = (uint32_t*)bp->data;
+        if ((addr = a[idx2]) == 0) {
+            a[idx2] = addr = balloc(ip->dev);
+            if (addr == 0)
+                return 0;
+            a[idx2] = addr;
+            log_write(bp);
+        }
+        trace("idx2: %d, addr2: 0x%lx", idx2, addr);
+        brelse(bp);
+        return addr;
+    }
     panic("bmap: out of range");
 }
 
@@ -447,8 +485,8 @@ void
 itrunc(struct inode *ip)
 {
     int i, j;
+    uint32_t *a, *b;
     struct buf *bp;
-    uint32_t *a;
 
     for (i = 0; i < NDIRECT; i++) {
         if (ip->addrs[i]) {
@@ -459,14 +497,39 @@ itrunc(struct inode *ip)
 
     if (ip->addrs[NDIRECT]) {
         bp = bread(ip->dev, ip->addrs[NDIRECT]);
-        a = (uint*)bp->data;
+        a = (uint32_t*)bp->data;
         for (j = 0; j < NINDIRECT; j++) {
-            if (a[j])
+            if (a[j]) {
                 bfree(ip->dev, a[j]);
+                a[j] = 0;
+            }
         }
         brelse(bp);
         bfree(ip->dev, ip->addrs[NDIRECT]);
         ip->addrs[NDIRECT] = 0;
+    }
+
+    if (ip->addrs[NDIRECT+1]) {
+        bp = bread(ip->dev, ip->addrs[NDIRECT+1]);
+        a = (uint32_t *)bp->data;
+        for (i = 0; i < NINDIRECT; i++) {
+            if (a[i]) {
+                brelse(bp);
+                bp = bread(ip->dev, a[i]);
+                b = (uint32_t *)bp->data;
+                for (j = 0; j < NINDIRECT; j++) {
+                    if (b[j]) {
+                        bfree(ip->dev, b[j]);
+                        b[j] = 0;
+                    }
+                }
+                bfree(ip->dev, a[i]);
+                a[i] = 0;
+            }
+        }
+        brelse(bp);
+        bfree(ip->dev, ip->addrs[NDIRECT+1]);
+        ip->addrs[NDIRECT+1] = 0;
     }
 
     ip->size = 0;

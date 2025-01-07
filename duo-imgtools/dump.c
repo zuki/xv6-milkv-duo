@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <time.h>
 
-#define NDIRECT         12
+#define NDIRECT         11
 
 struct ptable_entry {
   char      flag;         // ブートフラグ
@@ -33,12 +33,19 @@ struct superblock {
 };
 
 struct dinode {
-    uint16_t type;                // File type
-    uint16_t major;               // Major device number (T_DEVICE only)
-    uint16_t minor;               // Minor device number (T_DEVICE only)
-    uint16_t nlink;               // Number of links to inode in file system
-    uint32_t size;                // Size of file (bytes)
-    uint32_t addrs[NDIRECT+1];    // Data block addresses
+    short type;                 // ファイルタイプ
+    short major;                // メジャーデバイス番号 (T_DEVICE only)
+    short minor;                // マイナーデバイス番号 (T_DEVICE only)
+    short nlink;                // inodeへのリンク数
+    uint32_t size;              // ファイルサイズ（バイト単位）(bytes)
+    mode_t mode;                // ファイルモード
+    uid_t  uid;                 // 所有者のユーザーID
+    gid_t  gid;                 // 所有者のグループID
+    struct timespec atime;      // 最新アクセス日時
+    struct timespec mtime;      // 最新更新日時
+    struct timespec ctime;      // 作成日時
+    uint32_t addrs[NDIRECT+2];  // データブロックのアドレス
+    char _dummy[4];
 };
 
 // FROM mksd.mk
@@ -47,9 +54,9 @@ struct dinode {
 #define SECTOR_SIZE     512
 #define BUFSIZE         1024
 
-#define MAXOPBLOCKS     10
-#define NINODES         256
-#define FSSIZE          1500
+#define MAXOPBLOCKS     42
+#define NINODES         1024
+#define FSSIZE          102400
 #define BSIZE           1024
 #define LOGSIZE         (MAXOPBLOCKS*3)                         // 30
 #define IPB             (BSIZE / sizeof(struct dinode))         // 1024 / 64 = 16

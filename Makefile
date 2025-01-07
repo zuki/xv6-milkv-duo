@@ -120,7 +120,8 @@ UPROGS=\
 	$U/zombie \
 	$U/sigtest\
 	$U/sigtest2\
-	$U/sigtest3
+	$U/sigtest3 \
+	$U/bigtest
 
 fs.img: mkfs/mkfs README.md $(UPROGS)
 	mkfs/mkfs fs.img README.md $(UPROGS)

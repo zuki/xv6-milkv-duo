@@ -1,14 +1,15 @@
 #ifndef MKFS_H
 #define MKFS_H
 
-#define FSSIZE      1500
+#define FSSIZE      102400
 
-#define NINODES     256
-#define LOGSIZE     30
+#define NINODES     1024
+#define LOGSIZE     126
 #define BSIZE       1024
-#define NDIRECT     12
+#define NDIRECT     11
 #define NINDIRECT   (BSIZE / sizeof(uint))
-#define MAXFILE     (NDIRECT + NINDIRECT)
+#define NINDIRECT2  (NINDIRECT * NINDIRECT)
+#define MAXFILE     (NDIRECT + NINDIRECT + NINDIRECT2)
 #define DIRSIZ      14
 #define FSMAGIC     0x10203040
 #define ROOTINO     1
@@ -44,7 +45,7 @@ struct dinode {
     struct timespec atime;      // 最新アクセス日時
     struct timespec mtime;      // 最新更新日時
     struct timespec ctime;      // 作成日時
-    uint  addrs[NDIRECT+1];     // データブロックのアドレス
+    uint  addrs[NDIRECT+2];     // データブロックのアドレス
     char _dummy[4];
 };
 
