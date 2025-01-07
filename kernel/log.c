@@ -133,6 +133,8 @@ recover_from_log(void)
 void
 begin_op(void)
 {
+    return;
+
     acquire(&log.lock);
     while(1){
         if (log.committing) {
@@ -153,6 +155,8 @@ begin_op(void)
 void
 end_op(void)
 {
+    return;
+
     int do_commit = 0;
 
     acquire(&log.lock);
@@ -224,6 +228,8 @@ commit()
 void
 log_write(struct buf *b)
 {
+    bwrite(b);
+#if 0
     int i;
 
     if (log.lh.n >= LOGSIZE || log.lh.n >= log.size - 1)
@@ -244,4 +250,5 @@ log_write(struct buf *b)
     }
     b->flags |= B_DIRTY;
     release(&log.lock);
+#endif
 }
