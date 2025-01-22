@@ -280,6 +280,7 @@ bad:
 
 long fileunlink(char *path, int flags)
 {
+    debug("path: %s, flags: %d", path, flags);
     struct inode *ip, *dp;
     char name[DIRSIZ];
     uint32_t off;
@@ -308,7 +309,7 @@ long fileunlink(char *path, int flags)
     ilock(ip);
 
     if (ip->nlink < 1) {
-        return -EPERM;
+        error = -EPERM;
         goto badip;
         //panic("unlink: nlink < 1");
     }

@@ -118,14 +118,14 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         }
 #endif
         sz = sz1;
-        asm volatile("fence.i");
+        fence_i();
     }
     iunlockput(ip);
     end_op();
     ip = 0;
 
     // Synchronize the instruction and data streams.
-    asm volatile("fence.i");
+    fence_i();
 
     p = myproc();
     uint64_t oldsz = p->sz;

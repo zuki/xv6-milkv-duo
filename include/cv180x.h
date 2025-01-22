@@ -112,26 +112,26 @@
 #define RTC_EXTERNAL_32K        1
 
 // SD0/1ベースレジスタからのオフセット
-#define CVI_SDHCI_SD_CTRL       (SD0_BASE + 0x200)
+#define CVI_SDHCI_SD_CTRL       (SD0_BASE + 0x200)          // EMMC_CTRL
 #define SD_FUNC_EN                  (1 << 0)
 #define LATANCY_1T                  (1 << 1)
 #define CLK_FREE_EN                 (1 << 2)
 #define DISABLE_DATA_CRC_CHK        (1 << 3)
 #define SD_RSTN                     (1 << 8)
-#define SD_RStN_OEN                 (1 << 9)
+#define SD_RSTN_OEN                 (1 << 9)
 #define TIMER_CLK_SEL_100K          (0 << 16)
 #define TIMER_CLK_SEL_32K           (1 << 16)
 
-#define CVI_SDHCI_PHY_TX_RX_DLY     (SD0_BASE + 0x240)
+#define CVI_SDHCI_PHY_TX_RX_DLY     (SD0_BASE + 0x240)      // PHY_TX_RX_DLY
 #define CVI_SDHCI_PHY_RX_DLY_SHIFT      16
 #define CVI_SDHCI_PHY_RX_DLY_MASK       0x7F0000
 #define CVI_SDHCI_PHY_RX_SRC_BIT_1      24
 #define CVI_SDHCI_PHY_RX_SRC_BIT_2      25
 
-#define CVI_SDHCI_PHY_DS_DLY        (SD0_BASE + 0x244)
-#define CVI_SDHCI_PHY_DLY_STS       (SD0_BASE + 0x248)
+#define CVI_SDHCI_PHY_DS_DLY        (SD0_BASE + 0x244)      // PHY_DS_DLY
+#define CVI_SDHCI_PHY_DLY_STS       (SD0_BASE + 0x248)      // PHY_DLL_STS
 
-#define CVI_SDHCI_PHY_CONFIG        (SD0_BASE + 0x24C)
+#define CVI_SDHCI_PHY_CONFIG        (SD0_BASE + 0x24C)      // PHY_CONFIG
 #define REG_TX_BPS_SEL_MASK             0xFFFFFFFE
 #define REG_TX_BPS_SEL_CLR_MASK         0x1 // 0x24c  PHY_TX_BPS
 #define REG_TX_BPS_SEL_SHIFT            0 // 0x24c  PHY_TX_BPS

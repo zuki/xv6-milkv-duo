@@ -338,7 +338,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
     }
     // Synchronize the instruction and data streams,
     // since we may copy pages with instructions.
-    asm volatile("fence.i");
+    fence_i();
     return 0;
 
     err:

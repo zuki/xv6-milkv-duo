@@ -10,7 +10,7 @@ int main(void)
     char buf[512];
     int fd, i, sectors;
 
-    fd = open("bigfile.txt", O_CREAT | O_WRONLY);
+    fd = open("bigfile.txt", O_CREAT | O_WRONLY, 0644);
     if (fd < 0){
         printf("big: cannot open bigfile.txt for writing\n");
         exit(1);

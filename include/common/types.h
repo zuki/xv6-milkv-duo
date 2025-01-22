@@ -31,6 +31,7 @@ typedef int64_t         ssize_t;
 typedef uint64_t        size_t;
 typedef uint64_t        dev_t;
 typedef uint64_t        ino_t;
+typedef uint64_t        lbaint_t;
 typedef uint32_t        mode_t;
 typedef uint32_t        nlink_t;
 typedef int32_t         pid_t;

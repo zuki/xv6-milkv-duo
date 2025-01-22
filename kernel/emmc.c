@@ -480,7 +480,7 @@ static void emmc_voltage_restore(struct emmc *self, bool sd_off)
         self->host.vol_18v = false;
     } else {
         if (!self->host.vol_18v) {
-            //Voltage switching flow (3.3)
+            //電圧切替フロー (1.8v -> 3.3v)
             //(reg_pwrsw_auto=1, reg_pwrsw_disc=0, reg_pwrsw_vsel=0(3.3v), reg_en_pwrsw=1)
             write32(SYSCTL_SD_PWRSW_CTRL, 0x9 | (read32(SYSCTL_SD_PWRSW_CTRL) & 0xFFFFFFF0));
             delayms(1);
@@ -491,7 +491,7 @@ static void emmc_voltage_restore(struct emmc *self, bool sd_off)
     delayms(1);
 
     /* DS/HS設定を復元する */
-    write32(CVI_SDHCI_SD_CTRL, read32(CVI_SDHCI_SD_CTRL) | LATANCY_1T | SD_RSTN | SD_RStN_OEN);
+    write32(CVI_SDHCI_SD_CTRL, read32(CVI_SDHCI_SD_CTRL) | LATANCY_1T | SD_RSTN | SD_RSTN_OEN);
     write32(CVI_SDHCI_PHY_TX_RX_DLY, 0x1000100);
     write32(CVI_SDHCI_PHY_CONFIG, REG_TX_BPS_SEL_BYPASS);
 
@@ -556,7 +556,7 @@ static void emmc_power_on_off(struct emmc *self, uint8_t mode, uint16_t vdd)
 {
     trace("mode: %d, vdd: 0x%04x", mode, vdd);
 
-    /* モードが電源ON */
+    /* 電源ON */
     if (mode == POWER_ON_MODE) {
         /* 1. バスパワーをオン */
         emmc_power_noreg(self, mode, vdd);
@@ -567,6 +567,7 @@ static void emmc_power_on_off(struct emmc *self, uint8_t mode, uint16_t vdd)
         /* 4. pu/pdの設定 */
         emmc_setup_io(self, false);
         delayms(5);
+    /* 電源OFF */
     } else if (mode == POWER_OFF_MODE) {
         emmc_setup_pad(self, true);
         emmc_setup_io(self, true);
@@ -695,6 +696,7 @@ static int emmc_reset_dat(void)
 static void emmc_issue_command_int(struct emmc *self, uint32_t cmd_reg,
                        uint32_t argument, int timeout)
 {
+    trace("cmd: 0x%lx, arg: 0x%lx", cmd_reg, argument);
     self->last_cmd_reg = cmd_reg;
     self->last_cmd_success = 0;
 
@@ -1246,6 +1248,7 @@ static int emmc_do_data_command(struct emmc *self, int is_write, uint8_t * buf,
             error("error: 0x%08x when sending CMD%d", self->last_error, command);
             // ACMD_ERRへの対処
             if (self->last_error & SD_INT_ACMD12ERR) {
+                debug("auto cmd err: 0x%02x", read32(SD_CONTROL2) & 0xff);
                 emmc_issue_command(self, STOP_TRANSMISSION, block_no, 5000000);
                 emmc_reset_dat();
             }

@@ -43,20 +43,20 @@
 /* Allow old sdhci versions (may cause errors), required for QEMU. */
 #define SD_ALLOW_OLD_SDHCI
 
-#define SD_ARG2             (SD0_BASE + 0x00)
-#define SD_BLKSIZECNT       (SD0_BASE + 0x04)
-#define SD_ARG1             (SD0_BASE + 0x08)
-#define SD_CMDTM            (SD0_BASE + 0x0C)
-#define SD_RESP0            (SD0_BASE + 0x10)
-#define SD_RESP1            (SD0_BASE + 0x14)
-#define SD_RESP2            (SD0_BASE + 0x18)
-#define SD_RESP3            (SD0_BASE + 0x1C)
-#define SD_DATA             (SD0_BASE + 0x20)
-#define SD_PRESENT_STS           (SD0_BASE + 0x24)
+#define SD_ARG2             (SD0_BASE + 0x00)   // SDMA_SADDR
+#define SD_BLKSIZECNT       (SD0_BASE + 0x04)   // BLK_SIZE_AND_CNT
+#define SD_ARG1             (SD0_BASE + 0x08)   // ARGUMENT
+#define SD_CMDTM            (SD0_BASE + 0x0C)   // XFER_MODE_AND_CMD
+#define SD_RESP0            (SD0_BASE + 0x10)   // RESP31_0
+#define SD_RESP1            (SD0_BASE + 0x14)   // RESP63_32
+#define SD_RESP2            (SD0_BASE + 0x18)   // RESP95-64
+#define SD_RESP3            (SD0_BASE + 0x1C)   // RESP127_96
+#define SD_DATA             (SD0_BASE + 0x20)   // BUF_DATA
+#define SD_PRESENT_STS      (SD0_BASE + 0x24)   // PRESENT_STS
 #define     CMD_INHIBIT         (1 << 0)
 #define     DAT_INHIBIT         (1 << 1)
-#define SD_CONTROL0         (SD0_BASE + 0x28)
-#define SD_CONTROL1         (SD0_BASE + 0x2C)
+#define SD_CONTROL0         (SD0_BASE + 0x28)   // HOST_CTL_PWR_BG_WUP
+#define SD_CONTROL1         (SD0_BASE + 0x2C)   // CLK_CTL_SWRST
 #define     SD_DIVIDER_SHIFT	    8
 #define     SD_DIVIDER_HI_SHIFT	    6
 #define     SD_DIV_MASK	            0xFF
@@ -70,10 +70,10 @@
 #define     SD_RESET_ALL            (1 << 24)
 #define     SD_RESET_CMD            (1 << 25)
 #define     SD_RESET_DAT            (1 << 26)
-#define SD_INT_STS          (SD0_BASE + 0x30)
-#define SD_INT_STS_EN       (SD0_BASE + 0x34)
-#define SD_INT_SIG_EN       (SD0_BASE + 0x38)
-#define SD_CONTROL2         (SD0_BASE + 0x3C)
+#define SD_INT_STS          (SD0_BASE + 0x30)   // NORM_AND_ERR_INT_STS
+#define SD_INT_STS_EN       (SD0_BASE + 0x34)   // NORM_AND_ERR_INT_STS_EN
+#define SD_INT_SIG_EN       (SD0_BASE + 0x38)   // NORM_AND_ERR_INT_SIG_EN
+#define SD_CONTROL2         (SD0_BASE + 0x3C)   // AUTO_CMD_ERR_AND_HOST_CTL2
 #define SD_CAPABILITIES_1   (SD0_BASE + 0x40)
 #define     CAP1_TIMEOUT_CLK_MASK       0x0000003F
 #define     CAP1_TIMEOUT_CLK_SHIFT      0

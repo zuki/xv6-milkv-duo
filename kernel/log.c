@@ -133,6 +133,7 @@ recover_from_log(void)
 void
 begin_op(void)
 {
+    fence_i();
     return;
 
     acquire(&log.lock);
@@ -155,6 +156,7 @@ begin_op(void)
 void
 end_op(void)
 {
+    fence_i();
     return;
 
     int do_commit = 0;

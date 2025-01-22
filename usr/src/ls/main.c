@@ -122,7 +122,7 @@ void ls(char *path)
                     fprintf(stderr, "ls: cannot stat %s\n", buf);
                     continue;
                 }
-                printf("%s %4ld %s %5ld %s %s\n", fmtmode(st.st_mode),
+                printf("%s %4ld %s %8ld %s %s\n", fmtmode(st.st_mode),
                        st.st_ino, fmtuser(0, 0), st.st_size, fmttime(st.st_mtime), fmtname(buf));
                 //fflush(stdout);
             }

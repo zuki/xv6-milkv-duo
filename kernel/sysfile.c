@@ -265,7 +265,7 @@ long sys_unlinkat(void)
      || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
-    debug("path: %s, fd: %d, flags: %d", path, dirfd, flags);
+    trace("path: %s, fd: %d, flags: %d", path, dirfd, flags);
     if (dirfd != AT_FDCWD)
         return -EINVAL;
 
