@@ -17,7 +17,7 @@ struct buf {
     uint32_t refcnt;
     struct list_head clink; /* LRU cache list. */
     struct list_head dlink; /* Disk buffer list. */
-    uchar data[DSIZE];
+    uint8_t data[DSIZE];
 };
 
 #endif

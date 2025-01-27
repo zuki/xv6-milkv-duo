@@ -12,7 +12,9 @@
  */
 #ifndef __ASSEMBLY__
 
-#define ARCH_DMA_MINALIGN   64
+#define ALIGN(x, a)              (((x) + (a) - 1) & ~((a) - 1))
+
+#define ARCH_DMA_MINALIGN   32
 #define ROUND(a, b)         (((a) + (b) - 1) & ~((b) - 1))
 #define DIV_ROUND_UP(n,d)   (((n) + (d) - 1) / (d))
 
@@ -20,8 +22,6 @@
     ({ unsigned long long _tmp = (ll); do_div(_tmp, d); _tmp; })
 
 #define DIV_ROUND_UP_ULL(ll, d) DIV_ROUND_DOWN_ULL((ll) + (d) - 1, (d))
-
-#define ALIGN   __ALIGN
 
 /*
  * ALLOC_CACHE_ALIGN_BUFFERマクロはDMAの最小アーキテクチャアライメント要件を
@@ -40,7 +40,7 @@
  *
  * マクロは次にこの配列のアライメントされた部分へのポインタを作成し、ポインタに
  * 配列のアライメントされた部分の最初の要素のアドレスを代入する。
-T*
+ *
  * マクロを次のように呼び出すと
  *
  *      ALLOC_CACHE_ALIGN_BUFFER(uint32_t,buffer,1024);

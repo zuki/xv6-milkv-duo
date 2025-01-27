@@ -3,7 +3,7 @@
 #include <common/memlayout.h>
 #include <common/riscv.h>
 #include <defs.h>
-#include <emmc.h>
+#include <mmc.h>
 #include <printf.h>
 
 volatile static int started = 0;

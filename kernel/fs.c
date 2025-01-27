@@ -842,7 +842,7 @@ int getdents(struct file *f, uint64_t data, size_t size)
         namelen = MIN(strlen(de.name), DIRSIZ) + 1;
         reclen = (size_t)(&((struct dirent64*)0)->d_name);
         reclen = reclen + namelen;
-        reclen = ALIGN(reclen, 3);
+        reclen = (reclen + 7) & ~0x7;
         if ((tlen + reclen) > size) {
             error("break; tlen: %d, reclen: %d, size: %d", tlen, reclen, size);
             break;

@@ -56,6 +56,9 @@ static void commit();
 void
 initlog(int dev, struct superblock *sb)
 {
+    info("not use log");
+    return;
+
     if (sizeof(struct logheader) >= BSIZE)
         panic("initlog: too big logheader");
 

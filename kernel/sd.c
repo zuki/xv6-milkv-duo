@@ -1,5 +1,5 @@
 #include <sd.h>
-#include <emmc.h>
+#include <mmc.h>
 #include <defs.h>
 #include <list.h>
 #include <common/riscv.h>
@@ -7,8 +7,9 @@
 #include <buf.h>
 #include <common/types.h>
 #include <printf.h>
+#include <riscv-barrier.h>
 
-static struct emmc sd0;
+static struct mmc sd0;
 static struct list_head sdque;
 static struct spinlock sdlock;
 struct partition_info ptinfo[PARTITIONS];
@@ -42,14 +43,21 @@ sd_init(void)
     initlock(&sdlock, "sd");
 
     acquire(&sdlock);
-    int ret = emmc_init(&sd0);
+    //int ret = emmc_init(&sd0);
+    int ret = mmc_initialize(&sd0);
     //assert(ret == 0);
     if (ret)
-      panic("failed emmc_init\n");
+      panic("failed mmc_initialize\n");
+#if 0
     emmc_seek(&sd0, 0UL);
     size_t bytes = emmc_read(&sd0, buf, 1024);
-    if (bytes != 1024)
-      panic("failed emmc_read\n");
+#endif
+    size_t blks = mmc_bread(&sd0, 0, 2, buf);
+    if (blks != 2) {
+        error("read blks: %ld", blks);
+        panic("failed mmc_bread\n");
+    }
+
     //assert(bytes == 512);
     release(&sdlock);
 
@@ -99,7 +107,7 @@ void
 sd_intr(void)
 {
     acquire(&sdlock);
-    emmc_intr(&sd0);
+    //emmc_intr(&sd0);
     //disb();
     wakeup(&sd0);
     release(&sdlock);
@@ -117,22 +125,33 @@ void sd_start(void)
     while (!list_empty(&sdque)) {
         struct buf *b =
             container_of(list_front(&sdque), struct buf, dlink);
+        struct list_head *item;
+        item = list_front(&sdque);
+        debug("[item1 : %p, next: %p, prev: %p]", item, item->next, item->prev);
+        debug("[dlink1: %p, next: %p, prev: %p]", &b->dlink, (&b->dlink)->next, (&b->dlink)->prev);
         // TODO: block sizeをvfsで持つ
-        uint32_t blks = b->dev == FATMINOR ? 512 : 1024;
-        trace("buf blockno: 0x%08x, flags: 0x%08x", b->blockno, b->flags);
-        emmc_seek(&sd0, b->blockno * SD_BLOCK_SIZE);
+        //uint32_t blks = b->dev == FATMINOR ? 512 : 1024;
+        uint32_t blks = b->dev == FATMINOR ? 1 : 2;
+        debug("buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
+        //emmc_seek(&sd0, b->blockno * SD_BLOCK_SIZE);
 
         if (b->flags & B_DIRTY) {
-            assert(emmc_write(&sd0, b->data, blks) == blks);
+            assert(mmc_bwrite(&sd0,  b->blockno, blks, b->data) == blks);
+            // assert(emmc_write(&sd0, b->data, blks) == blks);
         } else {
-            assert(emmc_read(&sd0, b->data, blks) == blks);
+            assert(mmc_bread(&sd0, b->blockno, blks, b->data) == blks);
+            // assert(emmc_read(&sd0, b->data, blks) == blks);
         }
+        trace("r/w ok: bno: 0x%x, blks: %d", b->blockno, blks);
+        item = list_front(&sdque);
+        debug("[item2 : %p, next: %p, prev: %p]", item, item->next, item->prev);
+        debug("[dlink2: %p, next: %p, prev: %p]", &b->dlink, (&b->dlink)->next, (&b->dlink)->prev);
 
         b->flags |= B_VALID;
         b->flags &= ~B_DIRTY;
 
         list_pop_front(&sdque);
-
+        mb();
         fence_i();
         wakeup(b);
     }
@@ -143,17 +162,17 @@ void sd_rw(struct buf *b)
 {
     acquire(&sdlock);
 
-    // Append to request queue.
-    list_push_back(&sdque, &b->dlink);
+    uint32_t blks = b->dev == FATMINOR ? 1 : 2;
+    trace("[DEBUG] sd_rw: buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
 
-    // Start disk if necessary.
-    if (list_front(&sdque) == &b->dlink) {
-        sd_start();
+    if (b->flags & B_DIRTY) {
+        assert(mmc_bwrite(&sd0,  b->blockno, blks, b->data) == blks);
+        b->flags &= ~B_DIRTY;
+    } else {
+        assert(mmc_bread(&sd0, b->blockno, blks, b->data) == blks);
+        b->flags |= B_VALID;
     }
-
-    // Wait for request to finish.
-    while ((b->flags & (B_VALID | B_DIRTY)) != B_VALID)
-        sd_sleep(b);
+    trace("ok\n");
 
     release(&sdlock);
 }

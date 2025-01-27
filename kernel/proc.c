@@ -321,7 +321,7 @@ userinit(void)
     p->state = RUNNABLE;
 
     release(&p->lock);
-    trace("initproc pid: %d, addr: %p", initproc->pid, initproc);
+    debug("initproc pid: %d, addr: %p", initproc->pid, initproc);
 }
 
 // Grow or shrink user memory by n bytes.

@@ -121,6 +121,4 @@ typedef int         bool;
     __a >= __b ? __a : __b;         \
 })
 
-#define ALIGN(p, n) (((p) + ((1 << (n)) - 1)) & ~((1 << (n)) - 1))
-
 #endif

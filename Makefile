@@ -30,7 +30,10 @@ OBJS = \
   $K/kernelvec.o \
   $K/plic.o \
   $K/sbi.o \
-  $K/emmc.o \
+  $K/mmc.o \
+  $K/sdhci.o \
+  $K/sdhci-cv180x.o \
+  $K/riscv-cache.o \
   $K/sd.o \
   $K/buddy.o \
   $K/slab.o \

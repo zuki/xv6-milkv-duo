@@ -91,7 +91,7 @@ loop:
     //debug("bno: %d", bno);
     for (int i = 0; i < NBUF; i++) {
         int f = bcache.buf[i].flags;
-        debug("buf[%d]: bn: %d, bvd: %d%d%d", i, bcache.buf[i].blockno, (f % B_BUSY) ? 1 : 0, (f % B_VALID) ? 1 : 0, (f % B_DIRTY) ? 1 : 0 )
+        error("buf[%d]: bn: %d, bvd: %d%d%d", i, bcache.buf[i].blockno, (f % B_BUSY) ? 1 : 0, (f % B_VALID) ? 1 : 0, (f % B_DIRTY) ? 1 : 0 )
     }
     panic("bget: no buffers");
 }
@@ -127,8 +127,11 @@ void bwrite(struct buf *b)
 // TODO: release_block()
 void brelse(struct buf *b)
 {
-    if ((b->flags & B_BUSY) == 0)
+    if ((b->flags & B_BUSY) == 0) {
+        error("flags: 0x%x, dev: %d, bno: %d, ref: %d", b->flags, b->dev, b->blockno, b->refcnt);
         panic("brelse");
+    }
+
 
     acquire(&bcache.lock);
     list_drop(&b->clink);

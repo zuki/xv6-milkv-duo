@@ -6,7 +6,7 @@
 #include <defs.h>
 #include <common/fs.h>
 #include <config.h>
-#include <emmc.h>
+#include <cv180x_reg.h>
 #include <printf.h>
 
 /*
