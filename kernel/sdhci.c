@@ -45,7 +45,7 @@ static void sdhci_cmd_done(struct sdhci_host *host, struct mmc_cmd *cmd)
     int i;
     // レスポンスがR2の場合
     if (cmd->resp_type & MMC_RSP_136) {
-        /* CRC(8bit)が剥がれているのでその分シフトする必要がある */
+        /* CRC(8bit)が剥がされているのでその分シフトする必要がある */
         for (i = 0; i < 4; i++) {
             // response[0] = RES127_96 << 8 | RESP95_64[31:24]
             // response[1] = RESP95_64 << 8 | RESP63_32[31:24]
@@ -93,16 +93,17 @@ static void sdhci_prepare_dma(struct sdhci_host *host, struct mmc_data *data,
 
     // DMAのタイプをセットする
     ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
-    // a. SDMAとする
+    // a. SDMAとする (HOST_CONtROL.B[4:3] = 0x0)
     ctrl &= ~SDHCI_CTRL_DMA_MASK;
-    // b. ADMA３とする
+    // b. ADMA３とする（該当せず）
     if (host->flags & USE_ADMA64)
         ctrl |= SDHCI_CTRL_ADMA64;
-    // c. ADMA2とする
+    // c. ADMA2とする（該当せず）
     else if (host->flags & USE_ADMA)
         ctrl |= SDHCI_CTRL_ADMA32;
     sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
+    // 前半は該当、後半は該当せずで該当せず
     if (host->flags & USE_SDMA &&
         (host->force_align_buffer ||
          (host->quirks & SDHCI_QUIRK_32BIT_DMA_ADDR &&
@@ -167,13 +168,13 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
                 /* すべてのブロックを送信し終えても
                  * SDHCI_INT_DATA_END がクリアされるまで
                  * ループを続ける
-                 * blocks.
                  */
                 transfer_done = true;
                 continue;
             }
         }
-        // DMA割り込みを受けて、DMA転送を開始する
+        // DMAがSDMA_BUF_BOUNDARYに達した (4K)ので次のstart_addrを設定して実行する
+        // 4K未満のDMA転送の場合は関係しない
         if ((host->flags & USE_DMA) && !transfer_done &&
             (stat & SDHCI_INT_DMA_END)) {
             // 割り込みをクリア
@@ -188,12 +189,10 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
                 // start_addr = dev_phys_to_bus(mmc_to_dev(host->mmc), start_addr) = star_addr;
                 // ADMA
                 if (sdhci_readw(host, SDHCI_HOST_CONTROL2) & SDHCI_HOST_VER4_ENABLE) {
-                    trace("adma");
                     sdhci_writel(host, start_addr, SDHCI_ADMA_ADDRESS);
                     sdhci_writel(host, (start_addr >> 32), SDHCI_ADMA_ADDRESS_HI);
                 // SMDA
                 } else {
-                    trace("sdma");
                     sdhci_writel(host, start_addr, SDHCI_DMA_ADDRESS);
                 }
             }
@@ -206,7 +205,7 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
         }
     // 転送完了までループ
     } while (!(stat & SDHCI_INT_DATA_END));
-
+    //printf("6");
     // DMA転送の後始末
     dma_unmap_single(host->start_addr, data->blocks * data->blocksize,
              mmc_get_dma_dir(data));
@@ -297,7 +296,7 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
 
     //printf(" mask2: 0x%08x, flags: 0x%08x ", mask, flags);
 
-    /* dataフラグに基づいて転送モードをセットする */
+    /* dataのあるなしに基づいて転送モードをセットする */
     // 1. データあり
     if (data) {
         //printf("3");
@@ -345,7 +344,7 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
         if (stat & SDHCI_INT_ERROR)
             break;
         // タイムアウト判定
-        if (get_timer(start) >= MMC_CMD_SEND_TUNING_BLOCK) {
+        if (get_timer(start) >= SDHCI_READ_STATUS_TIMEOUT) {
             if (host->quirks & SDHCI_QUIRK_BROKEN_R1B) {
                 return 0;
             } else {
@@ -372,7 +371,7 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
     if (!ret && data) {
         //printf("12");
         ret = sdhci_transfer_data(host, data);
-        //printf("13");
+        //printf("5");
     }
 
     if (host->quirks & SDHCI_QUIRK_WAIT_SEND_CMD)
@@ -382,7 +381,7 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
     //printf("14");
     stat = sdhci_readl(host, SDHCI_INT_STATUS);
     // 割り込みステータスをクリアする
-    sdhci_writel(host, SDHCI_INT_ALL_MASK, SDHCI_INT_STATUS);
+    sdhci_writel(host, stat, SDHCI_INT_STATUS);
     //printf("15");
     // 転送が成功の場合
     if (!ret) {
@@ -391,7 +390,7 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
                 !is_aligned && (data->flags == MMC_DATA_READ))
             memcpy(data->dest, host->align_buffer, trans_bytes);
         // 成功リターン
-        //printf(" ok ");
+        //printf("\n");
         return 0;
     }
 
@@ -604,7 +603,7 @@ int sdhci_card_busy(struct mmc *mmc, int state, int timeout_us)
 }
 
 // 15. 信号電圧をセットする
-int sdhci_set_voltage(struct mmc *mmc)
+void sdhci_set_voltage(struct mmc *mmc)
 {
     struct sdhci_host *host = mmc->priv;
     uint32_t ctrl;
@@ -625,8 +624,8 @@ int sdhci_set_voltage(struct mmc *mmc)
         /* 3.3V regulator output should be stable within 5 ms */
         if (IS_SD(mmc)) {
             if (ctrl & SDHCI_CTRL_VDD_180) {
-                error("3.3V regulator output did not become stable");
-                return -1;
+                warn("3.3V regulator output did not become stable");
+                return;
             }
         }
 
@@ -645,18 +644,17 @@ int sdhci_set_voltage(struct mmc *mmc)
         if (IS_SD(mmc)) {
             ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
             if (!(ctrl & SDHCI_CTRL_VDD_180)) {
-                error("1.8V regulator output did not become stable");
-                return -1;
+                warn("1.8V regulator output did not become stable");
+                return;
             }
         }
 
         break;
     default:
         /* No signal voltage switch required */
-        return 0;
+        return;
     }
     sdhci_set_uhs_timing(host);
-    return 0;
 }
 
 // SDバス: クロック、幅、スピードをセット

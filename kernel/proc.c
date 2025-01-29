@@ -959,7 +959,7 @@ kdelay(unsigned long n)
   uint64_t t0 = r_time();
 
   while(r_time() - t0 < n * INTERVAL){
-    asm volatile("pause");
+    asm volatile("nop");
   }
 }
 
@@ -975,7 +975,7 @@ delayus(unsigned long n)
   uint64_t t0 = r_time();
 
   while(r_time() - t0 < n * US_INTERVAL){
-    asm volatile("pause");
+    asm volatile("nop");
   }
 }
 

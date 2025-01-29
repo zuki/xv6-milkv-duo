@@ -1,6 +1,6 @@
 #include <common/types.h>
 #include <defs.h>
-#include <riscv-io.h>
+#include <riscv-mmio.h>
 #include <cv180x_reg.h>
 #include <printf.h>
 #include <linux/time.h>
@@ -19,17 +19,17 @@ static void rtc_calibration(void)
 
     /* 1. 粗調整較正 */
     /* 1.1 RTC_ANA_SEL_FTUNE[31] = 0, RTC_ANA_CALIB[15:0] = 0x100 */
-    writel((readl((void *)RTC_ANA_CALIB) & ~0x8000ffff) | ftune, (void *)RTC_ANA_CALIB);
+    mmio_write_32(RTC_ANA_CALIB, (mmio_read_32(RTC_ANA_CALIB) & ~0x8000ffff) | ftune);
     /* 1.4 RTC_FC_COARSE_VALUEを調整 */
     while (try-- > 0)
     {
         /* 1.3 粗調整を開始 */
-        writel(1, (void *)RTC_FC_COARSE_EN);
-        ctime = readl((void *)RTC_FC_COARSE_CAL) >> 16;
+        mmio_write_32(RTC_FC_COARSE_EN, 1);
+        ctime = mmio_read_32(RTC_FC_COARSE_CAL) >> 16;
         //debug("ctime: %d", ctime);
-        while ((readl((void *)RTC_FC_COARSE_CAL) >> 16) <= ctime) {}
-        writel(0, (void *)RTC_FC_COARSE_EN);
-        cvalue = readl((void *)RTC_FC_COARSE_CAL) & 0xffff;
+        while ((mmio_read_32(RTC_FC_COARSE_CAL) >> 16) <= ctime) {}
+        mmio_write_32(RTC_FC_COARSE_EN, 0);
+        cvalue = mmio_read_32(RTC_FC_COARSE_CAL) & 0xffff;
         //debug("[%d] cvalue: %d", try, cvalue);
         if (cvalue  > 770) {
             ftune += offset;
@@ -40,7 +40,7 @@ static void rtc_calibration(void)
             result = 0;
             break;
         }
-        writel((readl((void *)RTC_ANA_CALIB) & ~0xffff) | ftune, (void *)RTC_ANA_CALIB);
+        mmio_write_32(RTC_ANA_CALIB, (mmio_read_32(RTC_ANA_CALIB) & ~0xffff) | ftune);
         offset >>= 1;
         //debug("ftune: 0x%08x, offset: %d, ana_calib: 0x%08x", ftune, offset, read32(RTC_ANA_CALIB));
         delayus(2000);
@@ -52,52 +52,52 @@ static void rtc_calibration(void)
 
     /* 2. 微調整較正 */
     /* 2.1 RTC_SEC_PULSE_GEN[31]=0, fc_fine_en=1*/
-    writel(readl((void *)RTC_SEC_PULST_GEN) & ~(1 << 31), (void *)RTC_SEC_PULST_GEN);
-    writel(1, (void *)RTC_FC_FINE_EN);
+    mmio_write_32(RTC_SEC_PULST_GEN, mmio_read_32(RTC_SEC_PULST_GEN) & ~(1 << 31));
+    mmio_write_32(RTC_FC_FINE_EN, 1);
     /* 2.2 RTC_FC_FINE_TIMEをポーリング */
-    ftime = readl((void *)RTC_FC_FINE_CAL) >> 24;
-    while((readl((void *)RTC_FC_FINE_CAL) >> 24) <= ftime) {}
+    ftime = mmio_read_32(RTC_FC_FINE_CAL) >> 24;
+    while ((mmio_read_32(RTC_FC_FINE_CAL) >> 24) <= ftime) {}
     /* 2.3 サンプリング値を取得 */
-    fvalue = readl((void *)RTC_FC_FINE_CAL) & 0xffffff;
+    fvalue = mmio_read_32(RTC_FC_FINE_CAL) & 0xffffff;
     /* 2.4 32KHz周波数の決定 */
     freq = (256.0 / ((double)fvalue * 40.0)) * 1000000000.0;
     freq_int = (uint32_t)freq;
     freq_frac = (uint32_t)((freq - (double)freq_int) * 256.0);
     /* 2.5 RTC_SEC_PULSE_GENに書き込み */
-    writel((freq_int << 8) | (freq_frac & 0xff), (void *)RTC_SEC_PULST_GEN);
-    writel(0, (void *)RTC_FC_FINE_EN);
+    mmio_write_32(RTC_SEC_PULST_GEN, (freq_int << 8) | (freq_frac & 0xff));
+    mmio_write_32(RTC_FC_FINE_EN, 0);
     //debug("fine calib: freq int=%d, frac=%d", freq_int, freq_frac);
 }
 
 void set_second_clock(uint32_t t)
 {
-    writel(t, (void *)RTC_SET_SEC_CNTR_VALUE);
-    writel(1, (void *)RTC_SET_SEC_CNTR_TRIG);
-    while(readl((void *)RTC_SEC_CNTR_VALUE) < t) {};
+    mmio_write_32(RTC_SET_SEC_CNTR_VALUE, t);
+    mmio_write_32(RTC_SET_SEC_CNTR_TRIG, 1);
+    while (mmio_read_32(RTC_SEC_CNTR_VALUE) < t) {};
     xtime.tv_sec = (time_t)t;
     xtime.tv_nsec = 0;
 }
 
 time_t get_second_clock(void)
 {
-    return (time_t)readl((void *)RTC_SEC_CNTR_VALUE);
+    return (time_t)mmio_read_32(RTC_SEC_CNTR_VALUE);
 }
 
 void rtc_init(void)
 {
     rtc_calibration();
 
-    writel(0x5af0, (void *)RTC_POR_DB_MAGIC_KEY);
+    mmio_write_32(RTC_POR_DB_MAGIC_KEY, 0x5af0);
     set_second_clock(1734229806);
     //write32(RTC_SET_SEC_CNTR_VALUE, 1734229806);   // 2024-12-15 11:30:06 JST のunix時間
     //write32(RTC_SET_SEC_CNTR_TRIG, 1);
     //delayms(500);
     //debug("RTC_SEC_CNTR_VALUE: %d", read32(RTC_SEC_CNTR_VALUE));
     //while(read32(RTC_SEC_CNTR_VALUE) < 1734229806) {};
-    writel(readl((void *)RTC_PWR_DET_COMP) | 1, (void *)RTC_PWR_DET_COMP);
-    writel(readl((void *)RTC_PWR_DET_SEL) | 1, (void *)RTC_PWR_DET_SEL);
-    writel(readl((void *)RTC_POR_RST_CTRL) | 0x2, (void *)RTC_POR_RST_CTRL);
-    writel(readl((void *)RTC_EN_PWR_VBAT_DET) & ~0x4, (void *)RTC_EN_PWR_VBAT_DET);
+    mmio_write_32(RTC_PWR_DET_COMP, mmio_read_32(RTC_PWR_DET_COMP) | 1);
+    mmio_write_32(RTC_PWR_DET_SEL, mmio_read_32(RTC_PWR_DET_SEL) | 1);
+    mmio_write_32(RTC_POR_RST_CTRL, mmio_read_32(RTC_POR_RST_CTRL) | 0x2);
+    mmio_write_32(RTC_EN_PWR_VBAT_DET, mmio_read_32(RTC_EN_PWR_VBAT_DET) & ~0x4);
     //delayms(2000);
     //debug("current sec: %d", read32(RTC_SEC_CNTR_VALUE));
     //set_second_clock(1734229806);

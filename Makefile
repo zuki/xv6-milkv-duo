@@ -49,7 +49,8 @@ $K/ramdisk_data.o: fs.img
 #GCCPATH = /home/vagrant/riscv-gnu-toolchain/bin
 #TOOLPREFIX = $(GCCPATH)/riscv64-unknown-elf-
 #TOOLPREFIX = riscv64-linux-gnu-
-TOOLPREFIX = /home/vagrant/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
+#TOOLPREFIX = /home/vagrant/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
+TOOLPREFIX = /home/vagrant/duo-buildroot-sdk/host-tools/gcc/riscv64-elf-x86_64/bin/riscv64-unknown-elf-
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
@@ -73,7 +74,7 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
-CFLAGS = -march=rv64gc_zihintpause -Wall -Werror -Os -fno-omit-frame-pointer -ggdb -gdwarf-2
+CFLAGS = -march=rv64gc -Wall -Werror -Os -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
 CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax -Wno-unused-function

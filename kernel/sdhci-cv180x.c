@@ -204,8 +204,8 @@ int cvi_general_execute_tuning(struct mmc *mmc, uint8_t opcode)
     char tuning_graph[TUNE_MAX_PHCODE + 1];
     char rx_lead_lag_graph[TUNE_MAX_PHCODE + 1];
 
-    //uint32_t reg = 0;
-    uint32_t reg_rx_lead_lag = 0;
+    uint16_t reg = 0;
+    uint16_t reg_rx_lead_lag = 0;
     int32_t max_lead_lag_idx = -1;
     int32_t max_window_idx = -1;
     int32_t cur_window_idx = -1;
@@ -218,8 +218,8 @@ int cvi_general_execute_tuning(struct mmc *mmc, uint8_t opcode)
 
     struct sdhci_host *host = mmc->priv;
 
-    uint32_t norm_stat_en_b, err_stat_en_b;
-    uint32_t norm_signal_en_b, ctl2;
+    uint16_t norm_stat_en_b, err_stat_en_b, ctl2;
+    uint32_t norm_signal_en_b;
 
     // 割り込み関係のレジスタの現在値をバックアップ
     norm_stat_en_b = sdhci_readw(host, SDHCI_INT_ENABLE);
@@ -229,25 +229,24 @@ int cvi_general_execute_tuning(struct mmc *mmc, uint8_t opcode)
     //reg = sdhci_readw(host, SDHCI_ERR_INT_STATUS);
     trace("mmc%d : SDHCI_ERR_INT_STATUS 0x%x", host->index, reg);
 
-    //reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-    trace("mmc%d : host ctrl2 (B) 0x%x", host->index, reg);
+    reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+    debug("mmc%d : host ctrl2 (B) 0x%x", host->index, reg);
     /* Host_CTRL2_R.SAMPLE_CLK_SEL=0 */
-    // B[7] = 0 :データのサンプルに固定クロックを仕様
-    sdhci_writew(host,
-             //sdhci_readw(host, SDHCI_HOST_CONTROL2) & (~(0x1 << 7)),
-             sdhci_readw(host, SDHCI_HOST_CONTROL2) & 0xffffff7f,
-             SDHCI_HOST_CONTROL2);
+    // B[7] = 0 :データのサンプルに固定クロックを使用
+    reg &= 0xff7f; //~(0x1 << 7);
+    reg &= 0xffcf; // ~(0x3 << 4);
+    sdhci_writew(host, reg, SDHCI_HOST_CONTROL2);
+    //sdhci_writew(host, sdhci_readw(host, SDHCI_HOST_CONTROL2) & ~(0x1 << 7),
+     //        SDHCI_HOST_CONTROL2);
     // B[4:5] = 0 :Driver Type Bを選択
-    sdhci_writew(host,
-             //sdhci_readw(host, SDHCI_HOST_CONTROL2) & (~(0x3 << 4)),
-             sdhci_readw(host, SDHCI_HOST_CONTROL2) & 0xffffffcf,
-             SDHCI_HOST_CONTROL2);
+    //sdhci_writew(host, sdhci_readw(host, SDHCI_HOST_CONTROL2) & ~(0x3 << 4),
+    //         SDHCI_HOST_CONTROL2);
 
-    //reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-    trace("mmc%d : host ctrl2 (A) 0x%x", host->index, reg);
+    reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+    debug("mmc%d : host ctrl2 (A) 0x%x", host->index, reg);
 
     while (min < TUNE_MAX_PHCODE) {
-        //printf(">");
+        printf(">");
         retry_cnt = 0;
         // MSHC_CTRL.CLK_FREE_EN = 1
         sdhci_writew(host, BIT(2), CVI_SDHCI_VENDOR_OFFSET);
@@ -257,14 +256,13 @@ int cvi_general_execute_tuning(struct mmc *mmc, uint8_t opcode)
 
 retry_tuning:
         // チューニングコマンドを送信 : MAX_TUNING_CMD_RETRY_COUNT回実行
-        //printf(".");
+        printf(".");
         ret = mmc_send_tuning(mmc, opcode, NULL);
-        if (!ret && retry_cnt < MAX_TUNING_CMD_RETRY_COUNT) {
+        if (ret == 0 && retry_cnt < MAX_TUNING_CMD_RETRY_COUNT) {
             retry_cnt++;
-            //printf(",");
             goto retry_tuning;
         }
-        //printf("|");
+        printf("|");
         trace("retry_cnt: %d", retry_cnt);
 
         if (ret) {
@@ -277,7 +275,7 @@ retry_tuning:
 
         min++;
     }
-    //printf("\n");
+    printf("\n");
     reset_after_tuning_pass(host);
 
     debug("mmc%d : tuning result:      0x%08x 0x%08x 0x%08x 0x%08x", host->index,

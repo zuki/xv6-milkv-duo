@@ -428,7 +428,9 @@ void mmc_dump_capabilities(const char *text, unsigned int caps);
 // MMCのバスモードはDDR (Double Data Rate）か : UHS_DDR50は該当しない
 static inline bool mmc_is_mode_ddr(enum bus_mode mode)
 {
-    if (mode == MMC_DDR_52)
+    if (mode == MMC_DDR_52 || mode == UHS_DDR50)
+        return true;
+    else if (mode == MMC_HS_400 || mode == MMC_HS_400_ES)
         return true;
     else
         return false;
@@ -454,7 +456,7 @@ static inline bool supports_uhs(unsigned int caps)
 struct mmc {
     struct mmc_config *cfg;      /* dtsからセットするconfiguration */
     unsigned int version;       /* MMCバージョン*/
-    void *priv;                 /* 私用データ */
+    void *priv;                 /* sdhci_hostへのポインタ */
     unsigned int has_init;      /* 1: 初期化済みである */
     int high_capacity;          /* 1: High Capacity */
     bool clk_disable;           /* true: クロックが無効 */
@@ -514,6 +516,7 @@ int mmc_voltage_to_mv(enum mmc_voltage voltage);
 int mmc_initialize(struct mmc *mmc);
 int mmc_wait_dat0(struct mmc *mmc, int state, int timeout_us);
 
+unsigned long mmc_bread_mbr(struct mmc *mmc, void *dst);
 unsigned long mmc_bread(struct mmc *mmc, lbaint_t start, lbaint_t blkcnt, void *dst);
 unsigned long mmc_berase(struct mmc *mmc, lbaint_t start, lbaint_t blkcnt);
 unsigned long mmc_bwrite(struct mmc *mmc, lbaint_t start, lbaint_t blkcnt, const void *src);

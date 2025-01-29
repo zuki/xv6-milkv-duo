@@ -52,7 +52,7 @@ sd_init(void)
     emmc_seek(&sd0, 0UL);
     size_t bytes = emmc_read(&sd0, buf, 1024);
 #endif
-    size_t blks = mmc_bread(&sd0, 0, 2, buf);
+    size_t blks = mmc_bread_mbr(&sd0, buf);
     if (blks != 2) {
         error("read blks: %ld", blks);
         panic("failed mmc_bread\n");
@@ -118,6 +118,7 @@ sd_intr(void)
  * SDカードのリクエスト処理を開始する.
  * Callerはsdlockを保持していなければならない.
  */
+#if 0
 void sd_start(void)
 {
     //uint32_t bno;
@@ -151,12 +152,11 @@ void sd_start(void)
         b->flags &= ~B_DIRTY;
 
         list_pop_front(&sdque);
-        mb();
         fence_i();
         wakeup(b);
     }
 }
-
+#endif
 
 void sd_rw(struct buf *b)
 {

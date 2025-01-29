@@ -11,7 +11,6 @@
 
 #include <common/types.h>
 #include <mmc.h>
-#include <riscv-io.h>
 #include <riscv-mmio.h>
 #include <sdhci_reg.h>
 
@@ -280,34 +279,44 @@ struct sdhci_host {
 #define USE_DMA     (USE_SDMA | USE_ADMA | USE_ADMA64)
 };
 
+static inline void sdhci_writed(struct sdhci_host *host, uint64_t val, int reg)
+{
+    mmio_write_64((unsigned long)(host->ioaddr + reg), val);
+}
+
 static inline void sdhci_writel(struct sdhci_host *host, uint32_t val, int reg)
 {
-    writel(val, host->ioaddr + reg);
+    mmio_write_32((unsigned long)(host->ioaddr + reg), val);
 }
 
 static inline void sdhci_writew(struct sdhci_host *host, uint16_t val, int reg)
 {
-    writew(val, host->ioaddr + reg);
+    mmio_write_16((unsigned long)(host->ioaddr + reg), val);
 }
 
 static inline void sdhci_writeb(struct sdhci_host *host, uint8_t val, int reg)
 {
-    writeb(val, host->ioaddr + reg);
+    mmio_write_8((unsigned long)(host->ioaddr + reg), val);
+}
+
+static inline uint64_t sdhci_readd(struct sdhci_host *host, int reg)
+{
+    return mmio_read_64((unsigned long)(host->ioaddr + reg));
 }
 
 static inline uint32_t sdhci_readl(struct sdhci_host *host, int reg)
 {
-    return readl(host->ioaddr + reg);
+    return mmio_read_32((unsigned long)(host->ioaddr + reg));
 }
 
 static inline uint16_t sdhci_readw(struct sdhci_host *host, int reg)
 {
-    return readw(host->ioaddr + reg);
+    return mmio_read_16((unsigned long)(host->ioaddr + reg));
 }
 
 static inline uint8_t sdhci_readb(struct sdhci_host *host, int reg)
 {
-    return readb(host->ioaddr + reg);
+    return mmio_read_8((unsigned long)(host->ioaddr + reg));
 }
 
 int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
@@ -320,7 +329,7 @@ int sdhci_get_cd(struct mmc *mmc);
 int sdhci_setup_cfg(struct mmc_config *cfg, struct sdhci_host *host,
             uint32_t f_max, uint32_t f_min);
 void sdhci_set_uhs_timing(struct sdhci_host *host);
-int sdhci_set_voltage(struct mmc *mmc);
+void sdhci_set_voltage(struct mmc *mmc);
 int sdhci_card_busy(struct mmc *mmc, int state, int timeout_us);
 int sdhci_execute_tuning(struct mmc *mmc, unsigned int opcode);
 

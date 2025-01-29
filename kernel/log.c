@@ -234,6 +234,7 @@ void
 log_write(struct buf *b)
 {
     bwrite(b);
+
 #if 0
     int i;
 
