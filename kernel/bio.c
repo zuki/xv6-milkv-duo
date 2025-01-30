@@ -132,12 +132,10 @@ void brelse(struct buf *b)
         panic("brelse");
     }
 
-
     acquire(&bcache.lock);
     list_drop(&b->clink);
     list_push_back(&bcache.head, &b->clink);
     b->flags &= ~B_BUSY;
-    trace("bno: %d, busy: %d, valid: %d, dirty: %d", b->blockno, (b->flags & B_BUSY) ? 1 : 0, (b->flags & B_VALID) ? 1 : 0, (b->flags & B_DIRTY) ? 1 : 0);
     wakeup(b);
     release(&bcache.lock);
 }

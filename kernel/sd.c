@@ -163,10 +163,9 @@ void sd_rw(struct buf *b)
     acquire(&sdlock);
 
     uint32_t blks = b->dev == FATMINOR ? 1 : 2;
-    trace("[DEBUG] sd_rw: buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
 
     if (b->flags & B_DIRTY) {
-        assert(mmc_bwrite(&sd0,  b->blockno, blks, b->data) == blks);
+        assert(mmc_bwrite(&sd0, b->blockno, blks, b->data) == blks);
         b->flags &= ~B_DIRTY;
     } else {
         assert(mmc_bread(&sd0, b->blockno, blks, b->data) == blks);

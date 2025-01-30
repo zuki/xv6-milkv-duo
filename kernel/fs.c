@@ -67,7 +67,6 @@ static void bzero(int dev, int bno)
     memset(bp->data, 0, BSIZE);
     // FIXME: logシステムを削除する
     //log_write(bp);
-    printf("a");
     bwrite(bp);
     brelse(bp);
 }
@@ -89,7 +88,6 @@ static uint32_t balloc(uint32_t dev)
             if ((bp->data[bi/8] & m) == 0) {  // Is block free?
                 bp->data[bi/8] |= m;  // Mark block in use.
                 //log_write(bp);
-                printf("b");
                 bwrite(bp);
                 brelse(bp);
                 bzero(dev, b + bi);
@@ -115,7 +113,6 @@ static void bfree(int dev, uint32_t b)
         panic("freeing free block");
     bp->data[bi/8] &= ~m;
     //log_write(bp);
-    printf("c");
     bwrite(bp);
     brelse(bp);
 }
@@ -219,7 +216,6 @@ struct inode* ialloc(uint32_t dev, short type)
             memset(dip, 0, sizeof(*dip));
             dip->type = type;
             //log_write(bp);   // mark it allocated on the disk
-            printf("d");
             bwrite(bp);
             brelse(bp);
             struct inode *ip = iget(dev, inum);
@@ -259,7 +255,6 @@ iupdate(struct inode *ip)
     dip->ctime = ip->ctime;
     memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
     //log_write(bp);
-    printf("e");
     bwrite(bp);
     brelse(bp);
 }
@@ -418,10 +413,7 @@ bmap(struct inode *ip, uint32_t bn)
     trace("ip: %d, bn: %d", ip->inum, bn);
     if (bn < NDIRECT) {
         if ((addr = ip->addrs[bn]) == 0) {
-            addr = balloc(ip->dev);
-            if (addr == 0)
-                return 0;
-            ip->addrs[bn] = addr;
+            ip->addrs[bn] = addr = balloc(ip->dev);
         }
         return addr;
     }
@@ -444,7 +436,6 @@ bmap(struct inode *ip, uint32_t bn)
                 return 0;
             a[bn] = addr;
             //log_write(bp);
-            printf("f: flags=0x%x", bp->flags);
             bwrite(bp);
         }
         trace("bn: %d, addr: 0x%lx", bn, addr);
@@ -472,7 +463,6 @@ bmap(struct inode *ip, uint32_t bn)
                 return 0;
             a[idx1] = addr;
             //log_write(bp);
-            printf("g: flags=0x%x", bp->flags);
             bwrite(bp);
         }
         trace("idx1: %d, addr1: 0x%lx", idx1, addr);
@@ -480,12 +470,11 @@ bmap(struct inode *ip, uint32_t bn)
         bp = bread(ip->dev, addr);
         a = (uint32_t*)bp->data;
         if ((addr = a[idx2]) == 0) {
-            a[idx2] = addr = balloc(ip->dev);
+            addr = balloc(ip->dev);
             if (addr == 0)
                 return 0;
             a[idx2] = addr;
             //log_write(bp);
-            printf("h: flags=0x%x", bp->flags);
             bwrite(bp);
         }
         trace("idx2: %d, addr2: 0x%lx", idx2, addr);
@@ -645,7 +634,6 @@ writei(struct inode *ip, int user_src, uint64_t src, uint32_t off, uint32_t n)
             break;
         }
         //log_write(bp);
-        printf("i");
         bwrite(bp);
         brelse(bp);
     }
