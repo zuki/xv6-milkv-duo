@@ -130,9 +130,16 @@ static int cvi_ofdata_to_platdata(struct cvi_sdhci_host *cvi_host)
     cvi_host->mmc_fmax_freq = 200000000;    // max-frequency
     cvi_host->is_64_addressing = true;      // 64_addressing
     cvi_host->reset_tx_rx_phy = true;       // reset_tx_rx_phy
-    cvi_host->no_1_8_v = false;             // no-1-8-v
+    cvi_host->no_1_8_v = true;              // no-1-8-v
     cvi_host->pll_index = 6;                // pll_index
     cvi_host->pll_reg = 0x3002070;          // pll_reg
+
+    if (cvi_host->no_1_8_v) {
+        host->quirks |= SDHCI_QUIRK_NO_1_8_V;
+        // no-1-8-v = true の場合
+        host->mmc->cfg->host_caps &= ~(UHS_CAPS | MMC_MODE_HS200 |
+                    MMC_MODE_HS400 | MMC_MODE_HS400_ES);
+    }
 
     return 0;
 }
@@ -218,24 +225,29 @@ int cvi_general_execute_tuning(struct mmc *mmc, uint8_t opcode)
 
     struct sdhci_host *host = mmc->priv;
 
-    uint16_t norm_stat_en_b, err_stat_en_b, ctl2;
-    uint32_t norm_signal_en_b;
+    uint16_t ctl2; // norm_stat_en_b, err_stat_en_b,
+    uint32_t stat_en_b, norm_signal_en_b;
 
     // 割り込み関係のレジスタの現在値をバックアップ
-    norm_stat_en_b = sdhci_readw(host, SDHCI_INT_ENABLE);
-    err_stat_en_b = sdhci_readw(host, SDHCI_ERR_INT_STATUS_EN);
+    //norm_stat_en_b = sdhci_readw(host, SDHCI_INT_ENABLE);
+    //err_stat_en_b = sdhci_readw(host, SDHCI_ERR_INT_STATUS_EN);
+    stat_en_b = sdhci_readl(host, SDHCI_INT_ENABLE);
     norm_signal_en_b = sdhci_readl(host, SDHCI_SIGNAL_ENABLE);
 
     //reg = sdhci_readw(host, SDHCI_ERR_INT_STATUS);
     trace("mmc%d : SDHCI_ERR_INT_STATUS 0x%x", host->index, reg);
 
     reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-    debug("mmc%d : host ctrl2 (B) 0x%x", host->index, reg);
+    uint32_t reg_32 = sdhci_readl(host, SDHCI_ACMD12_ERR);
+    debug("3c = 0x%08x, 3e = 0x%04x", reg_32, reg);
+    //debug("mmc%d : host ctrl2 (B) 0x%x", host->index, reg);
     /* Host_CTRL2_R.SAMPLE_CLK_SEL=0 */
     // B[7] = 0 :データのサンプルに固定クロックを使用
-    reg &= 0xff7f; //~(0x1 << 7);
-    reg &= 0xffcf; // ~(0x3 << 4);
-    sdhci_writew(host, reg, SDHCI_HOST_CONTROL2);
+    reg_32 &= ~(0x1 << 23);
+    reg_32 &= ~(0x3 << 20);
+    debug("reg_32 = 0x%04x", reg_32);
+    //sdhci_writew(host, reg, SDHCI_HOST_CONTROL2);
+    sdhci_writel(host, reg_32, SDHCI_ACMD12_ERR);
     //sdhci_writew(host, sdhci_readw(host, SDHCI_HOST_CONTROL2) & ~(0x1 << 7),
      //        SDHCI_HOST_CONTROL2);
     // B[4:5] = 0 :Driver Type Bを選択
@@ -243,7 +255,9 @@ int cvi_general_execute_tuning(struct mmc *mmc, uint8_t opcode)
     //         SDHCI_HOST_CONTROL2);
 
     reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-    debug("mmc%d : host ctrl2 (A) 0x%x", host->index, reg);
+    //debug("mmc%d : host ctrl2 (A) 0x%x", host->index, reg);
+    reg_32 = sdhci_readl(host, SDHCI_ACMD12_ERR);
+    debug("3c = 0x%08x, 3e = 0x%04x", reg_32, reg);
 
     while (min < TUNE_MAX_PHCODE) {
         printf(">");
@@ -361,9 +375,11 @@ retry_tuning:
     ctl2 &= ~SDHCI_CTRL_EXEC_TUNING;
     sdhci_writew(host, ctl2, SDHCI_HOST_CONTROL2);
     // 割り込み系レジスタを復元する
-    sdhci_writew(host, norm_stat_en_b, SDHCI_INT_ENABLE);
+    //sdhci_writew(host, norm_stat_en_b, SDHCI_INT_ENABLE);
+    sdhci_writel(host, stat_en_b, SDHCI_INT_ENABLE);
     sdhci_writel(host, norm_signal_en_b, SDHCI_SIGNAL_ENABLE);
-    sdhci_writew(host, err_stat_en_b, SDHCI_ERR_INT_STATUS_EN);
+    //sdhci_writew(host, err_stat_en_b, SDHCI_ERR_INT_STATUS_EN);
+
 
     return ret;
 }

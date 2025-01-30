@@ -854,23 +854,23 @@ int sdhci_setup_cfg(struct mmc_config *cfg, struct sdhci_host *host,
         cfg->host_caps &= ~MMC_MODE_HS_52MHz;
     }
 
-    // 該当しない
+    // 該当する
     if (!(cfg->voltages & MMC_VDD_165_195) ||
         (host->quirks & SDHCI_QUIRK_NO_1_8_V))
         caps_1 &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
                 SDHCI_SUPPORT_DDR50);
 
-    // 該当しない
+    // 該当する
     if (host->quirks & SDHCI_QUIRK_NO_1_8_V)
         caps_1 &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
                 SDHCI_SUPPORT_DDR50);
 
-    // 該当
+    // 該当しない
     if (caps_1 & (SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
               SDHCI_SUPPORT_DDR50))
         cfg->host_caps |= MMC_CAP(UHS_SDR12) | MMC_CAP(UHS_SDR25);
 
-    // 該当
+    // 該当しない
     if (caps_1 & SDHCI_SUPPORT_SDR104) {
         cfg->host_caps |= MMC_CAP(UHS_SDR104) | MMC_CAP(UHS_SDR50);
         /*
@@ -881,7 +881,7 @@ int sdhci_setup_cfg(struct mmc_config *cfg, struct sdhci_host *host,
     } else if (caps_1 & SDHCI_SUPPORT_SDR50) {
         cfg->host_caps |= MMC_CAP(UHS_SDR50);
     }
-    // 該当
+    // 該当しない
     if (caps_1 & SDHCI_SUPPORT_DDR50)
         cfg->host_caps |= MMC_CAP(UHS_DDR50);
 
