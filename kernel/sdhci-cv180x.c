@@ -480,6 +480,8 @@ int cvi_sdhci_probe(struct mmc *mmc)
     if (ret)
         return ret;
 
+    host->host_caps = mmc->cfg->host_caps;
+
     // sdhciのセットアップ
     ret = sdhci_setup_cfg(mmc->cfg, host, cvi_host->mmc_fmax_freq, cvi_host->mmc_fmin_freq);
     if (ret)
