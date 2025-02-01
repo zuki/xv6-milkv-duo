@@ -24,13 +24,13 @@ int main(void)
             break;
         sectors++;
         if (sectors % 100 == 0) {
+            if (sectors % 8000 == 0)
+                printf("\n");
             printf(".");
             fflush(stdout);
         }
-#if 0
-        if (sectors > 1024)     // 500KB
+        if (sectors > 10240)     // 5MB
             break;
-#endif
     }
 
     printf("\nwrote %d sectors\n", sectors);
