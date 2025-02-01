@@ -128,7 +128,7 @@ void bwrite(struct buf *b)
 void brelse(struct buf *b)
 {
     if ((b->flags & B_BUSY) == 0) {
-        error("flags: 0x%x, dev: %d, bno: %d, ref: %d", b->flags, b->dev, b->blockno, b->refcnt);
+        error("flags: 0x%x, dev: %d, bno: %d", b->flags, b->dev, b->blockno);
         panic("brelse");
     }
 
@@ -140,6 +140,7 @@ void brelse(struct buf *b)
     release(&bcache.lock);
 }
 
+#if 0
 void
 bpin(struct buf *b) {
     acquire(&bcache.lock);
@@ -153,5 +154,5 @@ bunpin(struct buf *b) {
     b->refcnt--;
     release(&bcache.lock);
 }
-
+#endif
 // TODO: mark_block_dirty

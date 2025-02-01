@@ -32,6 +32,7 @@
 //   ...
 // Log appends are synchronous.
 
+#if 0
 // Contents of the header block, used for both the on-disk header block
 // and to keep track in memory of logged block# before commit.
 struct logheader {
@@ -52,6 +53,7 @@ struct log log;
 
 static void recover_from_log(void);
 static void commit();
+#endif
 
 void
 initlog(int dev, struct superblock *sb)
@@ -59,6 +61,7 @@ initlog(int dev, struct superblock *sb)
     info("not use log");
     return;
 
+#if 0
     if (sizeof(struct logheader) >= BSIZE)
         panic("initlog: too big logheader");
 
@@ -69,8 +72,10 @@ initlog(int dev, struct superblock *sb)
     trace("start: %d, size: %d, dev: %d", log.start, log.size, log.dev);
     recover_from_log();
     info("init log ok");
+#endif
 }
 
+#if 0
 // Copy committed blocks from log to their home location
 static void
 install_trans(/* int recovering */)
@@ -131,6 +136,7 @@ recover_from_log(void)
     log.lh.n = 0;
     write_head(); // clear the log
 }
+#endif
 
 // called at the start of each FS system call.
 void
@@ -139,6 +145,7 @@ begin_op(void)
     fence_i();
     return;
 
+#if 0
     acquire(&log.lock);
     while(1){
         if (log.committing) {
@@ -152,6 +159,7 @@ begin_op(void)
             break;
         }
     }
+#endif
 }
 
 // called at the end of each FS system call.
@@ -162,6 +170,7 @@ end_op(void)
     fence_i();
     return;
 
+#if 0
     int do_commit = 0;
 
     acquire(&log.lock);
@@ -188,8 +197,10 @@ end_op(void)
         wakeup(&log);
         release(&log.lock);
     }
+#endif
 }
 
+#if 0
 // Copy modified blocks from cache to log.
 static void
 write_log(void)
@@ -220,6 +231,7 @@ commit()
         write_head();    // Erase the transaction from the log
     }
 }
+#endif
 
 // Caller has modified b->data and is done with the buffer.
 // Record the block number and pin in the cache by increasing refcnt.

@@ -14,6 +14,8 @@ static struct list_head sdque;
 static struct spinlock sdlock;
 struct partition_info ptinfo[PARTITIONS];
 
+static struct slab_cache *SDBUF;
+
 // 使用中のパーティション数
 static int ptnum = 0;
 
@@ -37,7 +39,10 @@ void
 sd_init(void)
 {
     struct mbr mbr;
-    char buf[1024];
+
+    SDBUF = slab_cache_create("sd buffer", 1024);
+
+    char *buf = slab_cache_alloc(SDBUF);
 
     list_init(&sdque);
     initlock(&sdlock, "sd");
@@ -100,6 +105,8 @@ sd_init(void)
     }
 #endif
 
+    slab_cache_free(SDBUF, buf);
+
     info("sd_init ok\n");
 }
 
@@ -118,60 +125,91 @@ sd_intr(void)
  * SDカードのリクエスト処理を開始する.
  * Callerはsdlockを保持していなければならない.
  */
-#if 0
-void sd_start(void)
+static void sd_start(void)
 {
-    //uint32_t bno;
+    char *buf = slab_cache_alloc(SDBUF);
 
     while (!list_empty(&sdque)) {
         struct buf *b =
             container_of(list_front(&sdque), struct buf, dlink);
-        struct list_head *item;
-        item = list_front(&sdque);
-        debug("[item1 : %p, next: %p, prev: %p]", item, item->next, item->prev);
-        debug("[dlink1: %p, next: %p, prev: %p]", &b->dlink, (&b->dlink)->next, (&b->dlink)->prev);
+
         // TODO: block sizeをvfsで持つ
-        //uint32_t blks = b->dev == FATMINOR ? 512 : 1024;
         uint32_t blks = b->dev == FATMINOR ? 1 : 2;
-        debug("buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
-        //emmc_seek(&sd0, b->blockno * SD_BLOCK_SIZE);
+        trace("buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
+        trace("buf: %p, b->data: %p", buf, b->data);
 
         if (b->flags & B_DIRTY) {
-            assert(mmc_bwrite(&sd0,  b->blockno, blks, b->data) == blks);
-            // assert(emmc_write(&sd0, b->data, blks) == blks);
+            memmove(buf, b->data, blks * 512);
+            mb();
+            fence_i();
+            assert(mmc_bwrite(&sd0, b->blockno, blks, buf) == blks);
         } else {
-            assert(mmc_bread(&sd0, b->blockno, blks, b->data) == blks);
-            // assert(emmc_read(&sd0, b->data, blks) == blks);
+            assert(mmc_bread(&sd0, b->blockno, blks, buf) == blks);
+            mb();
+            fence_i();
+            memmove(b->data, buf, blks * 512);
         }
-        trace("r/w ok: bno: 0x%x, blks: %d", b->blockno, blks);
-        item = list_front(&sdque);
-        debug("[item2 : %p, next: %p, prev: %p]", item, item->next, item->prev);
-        debug("[dlink2: %p, next: %p, prev: %p]", &b->dlink, (&b->dlink)->next, (&b->dlink)->prev);
+
+#if 0
+        uint32_t byte = 0;
+        printf("\n");
+        for (int i=0; i < 32; i++) {
+            for (int j=0; j < 16; j++) {
+                if (j == 0)
+                printf("%08x:", byte);
+                if (j%2)
+                printf("%02x", b->data[i*16+j]);
+                else
+                printf(" %02x", b->data[i*16+j]);
+            }
+            printf("\n");
+            byte += 16;
+        }
+#endif
 
         b->flags |= B_VALID;
         b->flags &= ~B_DIRTY;
 
+#if 0
+        struct list_head *item = list_front(&sdque);
+        if (item->next == 0) {
+            warn("item->next is null");
+            item->next = &sdque;
+        } else {
+            debug("item->next: 0x%x", item->next);
+        }
+
+        if (item->prev == 0) {
+            warn("item->prev is null");
+            item->prev= &sdque;
+        } else {
+            debug("item->prev: 0x%x", item->prev);
+        }
+
+        list_drop(item);
+#endif
+
         list_pop_front(&sdque);
-        fence_i();
+        slab_cache_free(SDBUF, buf);
         wakeup(b);
     }
 }
-#endif
 
 void sd_rw(struct buf *b)
 {
     acquire(&sdlock);
+    trace("bno: 0x%x, flags: %d", b->blockno, b->flags);
 
-    uint32_t blks = b->dev == FATMINOR ? 1 : 2;
+    // Append to request queue.
+    list_push_back(&sdque, &b->dlink);
 
-    if (b->flags & B_DIRTY) {
-        assert(mmc_bwrite(&sd0, b->blockno, blks, b->data) == blks);
-        b->flags &= ~B_DIRTY;
-    } else {
-        assert(mmc_bread(&sd0, b->blockno, blks, b->data) == blks);
-        b->flags |= B_VALID;
-    }
-    trace("ok\n");
+    // Start disk if necessary.
+    if (list_front(&sdque) == &b->dlink)
+        sd_start();
+
+    // Wait for request to finish.
+    while ((b->flags & (B_VALID | B_DIRTY)) != B_VALID)
+        sd_sleep(b);
 
     release(&sdlock);
 }

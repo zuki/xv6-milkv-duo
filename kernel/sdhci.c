@@ -68,7 +68,7 @@ static void sdhci_transfer_pio(struct sdhci_host *host, struct mmc_data *data)
 {
     int i;
     char *offs;
-    trace("start: size: %d", data->blocksize);
+    trace("start: size: %d, dst: %p", data->blocksize, data->dest);
     for (i = 0; i < data->blocksize; i += 4) {
         offs = data->dest + i;
         if (data->flags == MMC_DATA_READ)
@@ -127,6 +127,8 @@ static void sdhci_prepare_dma(struct sdhci_host *host, struct mmc_data *data,
         } else {
             sdhci_writel(host, dma_addr, SDHCI_DMA_ADDRESS);
             sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
+            trace("SDMA: addr: 0x%x, block_count: %d",
+                sdhci_readl(host, SDHCI_DMA_ADDRESS), sdhci_readl(host, SDHCI_BLOCK_COUNT));
         }
     }
 }
@@ -205,10 +207,14 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
         }
     // 転送完了までループ
     } while (!(stat & SDHCI_INT_DATA_END));
-    //printf("6");
+
     // DMA転送の後始末
-    dma_unmap_single(host->start_addr, data->blocks * data->blocksize,
-             mmc_get_dma_dir(data));
+    if (host->flags & USE_DMA) {
+        trace("unmap: addr: 0x%x, len: %d, dir: %d",
+            host->start_addr, data->blocks * data->blocksize, mmc_get_dma_dir(data));
+        dma_unmap_single(host->start_addr, data->blocks * data->blocksize,
+                mmc_get_dma_dir(data));
+    }
 
     return 0;
 }
@@ -233,18 +239,18 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
     unsigned int stat = 0;
     int ret = 0;
     int trans_bytes = 0, is_aligned = 1;
-    uint32_t mask, flags, mode;
+    uint32_t mask, flags, mode = 0;
     unsigned int time = 0;
     unsigned long start = get_timer(0);
-    //printf("1");
+
     host->start_addr = 0;
     /* Timeout unit - ms */
     static unsigned int cmd_timeout = SDHCI_CMD_DEFAULT_TIMEOUT;
 
     mask = SDHCI_CMD_INHIBIT | SDHCI_DATA_INHIBIT;
 
-    /* stopコマンドの場合は、たとえビジー信号が使われていても、data inihibitを
-     * 待つべきではない */
+    /* stopコマンドの場合は、たとえビジー信号が使われていても、
+     * data inihibitを待つべきではない */
     if (cmd->cmdidx == MMC_CMD_STOP_TRANSMISSION ||
         ((cmd->cmdidx == MMC_CMD_SEND_TUNING_BLOCK ||
           cmd->cmdidx == MMC_CMD_SEND_TUNING_BLOCK_HS200) && !data))
@@ -265,10 +271,10 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
         time++;
         delayus(1000);
     }
-    //printf("2");
+
     // 割り込み状態をすべてクリア
     sdhci_writel(host, SDHCI_INT_ALL_MASK, SDHCI_INT_STATUS);
-    //printf("3");
+
     mask = SDHCI_INT_RESPONSE;
     if ((cmd->cmdidx == MMC_CMD_SEND_TUNING_BLOCK ||
          cmd->cmdidx == MMC_CMD_SEND_TUNING_BLOCK_HS200) && !data)
@@ -294,12 +300,11 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
         cmd->cmdidx == MMC_CMD_SEND_TUNING_BLOCK_HS200)
         flags |= SDHCI_CMD_DATA;
 
-    //printf(" mask2: 0x%08x, flags: 0x%08x ", mask, flags);
+    trace("mask: 0x%08x, flags: 0x%08x ", mask, flags);
 
     /* dataのあるなしに基づいて転送モードをセットする */
     // 1. データあり
     if (data) {
-        //printf("3");
         // データタイムアウトをセット
         sdhci_writeb(host, 0xe, SDHCI_TIMEOUT_CONTROL);
         // XFER_MODE_AND_CMD.B[1]
@@ -324,15 +329,16 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
                 SDHCI_BLOCK_SIZE);
         // XFER_MODEレジスタ(0xc)に書き込む
         sdhci_writew(host, mode, SDHCI_TRANSFER_MODE);
-        //printf("4");
     // 2. データなし
     } else if (cmd->resp_type & MMC_RSP_BUSY) {
         // タイムアウトをセット
         sdhci_writeb(host, 0xe, SDHCI_TIMEOUT_CONTROL);
-        //printf("5");
     }
+
+    trace("cmd: idx: %d, arg: 0x%x, rtype: %d, mask: 0x%x, flags: 0x%x, mode: 0x%x",
+        cmd->cmdidx, cmd->cmdarg, cmd->resp_type, mask, flags, mode);
+
     // ARGUMENTレジスタに書き込む
-    //printf("6");
     sdhci_writel(host, cmd->cmdarg, SDHCI_ARGUMENT);
     // CMDレジスタ(0xe)に書き込む: 転送が開始される
     sdhci_writew(host, SDHCI_MAKE_CMD(cmd->cmdidx, flags), SDHCI_COMMAND);
@@ -353,42 +359,37 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
             }
         }
     } while ((stat & mask) != mask);    // mask = CMD_CMPL | XFER_CMPL
-    //printf("7");
+
     // コマンド成功
     if ((stat & (SDHCI_INT_ERROR | mask)) == mask) {
         // レスポンスを取得
-        //printf("8");
         sdhci_cmd_done(host, cmd);
         // 割り込み状態をクリア
         sdhci_writel(host, mask, SDHCI_INT_STATUS);
-        //printf("9");
     } else {
-        //printf("10");
         ret = -1;
     }
-    //printf("11");
+
     // コマンド成功でデータがある場合はデータを転送
     if (!ret && data) {
-        //printf("12");
         ret = sdhci_transfer_data(host, data);
-        //printf("5");
     }
 
     if (host->quirks & SDHCI_QUIRK_WAIT_SEND_CMD)
         delayus(1000);
 
     // 割り込みステータスを読み込む
-    //printf("14");
     stat = sdhci_readl(host, SDHCI_INT_STATUS);
     // 割り込みステータスをクリアする
     sdhci_writel(host, stat, SDHCI_INT_STATUS);
-    //printf("15");
     // 転送が成功の場合
     if (!ret) {
         // 該当しない
         if ((host->quirks & SDHCI_QUIRK_32BIT_DMA_ADDR) &&
-                !is_aligned && (data->flags == MMC_DATA_READ))
+                !is_aligned && (data->flags == MMC_DATA_READ)) {
             memcpy(data->dest, host->align_buffer, trans_bytes);
+            trace("copy buf to dst");
+        }
         // 成功リターン
         //printf("\n");
         return 0;
