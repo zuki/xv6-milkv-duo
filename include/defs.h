@@ -122,7 +122,7 @@ int             pipewrite(struct pipe*, uint64_t, int);
 int             printf(const char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
-void            debug_bytes(char *buf, int size);
+void            debug_bytes(char *title, char *buf, int size);
 
 // proc.c
 int             cpuid(void);
@@ -204,7 +204,7 @@ void            swtch(struct context*, struct context*);
 
 // slab.c
 void            slab_cache_init(void);
-struct slab_cache *slab_cache_create(const char *name, size_t size);
+struct slab_cache *slab_cache_create(const char *name, uint32_t size, uint32_t alignment);
 void            slab_cache_destroy(struct slab_cache *cache);
 void *          slab_cache_alloc(struct slab_cache *cache);
 void            slab_cache_free(struct slab_cache *cache, void *obj);

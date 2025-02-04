@@ -14,7 +14,7 @@ static struct list_head sdque;
 static struct spinlock sdlock;
 struct partition_info ptinfo[PARTITIONS];
 
-static struct slab_cache *SDBUF;
+//static struct slab_cache *SDBUF;
 
 // 使用中のパーティション数
 static int ptnum = 0;
@@ -40,9 +40,10 @@ sd_init(void)
 {
     struct mbr mbr;
 
-    SDBUF = slab_cache_create("sd buffer", 1024);
+    //SDBUF = slab_cache_create("sd buffer", 1024);
 
-    char *buf = slab_cache_alloc(SDBUF);
+    //char *buf = slab_cache_alloc(SDBUF);
+    char buf[1024];
 
     list_init(&sdque);
     initlock(&sdlock, "sd");
@@ -105,7 +106,7 @@ sd_init(void)
     }
 #endif
 
-    slab_cache_free(SDBUF, buf);
+    //slab_cache_free(SDBUF, buf);
 
     info("sd_init ok\n");
 }
@@ -127,7 +128,7 @@ sd_intr(void)
  */
 static void sd_start(void)
 {
-    char *buf = slab_cache_alloc(SDBUF);
+    //char *buf = slab_cache_alloc(SDBUF);
 
     while (!list_empty(&sdque)) {
         struct buf *b =
@@ -136,18 +137,18 @@ static void sd_start(void)
         // TODO: block sizeをvfsで持つ
         uint32_t blks = b->dev == FATMINOR ? 1 : 2;
         trace("buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
-        trace("buf: %p, b->data: %p", buf, b->data);
+        trace("[0] buf: %p, &b->data: %p, b->data: %p", b, &b->data, b->data);
 
         if (b->flags & B_DIRTY) {
-            memmove(buf, b->data, blks * 512);
-            mb();
-            fence_i();
-            assert(mmc_bwrite(&sd0, b->blockno, blks, buf) == blks);
+            //memmove(buf, b->data, blks * 512);
+            //mb();
+            //fence_i();
+            assert(mmc_bwrite(&sd0, b->blockno, blks, b->data) == blks);
         } else {
-            assert(mmc_bread(&sd0, b->blockno, blks, buf) == blks);
-            mb();
-            fence_i();
-            memmove(b->data, buf, blks * 512);
+            assert(mmc_bread(&sd0, b->blockno, blks, b->data) == blks);
+            //mb();
+            //fence_i();
+            //memmove(b->data, buf, blks * 512);
         }
 
 #if 0
@@ -166,6 +167,7 @@ static void sd_start(void)
             byte += 16;
         }
 #endif
+        trace("[1] buf: %p, &b->data: %p, b->data: %p", b, &b->data, b->data);
 
         b->flags |= B_VALID;
         b->flags &= ~B_DIRTY;
@@ -190,7 +192,7 @@ static void sd_start(void)
 #endif
 
         list_pop_front(&sdque);
-        slab_cache_free(SDBUF, buf);
+        //slab_cache_free(SDBUF, buf);
         wakeup(b);
     }
 }

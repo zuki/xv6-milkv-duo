@@ -14,7 +14,7 @@
 
 #define ALIGN(x, a)              (((x) + (a) - 1) & ~((a) - 1))
 
-#define ARCH_DMA_MINALIGN   32
+#define ARCH_DMA_MINALIGN   64
 #define ROUND(a, b)         (((a) + (b) - 1) & ~((b) - 1))
 #define DIV_ROUND_UP(n,d)   (((n) + (d) - 1) / (d))
 
