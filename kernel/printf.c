@@ -259,16 +259,16 @@ void printfinit(void)
     pr.locking = 1;
 }
 
-void debug_bytes(char *buf, int size) {
+void debug_bytes(char *title, char *buf, int size) {
     int lines = (size / 16) + 1;
     if (size % 16 == 0) lines -= 1;
 
-    uint32_t byte = 0;
-    printf("\n");
+    uint64_t byte = 0;
+    printf("%s\n", title);
     for (int i = 0; i < lines; i++) {
         for (int j = 0; j < 16; j++) {
             if (j == 0)
-                printf("%08x:", byte);
+                printf("%016x:", (uint64_t)buf + byte);
             if (j%2)
                 printf("%02x", buf[i*16+j]);
             else

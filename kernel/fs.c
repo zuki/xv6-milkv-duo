@@ -594,6 +594,7 @@ readi(struct inode *ip, int user_dst, uint64_t dst, uint32_t off, uint32_t n)
         if (addr == 0)
             break;
         bp = bread(ip->dev, addr);
+        trace("bp: data: %p, addr: 0x%x", bp->data, addr);
         m = min(n - tot, BSIZE - off%BSIZE);
         if (either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
             brelse(bp);
@@ -888,6 +889,6 @@ int getdents(struct file *f, uint64_t data, size_t size)
         off = f->off;
         trace("tlen: %d, de64: ino: %d, off: %ld, reclen: %d, type: %d, name: %s", tlen, de64.d_ino, de64.d_off, de64.d_reclen, de64.d_type, de64.d_name);
     }
-    //debug_bytes(data, tlen);
+    //debug_bytes("data:", data, tlen);
     return tlen;
 }
