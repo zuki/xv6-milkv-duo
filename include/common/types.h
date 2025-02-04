@@ -49,7 +49,6 @@ typedef int32_t         clockid_t;
 typedef uint64_t        ino64_t;
 typedef off_t           off64_t;
 typedef uint32_t        kernel_cap_t;
-typedef uint64_t        uintptr_t;
 typedef int64_t         intptr_t;
 typedef unsigned        wint_t;
 typedef uint16_t        kdev_t;
