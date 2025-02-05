@@ -9,7 +9,8 @@
 // カーネル/ユーザプログラムの両者がこのヘッダーファイルを使用する.
 
 #define ROOTINO     1       // ルートディレクトリ('/')のinode番号
-#define BSIZE       1024    // ブロックサイズ
+#define BSIZE       4096    // ブロックサイズ
+#define BLKSECT     (BSIZE / SECTOR_SIZE)
 
 // Disk layout:
 // [ boot block | super block | log | inode blocks |
@@ -33,7 +34,7 @@ struct superblock {
 #define NDIRECT     11      // 直接指定のブロック数
 #define NINDIRECT   (BSIZE / sizeof(uint))      // 第一間接指定のブロック数
 #define NINDIRECT2  (NINDIRECT * NINDIRECT)     // 第二間接指定のブロック数
-#define MAXFILE     (NDIRECT + NINDIRECT + NINDIRECT2)   // 1ファイルの最大ブロック数 - 11 + 256 + 65536 = 65803 : * 1024 = 65.803 KB = 64 MB
+#define MAXFILE     (NDIRECT + NINDIRECT + NINDIRECT2)   // 1ファイルの最大ブロック数 - 11 + 1024 + 1,048,576 = 1,049,611 : * 4096 = 4100 MB
 
 // ディスク上のinode構造体(128バイト)
 struct dinode {
@@ -52,12 +53,12 @@ struct dinode {
     char _dummy[4];
 };
 
-// ブロックあたりのInode数 = 1024 / 128 = 8
+// ブロックあたりのInode数 = 4096 / 128 = 32
 #define IPB             (BSIZE / sizeof(struct dinode))
 
 // inode iを含むブロックの番号
 #define IBLOCK(i, sb)   ((i) / IPB + sb.inodestart)
-// ブロックあたりのビットマップビット数 = 8192
+// ブロックあたりのビットマップビット数 = 32768
 #define BPB             (BSIZE * 8)
 
 // ブロック bを含むビットマップブロックの番号

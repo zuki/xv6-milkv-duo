@@ -23,6 +23,7 @@
 #include <buf.h>
 #include <printf.h>
 #include <memalign.h>
+#include <common/fs.h>
 
 static struct slab_cache *BUFDATA;
 
@@ -40,7 +41,7 @@ struct {
 void binit(void)
 {
     struct buf *b;
-    BUFDATA = slab_cache_create("buf.data", 1024, ARCH_DMA_MINALIGN);
+    BUFDATA = slab_cache_create("buf.data", 4096, ARCH_DMA_MINALIGN);
 
     initlock(&bcache.lock, "bcache");
 
@@ -58,7 +59,7 @@ void binit(void)
 static struct buf *bget(uint32_t dev, uint32_t bno)
 {
     struct buf *b;
-    uint32_t blockno = fs_lba(dev) + bno * 2;
+    uint32_t blockno = fs_lba(dev) + bno * BLKSECT;
     trace("bno: %d, blockno: 0x%08x", bno, blockno);
 
     acquire(&bcache.lock);
@@ -92,12 +93,6 @@ loop:
             if (b->data == NULL)
                 b->data = (uint8_t *)slab_cache_alloc(BUFDATA);
             trace("recycle: buf: %p, &flags: %p, &dlink: %p, &data: %p", b, &b->flags, &b->dlink, &b->data);
-#if 0
-            printf("  flags: 0x%08x, dev: 0x%08x, bno: 0x%08x, ref: 0x%08x\n", b->flags, b->dev, b->blockno, b->refcnt);
-            printf("  clink_next: 0x%016x, prev: 0x%016x\n", b->clink.next, b->clink.prev);
-            printf("  dlink_next: 0x%016x, prev: 0x%016x\n", b->dlink.next, b->dlink.prev);
-            printf("  data: %p\n", b->data);
-#endif
             release(&bcache.lock);
             return b;
         }
@@ -150,13 +145,6 @@ void brelse(struct buf *b)
     list_push_back(&bcache.head, &b->clink);
     b->refcnt--;
     b->flags &= ~B_BUSY;
-#if 0
-    if (b->refcnt == 0) {
-        trace("free: bno: 0x%x, ref: %d, flags: %d, data: %p", b->blockno, b->refcnt, b->flags, b->data);
-        slab_cache_free(BUFDATA, b->data);
-        b->data = NULL;
-    }
-#endif
     wakeup(b);
     release(&bcache.lock);
 }

@@ -135,7 +135,7 @@ static void sd_start(void)
             container_of(list_front(&sdque), struct buf, dlink);
 
         // TODO: block sizeをvfsで持つ
-        uint32_t blks = b->dev == FATMINOR ? 1 : 2;
+        uint32_t blks = b->dev == FATMINOR ? 1 : BLKSECT;
         trace("buf blockno: 0x%08x, blks: %d, flags: 0x%08x", b->blockno, blks, b->flags);
         trace("[0] buf: %p, &b->data: %p, b->data: %p", b, &b->data, b->data);
 
@@ -193,6 +193,7 @@ static void sd_start(void)
 
         list_pop_front(&sdque);
         //slab_cache_free(SDBUF, buf);
+
         wakeup(b);
     }
 }

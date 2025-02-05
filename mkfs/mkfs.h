@@ -4,8 +4,8 @@
 #define FSSIZE      102400
 
 #define NINODES     1024
-#define LOGSIZE     126
-#define BSIZE       1024
+#define LOGSIZE     4
+#define BSIZE       4096
 #define NDIRECT     11
 #define NINDIRECT   (BSIZE / sizeof(uint))
 #define NINDIRECT2  (NINDIRECT * NINDIRECT)

@@ -149,8 +149,10 @@ void buddy_init(void) {
 
     /* FIXME: PAGE_STARTを固定値で与えているので、カーネル機能が増えるにつれて
      * _endがPAGE_STARTを超える可能性がある */
-    if (_end > PAGE_START)
+    if (_end > PAGE_START) {
+        error("_end: 0x%x, start: 0x%x", _end, PAGE_START);
         panic("fix PAGE_START");
+    }
 
     /* 1. buddyシステムのロックを初期化 */
     initlock(&buddy_lock, "buddy");

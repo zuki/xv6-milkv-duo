@@ -15,9 +15,9 @@
 // Disk layout:
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 
-int nbitmap = FSSIZE/(1024*8) + 1;     // 1500 / 8192 + 1 = 1
-int ninodeblocks = (NINODES / IPB) + ((NINODES % IPB) == 0 ? 0 : 1);   // 256 / 16 = 1
-int nlog = LOGSIZE;                     // 30
+int nbitmap = FSSIZE / (BSIZE * 8) + 1;     // 1500 / 32768 + 1 = 1
+int ninodeblocks = (NINODES / IPB) + ((NINODES % IPB) == 0 ? 0 : 1);   // 1024 / 32 =  32)
+int nlog = LOGSIZE;                     // 4
 int nmeta;    // データブロック以外のブロック数
 int nblocks;  // データブロック数
 

@@ -52,13 +52,12 @@ struct dinode {
 // The total sd card image is 128 MB, 64 MB for boot sector and 64 MB for file system.
 // 以下の単位はセクタ
 #define SECTOR_SIZE     512
-#define BUFSIZE         1024
+#define BUFSIZE         4096
 
-#define MAXOPBLOCKS     42
 #define NINODES         1024
 #define FSSIZE          102400
-#define BSIZE           1024
-#define LOGSIZE         (MAXOPBLOCKS*3)                         // 30
+#define BSIZE           4096
+#define LOGSIZE         4
 #define IPB             (BSIZE / sizeof(struct dinode))         // 1024 / 64 = 16
 
 /* Disk layout: 1 block = BSIZE
@@ -272,11 +271,11 @@ int main(int argc, char *argv[]) {
     if (type == 'o') {
         printf("Block     : LBA     Address    (#block)\n");
         printf("Boot      : 0x%x 0x%08x (%d)\n", lba, v6_addr, 1);
-        printf("SuperBlock: 0x%x 0x%08x (%d)\n", lba + 2, v6_addr + BSIZE, 1);
-        printf("Log       : 0x%x 0x%08x (%d)\n", lba + 4, v6_addr + BSIZE * 2, sb.nlog);
-        printf("INode     : 0x%x 0x%08x (%d)\n", lba + 2 * sb.inodestart, v6_addr + BSIZE * sb.inodestart, ninode);
-        printf("Bitmap    : 0x%x 0x%08x (%d)\n", lba + 2 * sb.bmapstart, v6_addr + BSIZE * sb.bmapstart, nbitmap);
-        printf("Data      : 0x%x 0x%08x\n\n", lba + 2 * (sb.bmapstart + nbitmap), v6_addr + BSIZE * (sb.bmapstart + nbitmap));
+        printf("SuperBlock: 0x%x 0x%08x (%d)\n", lba + 8 * 1, v6_addr + BSIZE, 1);
+        printf("Log       : 0x%x 0x%08x (%d)\n", lba + 8 * 2, v6_addr + BSIZE * 2, sb.nlog);
+        printf("INode     : 0x%x 0x%08x (%d)\n", lba + 8 * sb.inodestart, v6_addr + BSIZE * sb.inodestart, ninode);
+        printf("Bitmap    : 0x%x 0x%08x (%d)\n", lba + 8 * sb.bmapstart, v6_addr + BSIZE * sb.bmapstart, nbitmap);
+        printf("Data      : 0x%x 0x%08x\n\n", lba + 8 * (sb.bmapstart + nbitmap), v6_addr + BSIZE * (sb.bmapstart + nbitmap));
     } else {
          dump(sdimg, type, arg1, arg2);
     }
