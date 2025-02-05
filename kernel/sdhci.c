@@ -151,7 +151,7 @@ static int sdhci_transfer_data(struct sdhci_host *host, struct mmc_data *data)
         stat = sdhci_readl(host, SDHCI_INT_STATUS);
         // B[15]: ERR_INT エラーあり
         if (stat & SDHCI_INT_ERROR) {
-            error("Error detected in status(0x%x)!", stat);
+            trace("Error detected in status(0x%x)!", stat);
             return -EIO;
         }
         trace("done: %s, stat: 0x%08x, flags: 0x%08x", transfer_done ? "t" : "f", stat, host->flags);
