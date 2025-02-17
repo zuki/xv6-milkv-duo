@@ -130,7 +130,7 @@ static int cvi_ofdata_to_platdata(struct cvi_sdhci_host *cvi_host)
     cvi_host->mmc_fmax_freq = 200000000;    // max-frequency
     cvi_host->is_64_addressing = true;      // 64_addressing
     cvi_host->reset_tx_rx_phy = true;       // reset_tx_rx_phy
-    cvi_host->no_1_8_v = false;              // no-1-8-v
+    cvi_host->no_1_8_v = NO_1_8_V;          // no-1-8-v
     cvi_host->pll_index = 6;                // pll_index
     cvi_host->pll_reg = 0x3002070;          // pll_reg
 

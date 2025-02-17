@@ -5,10 +5,16 @@
 
 #define LOG_DEBUG
 
+/* T-Head社のRISCV extensionを使用 */
 #define THEAD_PTE
 
+/* 1_8_vの設定を行わない */
+/*  - test中は立ち上がりが少し遅くなるので 1 = true  */
+/*  - 本番はSDカードのread/writeが早くなるので 0 = flase */
+#define NO_1_8_V    1
+
 /* maximum number of CPUs */
-#define NCPU          1
+#define NCPU        1
 
 #define UART0 0x04140000UL
 #define UART0_PHY UART0
