@@ -97,6 +97,7 @@ long sys_read(void)
         return -EINVAL;
     if (argfd(0, 0, &f) < 0)
         return -EBADF;
+    trace("ip: %d, p: 0x%lx, n: %d", f->ip->inum, p, n);
     return fileread(f, p, n, 1);
 }
 
@@ -160,6 +161,30 @@ ssize_t sys_writev(void)
     return tot;
 }
 
+long sys_lseek()
+{
+    off_t offset;
+    int whence;
+    struct file *f;
+    int fd;
+
+    if (argfd(0, &fd, &f) < 0 || argu64(1, (uint64_t *)&offset) < 0
+     || argint(2, &whence) < 0)
+        return -EINVAL;
+
+    if (whence & ~(SEEK_SET|SEEK_CUR|SEEK_END))
+        return -EINVAL;
+
+    trace("[%d] fd=%d, f.type=%d, offset=%lld, whence=%d",
+        thisproc()->pid, fd, f->type, offset, whence);
+
+    if (f->type == FD_PIPE)
+        return 0;
+
+    return filelseek(f, offset, whence);
+}
+
+
 long sys_close(void)
 {
     int fd;
@@ -168,7 +193,7 @@ long sys_close(void)
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
 
-    trace("fd: %d", fd);
+    trace("pid[%d] fd: %d", myproc()->pid, fd);
 
     myproc()->ofile[fd] = 0;
     bit_remove(myproc()->fdflag, fd);
@@ -265,7 +290,7 @@ long sys_unlinkat(void)
      || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
-    trace("path: %s, fd: %d, flags: %d", path, dirfd, flags);
+    trace("pid[%d] path: %s, fd: %d, flags: %d", myproc()->pid, path, dirfd, flags);
     if (dirfd != AT_FDCWD)
         return -EINVAL;
 

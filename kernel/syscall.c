@@ -160,6 +160,7 @@ extern long sys_dup(void);
 extern long sys_getpid(void);
 extern long sys_gettid(void);
 extern long sys_getdents64(void);
+extern long sys_lseek(void);
 extern long sys_brk(void);
 extern long sys_nanosleep(void);
 extern long sys_uptime(void);
@@ -247,6 +248,7 @@ static func syscalls[] = {
     [SYS_close]     = sys_close,                //  57
     [SYS_pipe2]     = sys_pipe2,                //  59
     [SYS_getdents64] = sys_getdents64,          //  61
+    [SYS_lseek]     = sys_lseek,                // 62
     [SYS_read]      = sys_read,                 //  63
     [SYS_write]     = sys_write,                //  64
     [SYS_readv]     = sys_readv,                //  65

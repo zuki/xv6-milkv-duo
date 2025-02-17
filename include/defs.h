@@ -62,6 +62,7 @@ int             fileread(struct file*, uint64_t, int n, int user);
 int             filestat(struct file*, uint64_t addr);
 int             filewrite(struct file*, uint64_t, int n);
 int             fileioctl(struct file*, unsigned long, void *argp);
+long            filelseek(struct file *f, off_t offset, int whence);
 long            filelink(char *old, char *new);
 long            fileunlink(char *path, int flags);
 struct inode *  create(char *path, short type, short major, short minor, mode_t mode);

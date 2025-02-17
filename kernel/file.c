@@ -224,6 +224,39 @@ int fileioctl(struct file *f, unsigned long request, void *argp)
     return devsw[f->major].ioctl(1, request, argp);
 }
 
+long filelseek(struct file *f, off_t offset, int whence)
+{
+    if (!f) return -EBADF;
+
+    switch(whence) {
+        case SEEK_SET:
+            if (offset < 0)
+                goto bad;
+            else
+                f->off = offset;
+            break;
+        case SEEK_CUR:
+            if (f->off + offset < 0)
+                goto bad;
+            else
+                f->off += offset;
+            break;
+        case SEEK_END:
+            if (f->ip->size + offset < 0)
+                goto bad;
+            else
+                f->off = f->ip->size + offset;
+            break;
+        default:
+            goto bad;
+    }
+    return f->off;
+
+bad:
+    debug("invalid offset %d", offset)
+    return -EINVAL;
+}
+
 long filelink(char *old, char *new)
 {
     char name[DIRSIZ];
@@ -280,7 +313,7 @@ bad:
 
 long fileunlink(char *path, int flags)
 {
-    debug("path: %s, flags: %d", path, flags);
+    trace("path: %s, flags: %d", path, flags);
     struct inode *ip, *dp;
     char name[DIRSIZ];
     uint32_t off;
