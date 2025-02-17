@@ -20,7 +20,9 @@ USR_CC := $(MUSL)/bin/musl-gcc
 OBJ = ../obj/usr
 
 # -z max-page-size: https://stackoverflow.com/questions/33005638/how-to-change-alignment-of-code-segment-in-elf
+# T-Head拡張を使用
 CFLAGS = -march=rv64gcxthead -std=gnu99 -Os -static -MMD -MP -z max-page-size=4096 -fmerge-all-constants
+#CFLAGS = -march=rv64gc -std=gnu99 -Os -static -MMD -MP -z max-page-size=4096 -fmerge-all-constants
 CFLAGS += -fno-pie -no-pie
 CFLAGS += -fno-omit-frame-pointer
 
