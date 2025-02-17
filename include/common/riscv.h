@@ -202,7 +202,7 @@ w_pmpaddr0(uint64_t x)
     asm volatile("csrw pmpaddr0, %0" : : "r" (x));
 }
 
-// riscvのsv39ページテーブルスキームを使用する.
+// riscvのsv39ページテーブルスキームを使用する (Bit[63:60] = 8).
 #define SATP_SV39 (8L << 60)
 
 #define MAKE_SATP(pagetable) (SATP_SV39 | (((uint64_t)pagetable) >> 12))
@@ -355,6 +355,13 @@ fence_i()
     asm volatile("fence.i");
 }
 
+static inline void
+fence_rw()
+{
+    asm volatile("fence rw, rw");
+}
+
+
 typedef uint64_t pte_t;
 typedef uint64_t *pagetable_t; // 512 PTEs
 
@@ -415,13 +422,21 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
-#define PTE_V (1L << 0) // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
-#define PTE_U (1L << 4) // user can access
-#define PTE_A (1L << 6)
-#define PTE_D (1L << 7)
+#define PTE_V       (1L << 0) // valid
+#define PTE_R       (1L << 1)
+#define PTE_W       (1L << 2)
+#define PTE_X       (1L << 3)
+#define PTE_U       (1L << 4) // user can access
+#define PTE_A       (1L << 6)
+#define PTE_D       (1L << 7)
+
+#define PTE_SEC     (1UL << 59) /* Security */
+#define PTE_S       (1UL << 60) /* Shareable */
+#define PTE_B       (1UL << 61) /* Bufferable */
+#define PTE_C       (1UL << 62) /* Cacheable */
+#define PTE_SO      (1UL << 63) /* Strong Order */
+
+#define PTE_TABLE(pte)   ((pte & 0xe) == 0)
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64_t)pa) >> 12) << 10)
@@ -431,6 +446,17 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PTE_FLAGS(pte) ((pte) & (0x3FF | (1UL << 63)|(1UL << 62) | (1UL << 61) | (1UL << 60) | (1UL << 59)))
 
 // extract the three 9-bit page table indices from a virtual address.
+/*
+ * 仮想アドレス 'va' は次の3パートの構造をしている:
+ * +-----9-----+-----9-----+-----9-----+---------12---------+
+ * |  Level 2  |  Level 1  |  Level 0  | Offset within Page |
+ * |   Index   |   Index   |   Index   |                    |
+ * +-----------+-----------+-----------+--------------------+
+ *  \PX(2, va) /\PX(1, va)/ \PTX(0, va)/
+ *  [010000000] [000000000] [000000000] [0000 0000 0000]      = 0x2000000000
+ *  [128]       [0]         [0]
+ */
+
 #define PXMASK          0x1FF // 9 bits
 #define PXSHIFT(level)  (PGSHIFT+(9*(level)))
 #define PX(level, va) ((((uint64_t) (va)) >> PXSHIFT(level)) & PXMASK)
@@ -441,8 +467,9 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 // = 0x40_0000_0000 = 256GB
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
 
-#define PTE_THEAD_DEVICE	((1UL << 63) | (1UL << 60))
-#define PTE_THEAD_NORMAL	((1UL << 62) | (1UL << 61) | (1UL << 60))
+#define PTE_THEAD_DEVICE	(PTE_SO | PTE_S)
+#define PTE_THEAD_NORMAL	(PTE_C | PTE_B | PTE_S)
+#define PTE_THEAD_NORMAL_NC	(PTE_B | PTE_S)
 
 #include "config.h"
 #ifdef THEAD_PTE
