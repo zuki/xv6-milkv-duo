@@ -130,15 +130,32 @@
 #define KSTACK(p) (TRAMPOLINE - ((p)+1)* 2*PGSIZE)
 
 /* ユーザメモリレイアウト.
- * アドレス0から:
- *   text
- *   original data and bss
- *   fixed-size stack
- *   expandable heap
- *   ...
- *   TRAPFRAME (p->trapframe, used by the trampoline)
- *   TRAMPOLINE (the same page as in the kernel)
+ *  0x40_0000_0000 -> --------------------------- MAXVA (256GB)
+ *                         トランポリン             R-X
+ *  0x3F_FFFF_F000 -> --------------------------- TRAMPOLINE
+ *                         トラップフレーム
+ *  0x3F_FFFF_E000 -> --------------------------- TRAPFRAME
+ *                         ガードページ
+ *  0x3F_FFFF_D000 -? --------------------------- USERTOP (STACKTOP/MMAPTOP)
+ *                         スタック
+ *                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *                         mmap領域
+ *  0x20_0000_0000 -> --------------------------- MMAPBASE (128GB)
+ *                         ......
+ *                         bss
+ *                         data
+ *                         tbss
+ *                         tdata
+ *                         text
+ *  0x00_0000_0000 -> ---------------------------
  */
+
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
+
+#define KERNLINK (KERNBASE)             /* カーネルがリンクされるアドレス = KERNELBASE */
+#define USERTOP  (TRAPFRAME - PGSIZE)   /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
+#define STACKTOP    USERTOP             /* スタックはUSERTOPから */
+#define MMAPBASE    UL(0x2000000000)    /* mmapアドレスの基底アドレス */
+#define MMAPTOP     USERTOP             /* ARGV, ENVPなどはstack_topからmmapするため */
 
 #endif
