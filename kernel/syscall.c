@@ -158,6 +158,7 @@ extern long sys_fstatat(void);
 extern long sys_chdir(void);
 extern long sys_dup(void);
 extern long sys_getpid(void);
+extern long sys_getppid(void);
 extern long sys_gettid(void);
 extern long sys_getdents64(void);
 extern long sys_lseek(void);
@@ -272,6 +273,7 @@ static func syscalls[] = {
     [SYS_setpgid]   = sys_setpgid,              // 154
     [SYS_getpgid]   = sys_getpgid,              // 155
     [SYS_getpid]    = sys_getpid,               // 172
+    [SYS_getppid]   = sys_getppid,              // 173
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
     [SYS_brk]       = sys_brk,                  // 214
