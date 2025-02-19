@@ -464,35 +464,30 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
     }
 }
 
-void uvmdump(pagetable_t pagetable)
+void uvmdump(pagetable_t pagetable, pid_t pid, char *name)
 {
-    debug("pagetable: %p", pagetable);
-    uint64_t va_start = 0, va_end = 0;
+    printf("\npid[%d] name: %s, pagetable: %p\n", pid, name, pagetable);
 
     for (int i = 0; i < 512; i++) {
-        if (!(pagetable[i] & PTE_V)) continue;
-        pte_t *pgt1 = &pagetable[PX(2, pagetable[i])];
-        for (int j = 0; j < 512; j++) {
-            if (!(pgt1[j] & PTE_V)) continue;
-            uint64_t *pgt2 = (pagetable_t)PTE2PA(*pgt1);
-            for (int k = 0; k < 512; k++) {
-                if (!(pgt2[k] & PTE_V)) continue;
-                    uint64_t pa = PTE2PA(pgt2[k]);
-                    uint64_t va = (uint64_t) i << 30 | (uint64_t) j << 21
-                                | (pa & 0xfff) ;
-                    debug("va: 0x%lx, pa: 0x%lx", va, pa);
-                    if (va == va_end)
-                        va_end = va + PGSIZE;
-                    else {
-                        if (va_start < va_end)
-                            debug("va: [0x%p ~ 0x%p)", va_start, va_end);
-                        va_start = va;
-                        va_end = va + PGSIZE;
-                   }
+        pte_t *pte_2 = &pagetable[i];
+        if (*pte_2 & PTE_V) {
+            pagetable_t pg1 = (pagetable_t)PTE2PA(*pte_2);
+            for (int j = 0; j < 512; j++) {
+                pte_t *pte_1 = &pg1[j];
+                if (*pte_1 & PTE_V) {
+                    pagetable_t pg0 = (pagetable_t)PTE2PA(*pte_1);
+                    uint64_t pa = PTE2PA(*pte_1);
+                    uint64_t va = (uint64_t)i << 30 | (uint64_t)j << 21;
+                    printf("  [% 3d][% 3d]   va: 0x%010lx, pa: 0x%010lx\n", i, j, va, pa);
+                    for (int k = 0; k < 512; k++) {
+                        pte_t *pte_0 = &pg0[k];
+                        if (*pte_0 & PTE_V) {
+                            uint64_t va = (uint64_t)i << 30 | (uint64_t)j << 21 | (uint64_t)k << 12;
+                            printf("            [% 3d] [0x%010lx - 0x%010lx)\n", k, va, va + PGSIZE);
+                        }
+                    }
+                }
             }
         }
-    }
-    if (va_start < va_end) {
-        debug("va: [0x%p ~ 0x%p)", va_start, va_end);
     }
 }

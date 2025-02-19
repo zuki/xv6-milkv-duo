@@ -275,7 +275,7 @@ uint64_t        walkaddr(pagetable_t pagetable, uint64_t va);
 int             copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len);
 int             copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len);
 int             copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max);
-void            uvmdump(pagetable_t pagetable);
+void            uvmdump(pagetable_t pagetable, pid_t pid, char *name);
 
 // plic.c
 void            plicinit(void);
