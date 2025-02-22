@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+#include <termios.h>
 
 int main(void)
 {
@@ -65,5 +66,7 @@ int main(void)
 
     printf("done; ok\n");
 
-    return 0;
+    tcdrain(1);
+    _exit(0);
+    //return 0;
 }

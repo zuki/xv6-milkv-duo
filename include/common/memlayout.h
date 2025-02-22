@@ -129,31 +129,37 @@
  */
 #define KSTACK(p) (TRAMPOLINE - ((p)+1)* 2*PGSIZE)
 
+/* カーネルがリンクされるアドレス = KERNELBASE */
+#define KERNLINK    (KERNBASE)
+
 /* ユーザメモリレイアウト.
  *  0x40_0000_0000 -> --------------------------- MAXVA (256GB)
  *                         トランポリン             R-X
  *  0x3F_FFFF_F000 -> --------------------------- TRAMPOLINE
  *                         トラップフレーム
  *  0x3F_FFFF_E000 -> --------------------------- TRAPFRAME
+ *                     Thread Local Storage       <= tp (TLS + 2048)
+ *  0x3F_FFFF_D000 -> --------------------------- TLS
  *                         ガードページ
- *  0x3F_FFFF_D000 -? --------------------------- USERTOP (STACKTOP/MMAPTOP)
- *                         スタック
- *                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *  0x3F_FFFF_C000 -> --------------------------- USERTOP (STACKTOP/MMAPTOP)
+ *
  *                         mmap領域
  *  0x20_0000_0000 -> --------------------------- MMAPBASE (128GB)
- *                         ......
- *                         bss
- *                         data
- *                         tbss
- *                         tdata
- *                         text
+ *
+ *                         ヒープ領域
+ *                    ---------------------------
+ *                        スタック (4KB)
+ *                    ---------------------------
+ *                       ガードページ (4KB)
+ *                    ---------------------------
+ *                         コード領域
  *  0x00_0000_0000 -> ---------------------------
  */
 
-#define TRAPFRAME (TRAMPOLINE - PGSIZE)
+#define TRAPFRAME   (TRAMPOLINE - PGSIZE)
+#define TLS         (TRAPFRAME - PGSIZE)
 
-#define KERNLINK (KERNBASE)             /* カーネルがリンクされるアドレス = KERNELBASE */
-#define USERTOP  (TRAPFRAME - PGSIZE)   /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
+#define USERTOP     (TLS - PGSIZE)      /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
 #define STACKTOP    USERTOP             /* スタックはUSERTOPから */
 #define MMAPBASE    UL(0x2000000000)    /* mmapアドレスの基底アドレス */
 #define MMAPTOP     USERTOP             /* ARGV, ENVPなどはstack_topからmmapするため */

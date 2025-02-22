@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <termios.h>
 
 int main(int argc, char *argv[])
 {
@@ -10,8 +11,7 @@ int main(int argc, char *argv[])
     if (argc < 2) {
         fprintf(stderr, "wrong argc: %d\n", argc);
         fprintf(stderr, "Usage: mkdir files...\n");
-        fflush(stderr);
-        //return 1;
+        tcdrain(2);
         _exit(1);
     }
 
@@ -22,6 +22,8 @@ int main(int argc, char *argv[])
             break;
         }
     }
-    _exit(0);
+
     //return 0;
+    tcdrain(1);
+    _exit(0);
 }

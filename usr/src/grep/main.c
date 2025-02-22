@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <termios.h>
 
 char buf[1024];
 int match(char*, char*);
@@ -42,8 +43,8 @@ int main(int argc, char *argv[])
 
     if (argc <= 1) {
         fprintf(stderr, "usage: grep pattern [file ...]\n");
-        fflush(stderr);
         //return 1;
+        tcdrain(2);
         _exit(1);
     }
     pattern = argv[1];
@@ -51,13 +52,14 @@ int main(int argc, char *argv[])
     if (argc <= 2) {
         grep(pattern, 0);
         //return 0;
+        tcdrain(1);
         _exit(0);
     }
 
     for (i = 2; i < argc; i++) {
         if ((fd = open(argv[i], 0)) < 0) {
             fprintf(stderr, "grep: cannot open %s\n", argv[i]);
-            fflush(stderr);
+            tcdrain(2);
             _exit(1);
             //return 1;
         }
@@ -65,6 +67,7 @@ int main(int argc, char *argv[])
         close(fd);
     }
     //return 0;
+    tcdrain(1);
     _exit(0);
 }
 

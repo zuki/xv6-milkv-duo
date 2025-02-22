@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+#include <termios.h>
 
 int main(int argc, char *argv[])
 {
@@ -15,6 +16,7 @@ int main(int argc, char *argv[])
             write(1, "\n", 1);
         }
     }
+    tcdrain(1);
     _exit(0);
     //return 0;
 }

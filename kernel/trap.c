@@ -30,7 +30,7 @@ trapinithart(void)
 }
 
 //
-// ユーザ空間からの割り込み、例外、システムコールを処理する
+// ユーザ空間からの割り込み、例外、システムコールを処理する。
 // trampoline.S から呼び出される(pagetableはカーネル用になっている)
 //
 void
@@ -117,8 +117,8 @@ usertrapret(void)
     p->trapframe->kernel_sp = p->kstack + PGSIZE; // プロセスのカーネルスタック
     p->trapframe->kernel_trap = (uint64_t)usertrap;
     // FIXME: cpuは１つしか使わない。tpを別の目的で使用する
-    //p->trapframe->kernel_hartid = (uint64_t)p;
-    p->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
+    //p->trapframe->kernel_hartid = r_tp();         // hartid for cpuid()
+    p->trapframe->kernel_hartid = 0UL;
 
     // trampoline.Sのsretがユーザ空間に移動できるように
     // レジスタを設定する
@@ -188,7 +188,7 @@ kerneltrap()
 }
 
 
-// 外部割り込みかソフトウェア割り込み化を判断して
+// 外部割り込みかソフトウェア割り込みかを判断して
 // それを処理する。
 // タイマー割り込みの場合は 2 を返す,
 // その他のデバイスからの割り込みの場合は 1 を返す

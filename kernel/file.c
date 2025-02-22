@@ -213,14 +213,22 @@ filewrite(struct file *f, uint64_t addr, int n)
 // ioctl request with arg from/to f
 int fileioctl(struct file *f, unsigned long request, void *argp)
 {
-    if (f->type != FD_DEVICE)
-        return -EINVAL;
+    // request TCSBRK/TCFLSH はf->type = FD_INODE/FD_DEVICEで発生
+    if (request == TCSBRK || request == TCFLSH) {
+        // FIXME: drain, flushを実装すること
+        return 0;
+    }
 
-    if (f->major < 0 || f->major >= NDEV || !devsw[f->major].ioctl)
+    if (f->type != FD_DEVICE) {
+        error("inval1");
         return -EINVAL;
+    }
 
-    // FIXME: argpはローカルアドレスがセットされているのでポインタとして
-    // 使用する際は適切にcopyin()すること
+    if (f->major < 0 || f->major >= NDEV || !devsw[f->major].ioctl) {
+        error("inval2");
+        return -EINVAL;
+    }
+
     return devsw[f->major].ioctl(1, request, argp);
 }
 
@@ -537,6 +545,7 @@ long fileopen(char *path, int flags, mode_t mode)
     } else {
         f->type     = FD_INODE;
         f->off      = (flags & O_APPEND) ? ip->size : 0;
+        f->major    = 0;
     }
     f->ip       = ip;
     f->flags    = flags;

@@ -127,8 +127,8 @@ UPROGS=\
 	$U/sigtest3 \
 	$U/bigtest
 
-fs.img: mkfs/mkfs README.md $(UPROGS)
-	mkfs/mkfs fs.img README.md $(UPROGS)
+fs.img: mkfs/mkfs test.txt $(UPROGS)
+	mkfs/mkfs fs.img test.txt $(UPROGS)
 
 -include kernel/*.d
 

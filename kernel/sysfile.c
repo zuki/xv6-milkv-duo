@@ -378,7 +378,6 @@ long sys_mknodat(void)
         warn("dirfd unimplemented");
         return -EINVAL;
     }
-    trace("path '%s', mode 0x%x, dev 0x%lx", path, mode, dev);
 
     begin_op();
     if (S_ISDIR(mode))
@@ -395,19 +394,20 @@ long sys_mknodat(void)
         warn("%d is not supported yet", mode & S_IFMT);
         return -EINVAL;
     }
-    trace("type: %d", type);
+    trace("path '%s', mode 0x%x, dev 0x%lx, type: %d", path, mode, dev, type);
     if (type == T_DEVICE) {
         major = (uint16_t)((dev >> 8) & 0xFF);
         minor = (uint16_t)(dev & 0xFF);
-        trace("dev: 0x%l016x, major: %d, minor: %d", dev, major, minor);
+        trace("dev: 0x%016lx, major: %d, minor: %d", dev, major, minor);
     }
 
-    trace("path: %s, type: %d, major: %d, minor: %d, mode: %x", path, type, major, minor, mode);
+    trace("path: %s, mode: 0x%x, dev: 0x%lx, type: %d, major: %d, minor: %d", path, mode, dev, type, major, minor);
 
     if ((long)(ip = create(path, type, major, minor, mode)) < 0) {
         end_op();
         return (long)ip;
     }
+    trace("created: ip=%d", ip->inum);
     iunlockput(ip);
     end_op();
     return 0;
@@ -452,6 +452,7 @@ long sys_execve(void)
     uint64_t argvp, envpp;
     uint64_t arg_p, env_p;
     int argc = 0, envc = 0, error;
+    struct proc *p = myproc();
 
     if (argstr(0, path, MAXPATH) < 0) {
         warn("parse path error");
@@ -463,7 +464,8 @@ long sys_execve(void)
         return -EINVAL;
     }
 
-    trace("path: %s, argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
+    if (p->pid == 3)
+        trace("path: %s, argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
 
     memset(argv, 0, sizeof(argv));
     if (argvp != 0 && argvp != -1) {
@@ -495,12 +497,16 @@ long sys_execve(void)
                 error = -EIO;
                 goto bad;
             }
-            trace("argv[%d] (0x%lx) = %s", argc, arg_p, argv[argc]);
+
 #if 0
-            for (int j=0; j < strlen(argv[argc]); j++) {
-                printf("%02x ", argv[argc][j]);
+            if (p->pid) {
+                debug("argv[%d] (0x%lx) = %s", argc, arg_p, argv[argc]);
+
+                for (int j=0; j < strlen(argv[argc]); j++) {
+                    printf("%02x ", argv[argc][j]);
+                }
+                printf("\n");
             }
-            printf("\n");
 #endif
         }
     } else {
@@ -538,12 +544,15 @@ long sys_execve(void)
                 error = -EIO;
                 goto bad;
             }
-            trace("envp[%d] (0x%lx) = %s", envc, env_p, envp[envc]);
+
 #if 0
-            for (int j=0; j < strlen(envp[envc]); j++) {
-                printf("%02x ", envp[envc][j]);
+            if (p->pid == 3) {
+                debug("envp[%d] (0x%lx) = %s", envc, env_p, envp[envc]);
+                for (int j=0; j < strlen(envp[envc]); j++) {
+                    printf("%02x ", envp[envc][j]);
+                }
+                printf("\n");
             }
-            printf("\n");
 #endif
         }
     } else {
@@ -551,12 +560,21 @@ long sys_execve(void)
     }
 
     //int ret = exec(path, argv);
-    trace("path: %s, argv[0]: %s", path, argv[0]);
+    if (p->pid == 3)
+        trace("path: %s, argc: %d, envc: %d", path, argc, envc);
     int ret = execve(path, argv, envp, argc, envc);
-    for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++)
+
+    for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++) {
+        if (p->pid == 3)
+            trace("free argv[%d]: %s", argc, argv[argc]);
         kfree(argv[argc]);
-    for (envc = 0; envc < NELEM(envp) && envp[envc] != 0; envc++)
+    }
+
+    for (envc = 0; envc < NELEM(envp) && envp[envc] != 0; envc++) {
+        if (p->pid == 3)
+            trace("free envp[%d]: %s", envc, envp[envc]);
         kfree(envp[envc]);
+    }
 
     return ret;
 
@@ -622,7 +640,7 @@ long sys_ioctl(void)
      || argfd(0, &fd, &f) < 0)
         return -EINVAL;
 
-    trace("fd: %d, f.type: %d, f.major: %d, req: 0x%l016x, p: %p", fd, f->type, f->major, req, argp);
+    trace("fd: %d, f.type: %d, f.major: %d, req: 0x%lx, argp: %p", fd, f->type, f->major, req, argp);
 
     if (f->type != FD_INODE && f->ip->type != T_DEVICE) {
         warn("bad type: %d, %d", f->type, f->ip->type);

@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <sys/sysmacros.h>
+#include <termios.h>
 
 #define CONSOLE     1
 
@@ -61,5 +62,7 @@ int main(void)
         }
     }
 
-    return 0;
+    tcdrain(1);
+    _exit(0);
+    //return 0
 }

@@ -3,6 +3,7 @@
 
 #include <common/fs.h>
 #include <linux/fcntl.h>
+#include <linux/termios.h>
 #include <sleeplock.h>
 
 struct file {
@@ -49,7 +50,7 @@ struct inode {
 struct devsw {
     int (*read)(int, uint64_t, int);
     int (*write)(int, uint64_t, int);
-    int (*ioctl)(int, unsigned long, void *);
+    int (*ioctl)(int, uint64_t, void *);
 };
 
 extern struct devsw devsw[];

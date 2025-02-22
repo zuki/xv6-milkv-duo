@@ -33,6 +33,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     struct proghdr ph;
     pagetable_t pagetable = 0, oldpagetable;
     struct proc *p = myproc();
+    uint64_t sp_top;
 
     begin_op();
 
@@ -55,7 +56,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         goto bad;
     }
 
-    // trampolineとp->trapframeだけをマッピングしたユーザページテーブルを作成する
+    // trampoline/p->trapframe/tlsをマッピングしたユーザページテーブルを作成する
     if ((pagetable = proc_pagetable(p)) == 0) {
         warn("no pagetable: pid=%d", p->pid);
         goto bad;
@@ -127,12 +128,12 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // Synchronize the instruction and data streams.
     fence_i();
 
-    p = myproc();
+    //p = myproc();
     uint64_t oldsz = p->sz;
 
-    // 次のページ境界に2ページ割り当てる。
+    // 次のページ境界に3ページ割り当てる。
     // 最初のページをスタックガードとしてアクセス不能にする。
-    // 2番目をユーザスタックとして使用する。
+    // 2-3番目をユーザスタックとして使用する。
     sz = PGROUNDUP(sz);
     uint64_t sz1;
     if ((sz1 = uvmalloc(pagetable, sz, sz + 3*PGSIZE, PTE_W)) == 0) {
@@ -140,19 +141,11 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         goto bad;
     }
 
-    sz = sz1;
+    sp = sp_top = sz = sz1;
     // 1ページ目をガードページとしてユーザアクセス禁止とする
     uvmclear(pagetable, sz - 3*PGSIZE);
-    sp = sz;
     stackbase = sp - 2 * PGSIZE;
-    trace("sp: 0x%lx, sbase: 0x%lx", sp, stackbase);
-
-    // tls用に1ページ確保する
-    if ((sz1 = uvmalloc(pagetable, sz, sz + PGSIZE, PTE_W)) == 0) {
-        warn("uvmalloc for tls page error");
-        goto bad;
-    }
-    trace("tp: 0x%lx", sz1);
+    trace("sp: 0x%lx, stackbase: 0x%lx", sp, stackbase);
 
     // uint64_t sp_top = sp;
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
@@ -169,9 +162,13 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
                 goto bad;
             }
             ustack[i] = sp;
+            if (p->pid == 3)
+                trace("ustack[%d]: 0x%016lx, argv[%d]: %s", i, ustack[i], i, argv[i]);
         }
     }
     ustack[i] = 0;
+    if (p->pid == 3)
+        trace("ustack[%d]: 0x%016lx", i, ustack[i]);
 
     if (envc > 0) {
         // 引数文字列をプッシュし、残りのスタックをustackに準備する
@@ -187,11 +184,14 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
                 goto bad;
             }
             estack[i] = sp;
-            trace("estack[%d]: 0x%lx, envp[%d]: 0x%lx", i, estack[i], i, envp[i]);
+            if (p->pid == 3)
+                trace("estack[%d]: 0x%016lx, envp[%d]: %s", i, estack[i], i, envp[i]);
         }
         estack[i] = 0;
-        trace("estack[%d]: 0x%lx", i, estack[i]);
     }
+    estack[i] = 0;
+    if (p->pid == 3)
+        trace("estack[%d]: 0x%016lx", i, estack[i]);
 
     uint64_t auxv_sta[][2] = { { AT_PAGESZ, PGSIZE }, { AT_NULL,    0 } };
     uint64_t auxv_size = sizeof(auxv_sta);
@@ -249,14 +249,15 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // Commit to the user image.
     oldpagetable = p->pagetable;
     p->pagetable = pagetable;
-    p->sz = sz1;
+    p->sz = sz;
     p->trapframe->epc = elf.entry;  // initial program counter = main
     p->trapframe->sp = sp; // initial stack pointer
-    p->trapframe->tp = sz1;
-    trace("tp: 0x%lx", sz1);
+    p->trapframe->tp = TRAPFRAME;
+
     proc_freepagetable(oldpagetable, oldsz);
-    //uvmdump(p->pagetable);
+
 #if 0
+    uvmdump(p->pagetable, p->pid, p->name);
     printf("\n== Stack TOP : 0x%l08x ==\n", sp_top);
     for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
         uint64_t val;

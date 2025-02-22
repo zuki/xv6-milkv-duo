@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <termios.h>
 
 char * const wdays[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
@@ -31,11 +32,8 @@ int main(int argc, char *argv[])
         }
     }
 
-#if 0
-    fflush(stdout);
-    fflush(stderr);
+    tcdrain(1);
     _exit(0);
-#endif
 
-    return 0;
+    //return 0;
 }

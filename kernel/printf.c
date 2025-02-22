@@ -195,7 +195,8 @@ loop:
                                 padc, padn);
                 break;
             case '0':
-                padc = '0';
+            case ' ':
+                padc = *fmt;
                 padn = 0;
                 fmt++;
 

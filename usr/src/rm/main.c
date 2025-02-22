@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <termios.h>
 
 int main(int argc, char *argv[])
 {
@@ -10,9 +11,9 @@ int main(int argc, char *argv[])
     if (argc < 2) {
         fprintf(stderr, "wrong argc: %d\n", argc);
         fprintf(stderr, "Usage: rm files...\n");
-        fflush(stderr);
-        //return -1;
-        _exit(1);
+        //fflush(stderr);
+        return 1;
+        //_exit(1);
     }
 
     for (i = 1; i < argc; i++) {
@@ -24,5 +25,6 @@ int main(int argc, char *argv[])
     }
 
     //return 0;
+    tcdrain(1);
     _exit(0);
 }

@@ -352,11 +352,8 @@ long sys_ppoll(void) {
         fds = NULL;
     }
 
-    debug("fds: %p, nfds: %ld, timeout: 0x%lx, sigmask: 0x%lx", fds, nfds, &timeout_ts, sigmask);
-    long ret= ppoll(fds, nfds, &timeout_ts, &sigmask);
-    debug("ret: %ld", ret);
-    return ret;
-    //return ppoll(fds, nfds, &timeout_ts, &sigmask);
+    trace("fds: %p, nfds: %ld, timeout: 0x%lx, sigmask: 0x%lx", fds, nfds, &timeout_ts, sigmask);
+    return ppoll(fds, nfds, &timeout_ts, &sigmask);
 }
 
 long sys_getpgid(void) {

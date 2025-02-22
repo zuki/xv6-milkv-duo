@@ -72,8 +72,7 @@ uservec:
         # p->trapframe->kernel_spの値を使って、カーネルスタックポインタを初期化する
         ld sp, 8(a0)
 
-        # p->trapframe->kernel_hartidの値を使って、tpが現在のhartidを保持するようにする
-        # p->trapframe->kernel_hartidにはユーザprocess構造体の先頭アドレスをセットした
+        # tpはstruct procを新規作成した際にTLS領域に作成
         //ld tp, 32(a0)
 
         # p->trapframe->kernel_trapの値を使って、usertrap()のアドレスをロードする
@@ -99,7 +98,7 @@ uservec:
 userret:
         # userret(pagetable)
         # カーネルからユーザに切り替えるために
-        # trap.cのusertrapret()関数から呼び出されるr.
+        # trap.cのusertrapret()関数から呼び出される.
         # a0: satpにセットするユーザページテーブル.
 
         # switch to the user page table.

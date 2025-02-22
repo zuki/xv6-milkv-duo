@@ -4,11 +4,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <termios.h>
 
 int
 main(void)
 {
     if (fork() > 0)
         sleep(5);  // Let child exit before parent.
-    return 0;
+    tcdrain(1);
+    _exit(0);
+    //return 0;
 }

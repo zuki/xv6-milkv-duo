@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <dirent.h>
+#include <termios.h>
 
 #define DIRSIZE  32
 #define MIN(a, b)   ((a) <= (b) ? (a) : (b))
@@ -78,12 +79,13 @@ int main(int argc, char *argv[])
 
     if (argc < 2) {
         ls(".", 0);
-        return 0;
+    } else {
+        for (i=1; i<argc; i++) {
+            ls(argv[i], 0);
+        }
     }
 
-    for (i=1; i<argc; i++)
-        ls(argv[i], 0);
-
     //return 0;
+    tcdrain(1);
     _exit(0);
 }

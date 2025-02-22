@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <termios.h>
 
 #define DIRSIZ 14
 
@@ -47,11 +48,11 @@ char * fmtmode(mode_t mode)
 {
     static char fmod[11];
 
-    if (S_ISDIR(mode)) fmod[0] = 'd';
-    else if (S_ISCHR(mode)) fmod[0] = 'c';
-    else if (S_ISBLK(mode)) fmod[0] = 'b';
+    if      (S_ISDIR(mode))  fmod[0] = 'd';
+    else if (S_ISCHR(mode))  fmod[0] = 'c';
+    else if (S_ISBLK(mode))  fmod[0] = 'b';
     else if (S_ISFIFO(mode)) fmod[0] = 'f';
-    else if (S_ISLNK(mode)) fmod[0] = 'l';
+    else if (S_ISLNK(mode))  fmod[0] = 'l';
     else if (S_ISSOCK(mode)) fmod[0] = 's';
     else fmod[0] = '-';
 
@@ -122,15 +123,13 @@ void ls(char *path)
                     fprintf(stderr, "ls: cannot stat %s\n", buf);
                     continue;
                 }
-                printf("%s %4ld %s %8ld %s %s\n", fmtmode(st.st_mode),
+                printf("%-10s %4ld %-10s %8ld %11s %s\n", fmtmode(st.st_mode),
                        st.st_ino, fmtuser(0, 0), st.st_size, fmttime(st.st_mtime), fmtname(buf));
-                //fflush(stdout);
             }
         }
     } else {
-        printf("%s %4ld %s %5ld %s %s\n", fmtmode(st.st_mode), st.st_ino,
+        printf("%-10s %4ld %-10s %8ld %11s %s\n", fmtmode(st.st_mode), st.st_ino,
                fmtuser(0, 0), st.st_size, fmttime(st.st_mtime), fmtname(path));
-        //fflush(stdout);
     }
     close(fd);
 }
@@ -142,11 +141,8 @@ int main(int argc, char *argv[])
     else
         for (int i = 1; i < argc; i++)
             ls(argv[i]);
-    //printf("main ended\n");
-#if 1
-    fflush(stdout);
-    fflush(stderr);
-    _exit(0);
-#endif
+
     //return 0;
+    tcdrain(1);
+    _exit(0);
 }

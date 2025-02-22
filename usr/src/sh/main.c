@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <termios.h>
 
 // Parsed command representation
 #define EXEC  1
@@ -54,6 +55,8 @@ struct backcmd {
     struct cmd *cmd;
 };
 
+char *envp[] = { "PATH=/bin", "TZ=JST_9", 0 };
+
 int fork1(void);  // Fork but panics on failure.
 void panic(char *);
 struct cmd *parsecmd(char*);
@@ -96,7 +99,8 @@ void runcmd(struct cmd *cmd)
         //fprintf(stderr, "exec %s\n", ecmd->argv[0]);
         if (ecmd->argv[0] == 0)
             exit(1);
-        execv(ecmd->argv[0], ecmd->argv);
+        execve(ecmd->argv[0], ecmd->argv, envp);
+        //execv(ecmd->argv[0], ecmd->argv);
         fprintf(stderr, "exec %s failed\n", ecmd->argv[0]);
         break;
 
@@ -190,7 +194,9 @@ int main(int argc, char *argv[])
         wait(0);
     }
 
-    return 0;
+    tcdrain(1);
+    _exit(0);
+    //return 0;
 }
 
 void panic(char *s)
