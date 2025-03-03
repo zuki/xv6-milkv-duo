@@ -187,8 +187,11 @@ uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
     for (a = va; a < va + npages*PGSIZE; a += PGSIZE) {
         if ((pte = walk(pagetable, a, 0)) == 0)
             panic("uvmunmap: walk");
-        if ((*pte & PTE_V) == 0)
-            panic("uvmunmap: not mapped");
+        // uvmcopyと同じ理由
+        if ((*pte & PTE_V) == 0) {
+            trace("[%d] pte: %p, *pte: 0x%lx", a, pte, *pte);
+            continue;
+        }
         if ((PTE_FLAGS(*pte) & 0x3ff) == PTE_V)
             panic("uvmunmap: not a leaf");
         if (do_free) {
@@ -324,8 +327,14 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
     for (i = 0; i < sz; i += PGSIZE) {
         if ((pte = walk(old, i, 0)) == 0)
             panic("uvmcopy: pte should exist");
-        if ((*pte & PTE_V) == 0)
-            panic("uvmcopy: page not present");
+        // もともとユーザプログラムは0x0から配置されていたのでエラーとしていたが
+        // 0x10000から配置するようになったため、i=0などマッピングしていない
+        // pteがある
+        if ((*pte & PTE_V) == 0) {
+            trace("[%d] pte: %p, *pte: 0x%lx", i, pte, *pte);
+            continue;
+        }
+
         pa = PTE2PA(*pte);
         flags = PTE_FLAGS(*pte);
         if ((mem = kalloc()) == 0)
