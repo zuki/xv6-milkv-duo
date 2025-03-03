@@ -62,6 +62,7 @@ void panic(char *);
 struct cmd *parsecmd(char*);
 void runcmd(struct cmd *) __attribute__((noreturn));
 
+#if 0
 void * malloc1(size_t sz)
 {
 #define MAXN 16384
@@ -76,6 +77,7 @@ void * malloc1(size_t sz)
     //fprintf(stderr, "size: %ld, i: %ld, addr: %p\n", sz, i, &mem[i - sz]);
     return &mem[i - sz];
 }
+#endif
 
 // Execute cmd.  Never returns.
 void runcmd(struct cmd *cmd)
@@ -194,9 +196,9 @@ int main(int argc, char *argv[])
         wait(0);
     }
 
-    tcdrain(1);
-    _exit(0);
-    //return 0;
+    //tcdrain(1);
+    //_exit(0);
+    return 0;
 }
 
 void panic(char *s)
@@ -219,7 +221,7 @@ struct cmd *execcmd(void)
 {
     struct execcmd *cmd;
     //fprintf(stderr, "called execcmd ");
-    cmd = malloc1(sizeof(*cmd));
+    cmd = malloc(sizeof(*cmd));
     //fprintf(stderr, "malloc ");
     memset(cmd, 0, sizeof(*cmd));
     //fprintf(stderr, "memset ");
@@ -232,7 +234,7 @@ struct cmd *redircmd(struct cmd *subcmd, char *file, char *efile, int mode, int 
 {
     struct redircmd *cmd;
 
-    cmd = malloc1(sizeof(*cmd));
+    cmd = malloc(sizeof(*cmd));
     memset(cmd, 0, sizeof(*cmd));
     cmd->type = REDIR;
     cmd->cmd = subcmd;
@@ -248,7 +250,7 @@ struct cmd *pipecmd(struct cmd *left, struct cmd *right)
 {
     struct pipecmd *cmd;
 
-    cmd = malloc1(sizeof(*cmd));
+    cmd = malloc(sizeof(*cmd));
     memset(cmd, 0, sizeof(*cmd));
     cmd->type = PIPE;
     cmd->left = left;
@@ -261,7 +263,7 @@ struct cmd *listcmd(struct cmd *left, struct cmd *right)
 {
     struct listcmd *cmd;
 
-    cmd = malloc1(sizeof(*cmd));
+    cmd = malloc(sizeof(*cmd));
     memset(cmd, 0, sizeof(*cmd));
     cmd->type = LIST;
     cmd->left = left;
@@ -274,7 +276,7 @@ struct cmd *backcmd(struct cmd *subcmd)
 {
     struct backcmd *cmd;
 
-    cmd = malloc1(sizeof(*cmd));
+    cmd = malloc(sizeof(*cmd));
     memset(cmd, 0, sizeof(*cmd));
     cmd->type = BACK;
     cmd->cmd = subcmd;
