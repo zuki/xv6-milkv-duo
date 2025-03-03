@@ -243,24 +243,6 @@ proc_pagetable(struct proc *p)
         return 0;
     }
 
-    // TLS用にtrapframeページの直下にtls
-    // ページをマッピングする
-    void *page;
-    if ((page = kalloc()) == 0) {
-        debug("failed kalloc for tls");
-        uvmunmap(pagetable, TRAMPOLINE, 2, 0);
-        uvmfree(pagetable, 0);
-        return 0;
-    }
-
-    memset(page, 0, PGSIZE);
-    if (mappages(pagetable, TLS, PGSIZE, (uint64_t)page, PTE_NORMAL|PTE_U) < 0) {
-        debug("failed mappages tls");
-        uvmunmap(pagetable, TRAMPOLINE, 2, 0);
-        uvmfree(pagetable, 0);
-        return 0;
-    }
-
     return pagetable;
 }
 
@@ -271,7 +253,6 @@ proc_freepagetable(pagetable_t pagetable, uint64_t sz)
 {
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
-    uvmunmap(pagetable, TLS, 1, 1);
     uvmfree(pagetable, sz);
 }
 
@@ -332,8 +313,6 @@ userinit(void)
     p->trapframe->epc = 0;      // user program counter
     p->trapframe->sp = PGSIZE;  // user stack pointer
     //p->trapframe->tp = p->trapframe->kernel_hartid
-    // tpをTLS領域の真ん中に設定
-    p->trapframe->tp = TLS + PGSIZE / 2;
 
     safestrcpy(p->name, "initcode", sizeof(p->name));
     p->cwd = namei("/");

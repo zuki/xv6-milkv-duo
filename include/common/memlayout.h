@@ -138,18 +138,17 @@
  *  0x3F_FFFF_F000 -> --------------------------- TRAMPOLINE
  *                         トラップフレーム
  *  0x3F_FFFF_E000 -> --------------------------- TRAPFRAME
- *                     Thread Local Storage       <= tp (TLS + 2048)
- *  0x3F_FFFF_D000 -> --------------------------- TLS
- *                         ガードページ
- *  0x3F_FFFF_C000 -> --------------------------- USERTOP (STACKTOP/MMAPTOP)
+ *                          ガードページ
+ *  0x3F_FFFF_D000 -> --------------------------- USERTOP (STACKTOP/MMAPTOP)
+ *
  *
  *                         mmap領域
  *  0x20_0000_0000 -> --------------------------- MMAPBASE (128GB)
  *
  *                         ヒープ領域
- *                    ---------------------------
+ *                    --------------------------- p->sz = stack_top
  *                        スタック (4KB)
- *                    ---------------------------
+ *                    --------------------------- p->sp
  *                       ガードページ (4KB)
  *                    ---------------------------
  *                         コード領域
@@ -157,9 +156,8 @@
  */
 
 #define TRAPFRAME   (TRAMPOLINE - PGSIZE)
-#define TLS         (TRAPFRAME - PGSIZE)
 
-#define USERTOP     (TLS - PGSIZE)      /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
+#define USERTOP     (TRAPFRAME - PGSIZE) /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
 #define STACKTOP    USERTOP             /* スタックはUSERTOPから */
 #define MMAPBASE    UL(0x2000000000)    /* mmapアドレスの基底アドレス */
 #define MMAPTOP     USERTOP             /* ARGV, ENVPなどはstack_topからmmapするため */
