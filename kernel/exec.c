@@ -99,8 +99,8 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             warn("uvmalloc error: sz1 = 0x%lx", sz1);
             goto bad;
         }
-        trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
-        trace("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
+        debug("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
+        debug("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
 
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
@@ -131,63 +131,59 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     //p = myproc();
     uint64_t oldsz = p->sz;
 
-    // 次のページ境界に3ページ割り当てる。
-    // 最初のページをスタックガードとしてアクセス不能にする。
-    // 2-3番目をユーザスタックとして使用する。
+    // 次のページ境界に2ページ割り当てる。
+    // 1ページ目をスタックガードとしてアクセス不能にする。
+    // 2ページ目をユーザスタックとして使用する。
     sz = PGROUNDUP(sz);
     uint64_t sz1;
-    if ((sz1 = uvmalloc(pagetable, sz, sz + 3*PGSIZE, PTE_W)) == 0) {
+    if ((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0) {
         warn("uvmalloc for page boundary error");
         goto bad;
     }
 
     sp = sp_top = sz = sz1;
-    // 1ページ目をガードページとしてユーザアクセス禁止とする
-    uvmclear(pagetable, sz - 3*PGSIZE);
-    stackbase = sp - 2 * PGSIZE;
-    trace("sp: 0x%lx, stackbase: 0x%lx", sp, stackbase);
 
-    // uint64_t sp_top = sp;
+    // 1ページ目をガードページとしてユーザアクセス禁止とする
+    uvmclear(pagetable, sz - 2 * PGSIZE);
+    stackbase = sp - PGSIZE;
+    debug("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 2*PGSIZE, sz - PGSIZE);
+
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
-    if (argc > 0) {
-        for (i = 0; i < argc; i++) {
-            sp -= strlen(argv[i]) + 1;
-            sp -= sp % 16; // riscv sp must be 16-byte aligned
-            if (sp < stackbase) {
-                warn("sp: 0x%lx exeed stackbase for arg[%d]: 0x%lx", sp, i, stackbase);
-                goto bad;
-            }
-            if (copyout(pagetable, sp, argv[i], strlen(argv[i]) + 1) < 0) {
-                warn("copyout error: argv[%d]", i);
-                goto bad;
-            }
-            ustack[i] = sp;
-            if (p->pid == 3)
-                trace("ustack[%d]: 0x%016lx, argv[%d]: %s", i, ustack[i], i, argv[i]);
+    for (i = 0; i < argc; i++) {
+        sp -= strlen(argv[i]) + 1;
+        sp -= sp % 16; // riscv sp must be 16-byte aligned
+        if (sp < stackbase) {
+            warn("sp: 0x%lx exeed stackbase for arg[%d]: 0x%lx", sp, i, stackbase);
+            goto bad;
         }
+        if (copyout(pagetable, sp, argv[i], strlen(argv[i]) + 1) < 0) {
+            warn("copyout error: argv[%d]", i);
+            goto bad;
+        }
+        ustack[i] = sp;
+        if (p->pid == 3)
+            trace("ustack[%d]: 0x%016lx, argv[%d]: %s", i, ustack[i], i, argv[i]);
     }
     ustack[i] = 0;
     if (p->pid == 3)
         trace("ustack[%d]: 0x%016lx", i, ustack[i]);
 
-    if (envc > 0) {
-        // 引数文字列をプッシュし、残りのスタックをustackに準備する
-        for (i = 0; i < envc; i++) {
-            sp -= strlen(envp[i]) + 1;
-            sp -= sp % 16; // riscv sp must be 16-byte aligned
-            if (sp < stackbase) {
-                warn("sp: 0x%lx exeed stackbase for envp[%d]: 0x%lx", sp, i, stackbase);
-                goto bad;
-            }
-            if (copyout(pagetable, sp, envp[i], strlen(envp[i]) + 1) < 0) {
-                warn("copyout error: envp[%d]", i);
-                goto bad;
-            }
-            estack[i] = sp;
-            if (p->pid == 3)
-                trace("estack[%d]: 0x%016lx, envp[%d]: %s", i, estack[i], i, envp[i]);
+
+    // 引数文字列をプッシュし、残りのスタックをustackに準備する
+    for (i = 0; i < envc; i++) {
+        sp -= strlen(envp[i]) + 1;
+        sp -= sp % 16; // riscv sp must be 16-byte aligned
+        if (sp < stackbase) {
+            warn("sp: 0x%lx exeed stackbase for envp[%d]: 0x%lx", sp, i, stackbase);
+            goto bad;
         }
-        estack[i] = 0;
+        if (copyout(pagetable, sp, envp[i], strlen(envp[i]) + 1) < 0) {
+            warn("copyout error: envp[%d]", i);
+            goto bad;
+        }
+        estack[i] = sp;
+        if (p->pid == 3)
+            trace("estack[%d]: 0x%016lx, envp[%d]: %s", i, estack[i], i, envp[i]);
     }
     estack[i] = 0;
     if (p->pid == 3)
@@ -195,50 +191,45 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 
     uint64_t auxv_sta[][2] = { { AT_PAGESZ, PGSIZE }, { AT_NULL,    0 } };
     uint64_t auxv_size = sizeof(auxv_sta);
-    sp -= auxv_size;
+
+    // auxv, estack, ustack, argc を詰めてセット
+    // estack, ustackはNULL終端の配列
+    uint64_t u64cnt = envc + 1 + argc + 1 + 1;
+    sp -= u64cnt * sizeof(uint64_t) + auxv_size;
     sp -= sp % 16;
-    trace("auxv sp: %p, size: %ld", sp, auxv_size);
     if (sp < stackbase) {
-        warn("[2] sp: 0x%lx exeed stackbase for aux: 0x%lx", sp, stackbase);
-        goto bad;
-    }
-    if (copyout(pagetable, sp, (char *)auxv_sta, auxv_size) < 0) {
-        warn("copyout error: auxv");
+        warn("[2] sp: 0x%lx exeed stackbase for env: 0x%lx", sp, stackbase);
         goto bad;
     }
 
-    // push the array of argv[] pointers.
-    uint64_t sp_envp = 0;
-    if (envc > 0) {
-        sp -= (envc + 1) * sizeof(uint64_t);
-        sp -= sp % 16;
-        if (sp < stackbase) {
-            warn("[2] sp: 0x%lx exeed stackbase for env: 0x%lx", sp, stackbase);
-            goto bad;
-        }
-        if (copyout(pagetable, sp, (char *)estack, (envc+1)*sizeof(uint64_t)) < 0) {
-            warn("copyout error: estack: %p", (char *)estack);
-            goto bad;
-        }
-        sp_envp = sp;
+    // spは16バイトアラインされているので、argcから逆順につめる
+    uint64_t u64_argc = argc;
+    if (copyout(pagetable, sp, (char *)&u64_argc, sizeof(uint64_t)) < 0) {
+        warn("copyout argc error: %p", &u64_argc);
+        goto bad;
     }
 
-    // push the array of argv[] pointers.
-    sp -= (argc + 1) * sizeof(uint64_t);
-    sp -= sp % 16;
-    if (sp < stackbase) {
-        warn("[2] sp: 0x%lx exeed stackbase for arg: 0x%lx", sp, stackbase);
+    if (copyout(pagetable, sp + sizeof(uint64_t), (char *)ustack, (argc+1)*sizeof(uint64_t)) < 0) {
+        warn("copyout ustack error: %p", (char *)ustack);
         goto bad;
     }
-    if (copyout(pagetable, sp, (char *)ustack, (argc+1)*sizeof(uint64_t)) < 0) {
-        warn("copyout error: ustack: %p", (char *)ustack);
+
+    if (copyout(pagetable, sp + ((argc+2) * sizeof(uint64_t)), (char *)estack, (envc+1)*sizeof(uint64_t)) < 0) {
+        warn("copyout error: estack: %p", (char *)estack);
         goto bad;
     }
+
+    if (copyout(pagetable, sp + ((envc + argc + 3) * sizeof(uint64_t)), (char *)auxv_sta, auxv_size) < 0) {
+        warn("copyout auxv error: %p", auxv_sta);
+        goto bad;
+    }
+
     trace("path: %s, argc: %d, envc: %d", path, argc, envc);
-    // ユーザのmain(argc, argv, envp)への引数
-    // argcはシステムコールの戻り値としてa0に入れられて返される。
-    p->trapframe->a1 = sp;
-    p->trapframe->a2 = sp_envp;
+    // void _start_c(long *p) {
+    //      int argc = p[0];
+    //      char **argv = (void *)(p+1);
+    //p->trapframe->a1 = sp;
+    //p->trapframe->a2 = sp_envp;
 
     // デバッグ用にプログラム名を保存する .
     for (last=s=path; *s; s++)
@@ -250,21 +241,20 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     oldpagetable = p->pagetable;
     p->pagetable = pagetable;
     p->sz = sz;
-    p->trapframe->epc = elf.entry;  // initial program counter = main
+    p->trapframe->epc = elf.entry;  // initial program counter = _start
     p->trapframe->sp = sp; // initial stack pointer
-    p->trapframe->tp = TRAPFRAME;
-
+    debug("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
     proc_freepagetable(oldpagetable, oldsz);
 
-#if 0
+#if 1
     uvmdump(p->pagetable, p->pid, p->name);
-    printf("\n== Stack TOP : 0x%l08x ==\n", sp_top);
+    printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
     for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
         uint64_t val;
         copyin(pagetable, (char *)&val, e, 8);
-        printf("%l08x: %l016x\n", e, val);
+        printf("%08lx: %016lx\n", e, val);
     }
-    printf("== Stack END : ox%l08x ==\n\n", sp);
+    printf("== Stack END : 0x%08lx ==\n\n", sp);
 #endif
     return argc; // this ends up in a0, the first argument to main(argc, argv)
 
