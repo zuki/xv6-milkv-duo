@@ -55,7 +55,7 @@ usertrap(void)
 
     if (r_scause() == 8) {
         // システムコール
-        trace("1: scratch: 0x%l016x, tp: 0x%l016x, pid: %d, p: %p", r_sscratch(), r_tp(), p->pid, p);
+        trace("1: scratch: 0x%016lx, tp: 0x%016lx, pid: %d, p: %p", r_sscratch(), r_tp(), p->pid, p);
 
         if (killed(p)) {
             int xstate = p->xstate ? p->xstate : -1;
@@ -70,7 +70,7 @@ usertrap(void)
         // これらのレジスタはもう使い終わったので割り込みを有効にする
         intr_on();
         syscall();
-        trace("a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, ", p->trapframe->a0, p->trapframe->a1, p->trapframe->a2);
+        trace("epc: 0x%lx, sp: 0x%lx, tp: 0x%lx, a0: 0x%lx", p->trapframe->epc, p->trapframe->sp, p->trapframe->tp, p->trapframe->a0);
     } else if((which_dev = devintr()) != 0) {
         // ok
     } else {

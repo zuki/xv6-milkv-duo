@@ -257,7 +257,7 @@ uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
             uvmdealloc(pagetable, a, oldsz);
             return 0;
         }
-        trace("mapped: 0x%lx - 0x%lx", a, a + PGSIZE);
+        debug("mapped: 0x%lx - 0x%lx : %p", a, a + PGSIZE, mem);
     }
     return newsz;
 }
@@ -492,7 +492,7 @@ void uvmdump(pagetable_t pagetable, pid_t pid, char *name)
                         pte_t *pte_0 = &pg0[k];
                         if (*pte_0 & PTE_V) {
                             uint64_t va = (uint64_t)i << 30 | (uint64_t)j << 21 | (uint64_t)k << 12;
-                            printf("            [% 3d] [0x%010lx - 0x%010lx)\n", k, va, va + PGSIZE);
+                            printf("            [% 3d] [0x%010lx - 0x%010lx) : DAGU_XWRV = %08b\n", k, va, va + PGSIZE, *pte_0 & 0xff);
                         }
                     }
                 }

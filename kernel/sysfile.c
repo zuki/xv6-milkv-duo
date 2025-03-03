@@ -405,6 +405,7 @@ long sys_mknodat(void)
 
     if ((long)(ip = create(path, type, major, minor, mode)) < 0) {
         end_op();
+        error("error: 0x%lx", (long)ip);
         return (long)ip;
     }
     trace("created: ip=%d", ip->inum);

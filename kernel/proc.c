@@ -359,6 +359,7 @@ fork(void)
     }
 
     // Copy user memory from parent to child.
+    trace("uvmcopy pid[%d] to new_pid[%d]", p->pid, np->pid);
     if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
         freeproc(np);
         release(&np->lock);
@@ -701,42 +702,6 @@ static void stop_handler(struct proc *p)
 static void user_handler(struct proc *p, int sig)
 {
     trace("sig=%d", sig);
-#if 0
-    uint64_t sp = p->trapframe->sp;
-
-    // カレントトラップフレームをカーネルスタックからユーザスタックへ保存する
-    sp -= sizeof(struct trapframe);
-    sp -= sp % 16;
-    trace("[0]: 0x%lx, tf: 0x%lx, size: %ld", sp, p->trapframe, sizeof(struct trapframe));
-    either_copyout(1, sp, (char *)p->trapframe, sizeof(struct trapframe));
-    p->oldtf = (struct trapframe *)sp;
-
-    p->trapframe->sp = sp;
-    // ここまではsys_rt_sigreturnに必要か?
-
-    // sigret_syscall.S のコードをユーザスタックにセットする
-    void *sig_ret_code_addr = (void *)&execute_sigret_syscall_start;
-    uint64_t sig_ret_code_size = (uint64_t)&execute_sigret_syscall_end - (uint64_t)&execute_sigret_syscall_start;
-    trace("sigret: 0x%lx - 0x%lx, len: %ld", &execute_sigret_syscall_end, &execute_sigret_syscall_start, sig_ret_code_size);
-
-    // return addr for handler
-    sp -= sig_ret_code_size;
-    sp -= sp % 16;
-    uint64_t handler_ret_addr = sp;
-    debug("[1]: 0x%lx, start: 0x%lx, size: %ld", sp, sig_ret_code_addr, sig_ret_code_size);
-    either_copyout(1, sp, (char *)sig_ret_code_addr, sig_ret_code_size);
-
-    p->trapframe->a0 = sig;
-
-    // Push the return address of sigret function
-    sp -= sizeof(uint64_t);
-    sp -= sp % 16;
-    debug("sp: 0x%lx, ra: 0x%lx", sp, handler_ret_addr);
-    either_copyout(1, sp, (char *)&handler_ret_addr, sizeof(uint64_t));
-
-    // change the sp stored in tf
-    p->trapframe->sp = sp;
-#endif
 
     // now change the eip to point to the user handler
     trace("act[%d].handler: %p", sig, p->signal.actions[sig].sa_handler);

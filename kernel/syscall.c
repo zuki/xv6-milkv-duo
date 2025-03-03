@@ -406,11 +406,12 @@ void syscall(void)
         // Use num to lookup the system call function for num, call it,
         // and store its return value in p->trapframe->a0
 #if 0
-        if (p->pid == 3)
-            debug("[%s] a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", syscall_names[num],
+        //if (p->pid == 3)
+            debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],
                 p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3, p->trapframe->a4);
 #endif
         ret = syscalls[num]();
+
 #if 0
         if (num == SYS_mmap || num == SYS_brk  || num == SYS_getdents64) {
             debug("[%d] %s, return: 0x%l016x, pid: %d", num, syscall_names[num], ret, p->pid);
