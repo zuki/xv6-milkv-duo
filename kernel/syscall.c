@@ -234,6 +234,15 @@ long sys_futex(void) {
         return 0;
 }
 
+long sys_debug(void) {
+    int num;
+    uint64_t val;
+    if (argint(0, &num) < 0 || argu64(1, &val) < 0)
+        return -EINVAL;
+    debug("val[%d] = 0x%lx", num, val);
+    return 0;
+}
+
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static func syscalls[] = {
@@ -281,6 +290,7 @@ static func syscalls[] = {
     [SYS_execve]    = sys_execve,               // 221
     [SYS_mmap]      = sys_mmap,                 // 222
     [SYS_wait4]     = sys_wait4,                // 260
+    [SYS_debug]     = sys_debug,                // 999
 };
 
 __attribute__((unused)) static char *syscall_names[] = {
@@ -322,7 +332,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_utimensat] = "sys_utimensat",            // 88
     [SYS_exit] = "sys_exit",                      // 93
     [SYS_exit_group] = "sys_exit_group",          // 94
-    [SYS_set_tid_address] = "sys_gettid",         // 96
+    [SYS_set_tid_address] = "SYS_set_tid_address", // 96
     [SYS_futex] = "SYS_futex",                    // 98
     [SYS_nanosleep] = "sys_nanosleep",            // 101
     [SYS_getitimer] = "sys_getitimer",            // 102
@@ -377,6 +387,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_renameat2] = "sys_renameat2",            // 276
     [SYS_getrandom] = "sys_getrandom",            // 278
     [SYS_faccessat2] = "sys_faccessat2",          // 439
+    [SYS_debug]     = "sys_debug",                // 999
 };
 
 

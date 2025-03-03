@@ -296,4 +296,6 @@
 #define SYS_pidfd_getfd    438
 #define SYS_faccessat2        439
 
+/* 独自 */
+#define SYS_debug       999
 #endif
