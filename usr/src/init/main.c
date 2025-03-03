@@ -16,7 +16,7 @@
 char *argv[] = { "sh", NULL };
 //char *envp[] = { "TZ=JST-9", NULL };
 
-int main(void)
+int main(int argc, char **argv)
 {
     int pid, wpid, status;
     int fd0, fd1, fd2;
@@ -62,7 +62,7 @@ int main(void)
         }
     }
 
-    tcdrain(1);
-    _exit(0);
-    //return 0
+    //tcdrain(1);
+    //_exit(0);
+    return 0;
 }

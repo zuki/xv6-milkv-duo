@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
         for (int i = 1; i < argc; i++)
             ls(argv[i]);
 
-    //return 0;
-    tcdrain(1);
-    _exit(0);
+    return 0;
+    //tcdrain(1);
+    //_exit(0);
 }
