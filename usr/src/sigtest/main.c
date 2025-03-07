@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#include <termios.h>
 
 int cpid[5];
 int j;
@@ -46,7 +45,6 @@ int main(void) {
         zombie = wait(&status);
         printf("pid %d is dead\n", zombie);
     }
-    tcdrain(1);
-    _exit(0);
-    //return 0;
+
+    return 0;
 }

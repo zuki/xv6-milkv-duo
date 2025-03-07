@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <string.h>
-#include <termios.h>
 
 int flag = 0;
 
@@ -102,7 +101,6 @@ int main (int argc, char *argv[]) {
     }
 
     printf("\nall ok\n");
-    tcdrain(1);
-    _exit(0);
-    //return 0;
+
+    return 0;
 }
