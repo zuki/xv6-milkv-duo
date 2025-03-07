@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
-#include <termios.h>
 
 int main(void)
 {
@@ -35,7 +34,6 @@ int main(void)
     }
 
     printf("\nwrote %d sectors\n", sectors);
-    fflush(stdout);
 
     close(fd);
     fd = open("bigfile.txt", O_RDONLY);
@@ -66,7 +64,5 @@ int main(void)
 
     printf("done; ok\n");
 
-    tcdrain(1);
-    _exit(0);
-    //return 0;
+    return 0;
 }

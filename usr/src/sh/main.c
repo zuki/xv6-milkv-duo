@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include <termios.h>
 
 // Parsed command representation
 #define EXEC  1
@@ -196,8 +195,6 @@ int main(int argc, char *argv[])
         wait(0);
     }
 
-    //tcdrain(1);
-    //_exit(0);
     return 0;
 }
 

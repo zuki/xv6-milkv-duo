@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
-#include <termios.h>
 
 char buf[512];
 
@@ -32,12 +31,9 @@ void wc(int fd, char *name)
 
     if (n < 0){
         fprintf(stderr, "wc: read error\n");
-        //fflush(stderr);
-        //_exit(1);
         exit(1);
     }
     fprintf(stdout, "%d %d %d %s\n", l, w, c, name);
-    //fflush(stdout);
 }
 
 int main(int argc, char *argv[])
@@ -47,7 +43,6 @@ int main(int argc, char *argv[])
     if (argc <= 1) {
         wc(0, "");
         return 0;
-        //_exit(0);
     }
 
     for (i = 1; i < argc; i++) {
@@ -60,7 +55,5 @@ int main(int argc, char *argv[])
         wc(fd, argv[i]);
         close(fd);
     }
-    //return 0;
-    tcdrain(1);
-    _exit(0);
+    return 0;
 }

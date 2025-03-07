@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/stat.h>
-#include <termios.h>
 
 #define DIRSIZ 14
 
@@ -143,6 +142,4 @@ int main(int argc, char *argv[])
             ls(argv[i]);
 
     return 0;
-    //tcdrain(1);
-    //_exit(0);
 }

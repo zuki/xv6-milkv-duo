@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <termios.h>
 
 volatile int got_signal = 0;
 
@@ -49,7 +48,5 @@ int main(void) {
     else
         puts("Wrong done");
 
-    tcdrain(1);
-    _exit(0);
-    //return 0;
+    return 0;
 }

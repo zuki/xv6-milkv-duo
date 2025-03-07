@@ -4,7 +4,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <termios.h>
 
 char buf[512];
 
@@ -29,9 +28,7 @@ int main(int argc, char *argv[])
 
     if (argc <= 1) {
         cat(0);
-        //return 0;
-        tcdrain(1);
-        _exit(0);
+        return 0;
     }
 
     for (i = 1; i < argc; i++) {
@@ -42,7 +39,5 @@ int main(int argc, char *argv[])
         cat(fd);
         close(fd);
     }
-    //return 0;
-    tcdrain(1);
-    _exit(0);
+    return 0;
 }
