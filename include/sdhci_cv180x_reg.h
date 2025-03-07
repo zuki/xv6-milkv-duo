@@ -1,5 +1,5 @@
-#ifndef INC_SDHCI_REG_H
-#define INC_SDHCI_REG_H
+#ifndef _SDHCI_CV180X_REG_H
+#define _SDHCI_CV180X_REG_H
 
 #include "cv180x_reg.h"
 #define REG_TOP_SD_PWRSW_CTRL (0x1F4)

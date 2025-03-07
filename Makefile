@@ -32,7 +32,7 @@ OBJS = \
   $K/sbi.o \
   $K/mmc.o \
   $K/sdhci.o \
-  $K/sdhci-cv180x.o \
+  $K/sdhci-cv181x.o \
   $K/riscv-cache.o \
   $K/sd.o \
   $K/buddy.o \
@@ -74,6 +74,8 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
+# marchを指定しないとCCのデフォルト(rv64imafdcv_xtheadc ?)が使用される
+#CFLAGS = -Wall -Werror -Os -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS = -march=rv64gc -Wall -Werror -Os -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany

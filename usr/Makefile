@@ -22,11 +22,10 @@ OBJ = ../obj/usr
 # -z max-page-size: https://stackoverflow.com/questions/33005638/how-to-change-alignment-of-code-segment-in-elf
 # T-Head拡張を使用
 #CFLAGS = -march=rv64gcxthead -std=gnu99 -Os -static -MMD -MP -z max-page-size=4096 -fmerge-all-constants
-CFLAGS = -march=rv64gc -std=gnu99 -Os -fno-pie -MMD -MP -z max-page-size=4096 -fmerge-all-constants
+CFLAGS = -march=rv64gcxthead -std=gnu99 -Os -fno-pie -MMD -MP -z max-page-size=4096 -fmerge-all-constants
 CFLAGS += -fno-omit-frame-pointer
 
-LDFLAGS = -static
-//LDFLAGS = -static -pie --no-dynamic-linker -z text
+LDFLAGS = -static # -z norelro
 
 BIN := $(OBJ)/bin
 SRC := src
@@ -39,16 +38,16 @@ all:
 
 $(OBJ)/%.c.o: %.c
 	mkdir -p $(dir $@)
-#	$(CC) $(CFLAGS) -c -o $@ $<
-	$(USR_CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
+#	$(USR_CC) $(CFLAGS) -c -o $@ $<
 # Same as `bin/NAME: $(OBJ)/NAME/*.c.o $(LIBC_A)`
 # NOTE: Static library should be at last.
 .SECONDEXPANSION:
 $(BIN)/%: $$(addsuffix .o, $$(addprefix $(OBJ)/, $$(shell find $(SRC)/% -name "*.c")))
 	mkdir -p $(dir $@)
 #	$(USR_CC) $(LDFLAGS) -T user.ld -o $@ $^
-	$(USR_CC) $(LDFLAGS) -o $@ $^
-#	$(CC) $(LDFLAGS) -o $@ $^
+#	$(USR_CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^
 	$(OBJDUMP) -S -d $@ > $(OBJ)/src/$(notdir $@)/$(notdir $@).asm
 	$(OBJDUMP) -x $@ > $(OBJ)/src/$(notdir $@)/$(notdir $@).hdr
 	$(STRIP) --strip-debug $@

@@ -1,9 +1,8 @@
 /dts-v1/;
 / {
-	description = "Milk-V Duo256 SD";
+	description = "Milk-V Duo SD";
 	images {
 		kernel-1 {
-            description = "xv6 kernel";
 			data = /incbin/("./kernel.bin");
 			type = "kernel";
 			arch = "riscv";
@@ -15,9 +14,8 @@
 				algo = "crc32";
 			};
 		};
-		fdt-cv1812cp_milkv_duo256m_sd {
-            description = "Flattened devicetree blob";
-			data = /incbin/("./cv1812cp_milkv_duo256m_sd.dtb");
+		fdt-1 {
+			data = /incbin/("./cv1800b-milkv-duo.dtb");
 			type = "flat_dt";
 			arch = "riscv";
 			compression = "none";
@@ -26,12 +24,10 @@
 			};
 		};
 	};
-
 	configurations {
-		config-cv1812cp_milkv_duo256m_sd {
-            description = "boot.sd configuration";
+		config-cv1800b_milkv_duo_sd {
 			kernel = "kernel-1";
-			fdt = "fdt-cv1812cp_milkv_duo256m_sd";
+			fdt = "fdt-1";
 		};
 	};
 };

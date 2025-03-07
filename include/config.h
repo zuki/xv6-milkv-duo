@@ -3,6 +3,9 @@
 #ifndef INC_CONFIG_H_
 #define INC_CONFIG_H_
 
+#undef  DUO
+#define DUO256
+
 #define LOG_DEBUG
 
 /* T-Head社のRISCV extensionを使用 */

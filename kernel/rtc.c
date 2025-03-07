@@ -1,10 +1,14 @@
 #include <common/types.h>
 #include <defs.h>
 #include <riscv-mmio.h>
-#include <cv180x_reg.h>
 #include <printf.h>
 #include <linux/time.h>
 #include <errno.h>
+#ifdef DUO256
+#include <cv181x_reg.h>
+#else
+#include <cv180x_reg.h>
+#endif
 
 extern struct timespec xtime;
 

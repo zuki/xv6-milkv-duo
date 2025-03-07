@@ -56,9 +56,9 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         goto bad;
     }
 
-    // trampoline/p->trapframe/tlsをマッピングしたユーザページテーブルを作成する
+    // trampoline/p->trapframeをマッピングしたユーザページテーブルを作成する
     if ((pagetable = proc_pagetable(p)) == 0) {
-        warn("no pagetable: pid=%d", p->pid);
+        warn("couldn't make pagetable: pid=%d", p->pid);
         goto bad;
     }
 
@@ -99,19 +99,27 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             warn("uvmalloc error: sz1 = 0x%lx", sz1);
             goto bad;
         }
-        debug("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
-        debug("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
+        trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
+        trace("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
 
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
             goto bad;
         }
+
+#if 0
+        if (nph == 2) {
+            char buf[336];
+            readi(ip, 0, (uint64_t)buf, ph.off, 336);
+            debug_bytes("data section", buf, 336);
+        }
+#endif
 #if 0
         pte_t *pte = walk(pagetable, ph.vaddr, 0);
-        debub("va: 0x%lx, pte: %p, *pte: 0x%lx", ph.vaddr, pte, *pte);
+        debug("ph.va: 0x%lx, pte: %p, *pte: 0x%lx", ph.vaddr, pte, *pte);
         if (nph == 2) {
             char var[8];
-            pte_t *pte = walk(pagetable, 0x18648, 0);
+            pte_t *pte = walk(pagetable, 0x18648UL, 0);
             debug("memsz: 0x18648, pte: %p, *pte: 0x%lx", pte, *pte);
             copyin(pagetable, var, 0x18648, 8);
             debug("*0x18648: 0x%02x %02x %02x %02x %02x %02x %02x %02x",
@@ -127,6 +135,34 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 
     // Synchronize the instruction and data streams.
     fence_i();
+
+#if 0
+    char buf[336];
+    copyin(pagetable, buf, 0x184f8, 336);
+    //copyin(pagetable, buf, 0x10112, 168);
+    debug_bytes("main", buf, 336);
+#endif
+
+#if 0
+    char var[8];
+    pte_t *pte = walk(pagetable, 0x184f8UL, 0);
+    debug(".init_array va: 0x184f8, pa: 0x%lx", PTE2PA(*pte));
+    copyin(pagetable, var, 0x184f8, 8);
+    debug("*0x184f8: 0x %02x %02x %02x %02x %02x %02x %02x %02x",
+        var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
+
+    pte = walk(pagetable, 0x10112UL, 0);
+    debug("main() va: 0x10112, pa: 0x%lx", PTE2PA(*pte));
+    copyin(pagetable, var, 0x10112, 8);
+    debug("*0x10112: 0x %02x %02x %02x %02x %02x %02x %02x %02x",
+        var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
+
+    pte = walk(pagetable, 0x18510UL, 0);
+    debug("data va: 0x18510, pa: 0x%lx", PTE2PA(*pte));
+    copyin(pagetable, var, 0x18510, 8);
+    debug("*0x18510: 0x %02x %02x %02x %02x %02x %02x %02x %02x",
+        var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
+#endif
 
     //p = myproc();
     uint64_t oldsz = p->sz;
@@ -146,7 +182,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // 1ページ目をガードページとしてユーザアクセス禁止とする
     uvmclear(pagetable, sz - 2 * PGSIZE);
     stackbase = sp - PGSIZE;
-    debug("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 2*PGSIZE, sz - PGSIZE);
+    trace("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 2*PGSIZE, sz - PGSIZE);
 
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
     for (i = 0; i < argc; i++) {
@@ -243,10 +279,10 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     p->sz = sz;
     p->trapframe->epc = elf.entry;  // initial program counter = _start
     p->trapframe->sp = sp; // initial stack pointer
-    debug("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
+    trace("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
     proc_freepagetable(oldpagetable, oldsz);
 
-#if 1
+#if 0
     uvmdump(p->pagetable, p->pid, p->name);
     printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
     for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
@@ -269,7 +305,7 @@ bad:
 }
 
 // プログラムセグメントを仮想アドレスvaのpagetableにロードする。
-// vaはページにアラインされており、vaからva+szまでのページが
+// vaはページにアラインされており、vaからva+szまでのページは
 // マップ済みである必要がある。
 // 成功の場合は0を、失敗の場合は-1を返す。
 static int

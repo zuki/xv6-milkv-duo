@@ -6,8 +6,13 @@
 #include <defs.h>
 #include <common/fs.h>
 #include <config.h>
-#include <cv180x_reg.h>
 #include <printf.h>
+#ifdef DUO256
+#include <cv181x_reg.h>
+#else
+#include <cv180x_reg.h>
+#endif
+
 
 /*
  * the kernel's page table.
@@ -109,9 +114,9 @@ walk(pagetable_t pagetable, uint64_t va, int alloc)
     return &pagetable[PX(0, va)];
 }
 
-// Look up a virtual address, return the physical address,
-// or 0 if not mapped.
-// Can only be used to look up user pages.
+// 仮想アドレスを検索して物理アドレスを返す。
+// マップされていない場合は0を返す。
+// ユーザページの検索にしか使用できない.
 uint64_t
 walkaddr(pagetable_t pagetable, uint64_t va)
 {
@@ -257,7 +262,7 @@ uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
             uvmdealloc(pagetable, a, oldsz);
             return 0;
         }
-        debug("mapped: 0x%lx - 0x%lx : %p", a, a + PGSIZE, mem);
+        trace("mapped: 0x%lx - 0x%lx : %p", a, a + PGSIZE, mem);
     }
     return newsz;
 }
@@ -294,7 +299,8 @@ freewalk(pagetable_t pagetable)
             freewalk((pagetable_t)child);
             pagetable[i] = 0;
         } else if(pte & PTE_V) {
-            panic("freewalk: leaf");
+            error("PTE_V=0, pa: 0x%lx", PTE2PA(pte));
+            panic("Invalid leaf PTE");
         }
     }
     kfree((void*)pagetable);

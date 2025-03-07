@@ -12,7 +12,11 @@
 #include <common/types.h>
 #include <mmc.h>
 #include <riscv-mmio.h>
-#include <sdhci_reg.h>
+#ifdef DUO256
+#include <sdhci_cv181x_reg.h>
+#else
+#include <sdhci_cv180x_reg.h>
+#endif
 
 #define BIT(nr)     (1UL << (nr))
 
