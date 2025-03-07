@@ -41,7 +41,9 @@
  *                       カーネルスタック1          RW-
  *                              ....
  *  PHYSTOP       -> ----------------------------
- *  (0x8800_0000)            heap                   RW-
+ *  (Duo    : 0x83E0_0000)
+ *  (Duo256 : 0x8FE0_0000)
+ *                           heap                   RW-
  *  PAGE_START    -> ----------------------------
  *  (0x8060_0000)     カーネル rodata, data, bss    RW-
  *                   ----------------------------
@@ -116,8 +118,10 @@
  * 期待している.
  */
 #define KERNBASE UL(0x80200000)
-/* PHYSTOP: 0x83e0_0000 */
-#define PHYSTOP (KERNBASE + 60*1024*1024)
+/* DUo : PHYSTOP: 0x83E0_0000 */
+/* #define PHYSTOP (KERNBASE + 60*1024*1024) */
+/* DUo256 : PHYSTOP: 0x8FE0_0000 */
+#define PHYSTOP (KERNBASE + 252*1024*1024)
 
 /* trampolineページはユーザ空間でもカーネル空間でも
  * 最上位のアドレスにマッピングする.

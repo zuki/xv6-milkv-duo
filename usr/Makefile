@@ -22,10 +22,10 @@ OBJ = ../obj/usr
 # -z max-page-size: https://stackoverflow.com/questions/33005638/how-to-change-alignment-of-code-segment-in-elf
 # T-Head拡張を使用
 #CFLAGS = -march=rv64gcxthead -std=gnu99 -Os -static -MMD -MP -z max-page-size=4096 -fmerge-all-constants
-CFLAGS = -march=rv64gcxthead -std=gnu99 -Os -fno-pie -MMD -MP -z max-page-size=4096 -fmerge-all-constants
+CFLAGS = -std=gnu99 -Os -fno-pie -MMD -MP -z max-page-size=4096 -fmerge-all-constants
 CFLAGS += -fno-omit-frame-pointer
 
-LDFLAGS = -static # -z norelro
+LDFLAGS = -static -z norelro
 
 BIN := $(OBJ)/bin
 SRC := src
