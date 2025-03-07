@@ -278,6 +278,11 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
     uint32_t i, n;
     uint64_t pa;
 
+    // vaがページアラインしていない場合はページ内オフセットを考慮
+    uint64_t addr_offset = va & 0xfffUL;
+    if (addr_offset != 0UL)
+        va -= addr_offset;                                      // vaをページアラインにする
+
     for (i = 0; i < sz; i += PGSIZE) {
         pa = walkaddr(pagetable, va + i);
         if (pa == 0)
@@ -286,7 +291,7 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
             n = sz - i;
         else
             n = PGSIZE;
-        if (readi(ip, 0, (uint64_t)pa, offset+i, n) != n)
+        if (readi(ip, 0, pa + addr_offset, offset+i, n) != n)   // コピー先アドレスを調整する
             return -1;
     }
 
