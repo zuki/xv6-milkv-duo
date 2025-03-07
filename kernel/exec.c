@@ -99,8 +99,8 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             warn("uvmalloc error: sz1 = 0x%lx", sz1);
             goto bad;
         }
-        debug("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
-        debug("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
+        trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
+        trace("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
 
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
@@ -146,7 +146,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // 1ページ目をガードページとしてユーザアクセス禁止とする
     uvmclear(pagetable, sz - 2 * PGSIZE);
     stackbase = sp - PGSIZE;
-    debug("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 2*PGSIZE, sz - PGSIZE);
+    trace("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 2*PGSIZE, sz - PGSIZE);
 
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
     for (i = 0; i < argc; i++) {
@@ -243,10 +243,10 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     p->sz = sz;
     p->trapframe->epc = elf.entry;  // initial program counter = _start
     p->trapframe->sp = sp; // initial stack pointer
-    debug("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
+    trace("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
     proc_freepagetable(oldpagetable, oldsz);
 
-#if 1
+#if 0
     uvmdump(p->pagetable, p->pid, p->name);
     printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
     for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {

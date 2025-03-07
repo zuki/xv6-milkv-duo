@@ -257,7 +257,7 @@ uvmalloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
             uvmdealloc(pagetable, a, oldsz);
             return 0;
         }
-        debug("mapped: 0x%lx - 0x%lx : %p", a, a + PGSIZE, mem);
+        trace("mapped: 0x%lx - 0x%lx : %p", a, a + PGSIZE, mem);
     }
     return newsz;
 }
