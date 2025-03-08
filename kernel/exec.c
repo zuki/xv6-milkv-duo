@@ -279,19 +279,24 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
     uint64_t pa;
 
     // vaがページアラインしていない場合はページ内オフセットを考慮
-    uint64_t addr_offset = va & 0xfffUL;
-    if (addr_offset != 0UL)
-        va -= addr_offset;                                      // vaをページアラインにする
+    uint64_t addr = va & 0x0fffUL;           // 先頭ページ内のオフセット
 
     for (i = 0; i < sz; i += PGSIZE) {
         pa = walkaddr(pagetable, va + i);
         if (pa == 0)
             panic("loadseg: address should exist");
-        if (sz - i < PGSIZE)
+        if (addr > 0) {
+            n = PGSIZE - addr > sz ? sz : PGSIZE - addr;
+            pa += addr;                         // 先頭ページのコピー先アドレスを調整する
+            sz = sz + PGSIZE - n;
+            addr = 0;
+        } else if (sz - i < PGSIZE) {
             n = sz - i;
-        else
+        } else {
             n = PGSIZE;
-        if (readi(ip, 0, pa + addr_offset, offset+i, n) != n)   // コピー先アドレスを調整する
+        }
+        trace("va: 0x%lx, pa: 0x%lx, off: 0x%x, n: 0x%x", va + i, pa, offset+i, n);
+        if (readi(ip, 0, pa, offset+i, n) != n)
             return -1;
     }
 
