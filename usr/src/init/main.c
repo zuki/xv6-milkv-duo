@@ -48,7 +48,7 @@ int main(int argc, char **argv)
         // this call to wait() returns if the shell exits,
         // or if a parentless process exits.
             wpid = wait(&status);
-            printf("status: %d\n", status);
+            //printf("status: %d\n", status);
             if (wpid == pid) {
                 // the shell exited; restart it.
                 break;

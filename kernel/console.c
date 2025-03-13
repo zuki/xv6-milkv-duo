@@ -110,7 +110,7 @@ int
 consoleread(int user_dst, uint64_t dst, int n)
 {
     uint32_t target;
-    int c;
+    int c = 0;
     char cbuf;
 
     target = n;
@@ -152,6 +152,7 @@ consoleread(int user_dst, uint64_t dst, int n)
             break;
         }
     }
+    trace("target: %d, n: %d, c: %x, r: %d, w: %d, e: %d", target, n, c, cons.r, cons.w, cons.e);
     release(&cons.lock);
 
     return target - n;

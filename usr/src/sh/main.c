@@ -102,7 +102,8 @@ void runcmd(struct cmd *cmd)
             exit(1);
         execve(ecmd->argv[0], ecmd->argv, envp);
         //execv(ecmd->argv[0], ecmd->argv);
-        fprintf(stderr, "exec %s failed\n", ecmd->argv[0]);
+        //fprintf(stderr, "exec %s failed\n", ecmd->argv[0]);
+        perror("execve");
         break;
 
     case REDIR:
@@ -158,10 +159,11 @@ void runcmd(struct cmd *cmd)
 
 int getcmd(char *buf, int nbuf)
 {
+    char *ret;
     fprintf(stderr, "$ ");
     memset(buf, 0, nbuf);
-    fgets(buf, nbuf, stdin);
-    if (buf[0] == 0) // EOF
+    ret = fgets(buf, nbuf, stdin);
+    if (ret == NULL || (*ret == '\n')) // EOF
         return -1;
     return 0;
 }
