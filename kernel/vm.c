@@ -4,6 +4,7 @@
 #include <elf.h>
 #include <common/riscv.h>
 #include <defs.h>
+#include <proc.h>
 #include <common/fs.h>
 #include <config.h>
 #include <printf.h>
@@ -147,10 +148,10 @@ kvmmap(pagetable_t kpgtbl, uint64_t va, uint64_t pa, uint64_t sz, uint64_t perm)
         panic("kvmmap");
 }
 
-// Create PTEs for virtual addresses starting at va that refer to
-// physical addresses starting at pa. va and size might not
-// be page-aligned. Returns 0 on success, -1 if walk() couldn't
-// allocate a needed page-table page.
+// paから始まる物理アドレスを参照するvaから始まる仮想アドレスのPTEを作成する.
+// vaとsizeはページアラインされていない場合がある。 might not
+// 成功したら 0, walk()が必要なページテーブルページを
+// 割り当てられなかった場合は -1 を返す。
 int
 mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_t perm)
 {
@@ -201,6 +202,7 @@ uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
             panic("uvmunmap: not a leaf");
         if (do_free) {
             uint64_t pa = PTE2PA(*pte);
+            trace("pa: 0x%lx, refcnt: %d", pa, page_refcnt_get((char *)pa));
             kfree((void*)pa);
         }
         *pte = 0;
@@ -316,19 +318,16 @@ uvmfree(pagetable_t pagetable, uint64_t sz)
     freewalk(pagetable);
 }
 
-// Given a parent process's page table, copy
-// its memory into a child's page table.
-// Copies both the page table and the
-// physical memory.
-// returns 0 on success, -1 on failure.
-// frees any allocated pages on failure.
+// 親プロセスのページテーブルを子のページテーブルにコピーする。
+// 物理メモリはコピーしない (Copy on Write).
+// 成功したら 0, 失敗したら -1 を返す.
+// 失敗した場合は割り当てたページをすべて開放する.
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
 {
     pte_t *pte;
     uint64_t pa, i;
     uint64_t flags;
-    char *mem;
 
     for (i = 0; i < sz; i += PGSIZE) {
         if ((pte = walk(old, i, 0)) == 0)
@@ -342,21 +341,27 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
         }
 
         pa = PTE2PA(*pte);
+
+        if (*pte & PTE_W) {
+            *pte |= PTE_COW;
+            *pte &= ~PTE_W;
+            trace("cow: va=0x%lx, pa=0x%lx", i, pa);
+        }
         flags = PTE_FLAGS(*pte);
-        if ((mem = kalloc()) == 0)
-            goto err;
-        memmove(mem, (char*)pa, PGSIZE);
-        if (mappages(new, i, PGSIZE, (uint64_t)mem, flags) != 0) {
-            kfree(mem);
+
+        // 物理メモリは割り当てず、親のpaをマッピングする
+        if (mappages(new, i, PGSIZE, pa, flags) != 0) {
             goto err;
         }
+        page_refcnt_inc((void *)pa);
+        trace("pa: 0x%lx, refcnt: %d", pa, page_refcnt_get((void *)pa));
     }
     // Synchronize the instruction and data streams,
     // since we may copy pages with instructions.
     fence_i();
     return 0;
 
-    err:
+err:
     uvmunmap(new, 0, i / PGSIZE, 1);
     return -1;
 }
@@ -384,6 +389,13 @@ copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
 
     while (len > 0) {
         va0 = PGROUNDDOWN(dstva);
+        int ret = alloc_cow_page(pagetable, va0);
+        if (ret < 0) {
+            return -1;
+        } else if (ret == 1) {
+            trace("not cow");
+        }
+
         pa0 = walkaddr(pagetable, va0);
         if (pa0 == 0) {
             trace("pa0 = 0: dstva: 0x%lx (va0: 0x%lx)", dstva, va0);
@@ -443,14 +455,22 @@ int copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
 {
-    uint64_t n, va0, pa0;
+    uint64_t n = 0, va0, pa0;
     int got_null = 0;
+
+    if (srcva == 0UL) {
+        // 空送信
+        *dst = '\0';
+        return 0;
+    }
 
     while (got_null == 0 && max > 0) {
         va0 = PGROUNDDOWN(srcva);
         pa0 = walkaddr(pagetable, va0);
-        if (pa0 == 0)
+        if (pa0 == 0) {
             return -1;
+        }
+
         n = PGSIZE - (srcva - va0);
         if (n > max)
             n = max;
@@ -473,6 +493,60 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
         srcva = va0 + PGSIZE;
     }
     if (got_null) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+int alloc_cow_page(pagetable_t pagetable, uint64_t va)
+{
+    if (va >= MAXVA)
+        return -1;
+
+    pte_t *pte = walk(pagetable, va, 0);
+    if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+        return -1;
+
+    // COW領域ではない書き込み不可アドレスの書き込み例外: プロセスをkill
+    if (!(*pte & PTE_COW) && !(*pte & PTE_W))
+        return -1;
+
+    // COW領域ではない書き込み可アドレスの書き込み例外: ここでは何もしない
+    if ((*pte & PTE_W) || !(*pte & PTE_COW)) {
+        trace("pid[%d] va: 0x%lx not COW", myproc()->pid)
+        return 1;
+    }
+
+
+    uint64_t flags = PTE_FLAGS(*pte);
+    uint64_t pa = PTE2PA(*pte);
+    uint64_t va0 = PGROUNDDOWN(va);
+    char *mem;
+
+    // 複数のプロセスがこのページを参照しているのでコピーが必要
+    if (page_refcnt_get((void *) pa) > 1) {
+        if ((mem = kalloc()) == 0) {
+            error("no memory");
+            return -1;
+        }
+        memmove(mem, (char*)pa, PGSIZE);
+        uvmunmap(pagetable, va0, 1, 1);
+        flags &= ~PTE_COW;
+        flags |= PTE_W;
+        if (mappages(pagetable, va0, PGSIZE, (uint64_t)mem, flags) != 0) {
+            kfree(mem);
+            error("mappages error: va=0x%lx", va);
+            return -1;
+        }
+        trace("alloc ok: va=0x%lx, pa: %p", va, mem);
+        fence_i();
+        return 0;
+    } else if (page_refcnt_get((void *) pa) == 1){
+        *pte |= PTE_W;
+        *pte &= ~PTE_C;
+        trace("flag updated: pa: 0x%lx", pa);
+        fence_i();
         return 0;
     } else {
         return -1;

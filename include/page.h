@@ -19,12 +19,14 @@ limitations under the License.
 #ifndef INC_PAGE_H
 #define INC_PAGE_H
 
-#include "list.h"
+#include <list.h>
+#include <common/memlayout.h>
+#include <spinlock.h>
 
 /**
  * @ingroup page
  * @def PAGE_START
- * @brief ページ領域の先頭アドレス
+ * @brief ページ領域の先頭アドレス: 固定
  *        pages[0:PAGE_NUM] | page0, page1, ...
  */
 #define PAGE_START ((char*)(0x80600000))
@@ -35,13 +37,15 @@ limitations under the License.
  * @brief ページサイズ (4KB)
  */
 #define PAGE_SIZE 0x1000
+
 /**
  * @ingroup page
  * @def PAGE_NUM
  * @brief 総ページ数.
- *        ページに使用できるのは 0x3800 (14336) * 0x1000 (5096) = 56MB
+ *        Duo    (0x83E0_0000 - 0x8060_0000) / 0x1000 = 0x3800
+ *        Duo256 (0x8FE0_0000 - 0x8060_0000) / 0x1000 = 0xf800
  */
-#define PAGE_NUM  0x3800
+#define PAGE_NUM  ((PHYSTOP - (uint64_t)PAGE_START) / PAGE_SIZE)
 
 /**
  * @ingroup page
@@ -91,9 +95,20 @@ struct page {
     page_index index;       /**< ページインデックス (0 : PAGE_NUM - 1) */
     unsigned int flags;     /**< フラグ */
     unsigned int order;     /**< ページブロックの大きさ (2^order) */
+    unsigned int refcnt;     /**< 参照カウンタ */
     struct page* next;      /**< 次のページ構造体へのポインタ */
 };
 
-extern struct page *pages;
+/**
+ * @ingroup page
+ * @struct pages_ref
+ * @brief ページインデックス構造体.
+ */
+struct pages_ref {
+    struct spinlock lock;
+    struct page *pages;
+};
+
+extern struct pages_ref pages_ref;
 
 #endif

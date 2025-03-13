@@ -112,6 +112,9 @@ void *          page_address(const struct page *page);
 struct page *   page_find_by_address(void *address);
 struct page *   page_find_head(const struct page *page);
 void            page_cleanup(struct page **page);
+void            page_refcnt_inc(void *pa);
+void            page_refcnt_dec(void *pa);
+uint32_t        page_refcnt_get(void *pa);
 
 // pipe.c
 int             pipealloc(struct file**, struct file**, int);
@@ -160,6 +163,7 @@ long            sigaction(int sig, struct k_sigaction *act, uint64_t oldact);
 long            sigpending(uint64_t pending);
 long            sigprocmask(int how, sigset_t *set, uint64_t oldset);
 long            sigreturn(void);
+void            send_signal(struct proc *p, int sig);
 //void            flush_signal_handlers(struct proc *p);
 long            ppoll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout_ts, sigset_t *sigmask);
 pid_t           getpgid(pid_t pid);
@@ -276,7 +280,7 @@ int             copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64
 int             copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len);
 int             copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max);
 void            uvmdump(pagetable_t pagetable, pid_t pid, char *name);
-
+int             alloc_cow_page(pagetable_t pagetable, uint64_t va);
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);

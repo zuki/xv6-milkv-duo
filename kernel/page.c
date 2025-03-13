@@ -16,15 +16,15 @@ limitations under the License.
 /**
  * @file page.c
  */
-#include "page.h"
-#include "defs.h"
+#include <page.h>
+#include <defs.h>
 
 /**
  * @ingroup page
  * @var pages
  * @brief ページ配列. 全物理ページの配列.
  */
-struct page *pages;
+struct pages_ref pages_ref;
 
 /**
  * @ingroup page
@@ -57,7 +57,7 @@ struct page *page_find_by_address(void *address) {
     page_index index = (page_index)(((char*)address - PAGE_START) / PAGE_SIZE);
 
     if (index < PAGE_NUM) {
-        return &pages[index];
+        return &pages_ref.pages[index];
     } else {
         return NULL;
     }
@@ -74,8 +74,8 @@ struct page *page_find_head(const struct page *page) {
     page_index index = page->index;
 
     while (index < PAGE_NUM) {
-        if (pages[index].flags & PF_FIRST_PAGE) {
-            return &pages[index];
+        if (pages_ref.pages[index].flags & PF_FIRST_PAGE) {
+            return &pages_ref.pages[index];
         }
 
         index--;
@@ -95,4 +95,19 @@ void page_cleanup(struct page **page) {
     if (*page) {
         buddy_free(*page);
     }
+}
+
+// ページの参照カウンタをインクリメントする
+void page_refcnt_inc(void *pa) {
+    page_find_by_address(pa)->refcnt++;
+}
+
+// ページの参照カウンタをデクリメントする
+void page_refcnt_dec(void *pa) {
+    page_find_by_address(pa)->refcnt--;
+}
+
+// ページの参照カウンタを返す
+uint32_t page_refcnt_get(void *pa) {
+    return page_find_by_address(pa)->refcnt;
 }

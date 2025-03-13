@@ -431,6 +431,8 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PTE_A       (1L << 6)
 #define PTE_D       (1L << 7)
 
+#define PTE_COW     (1L << 8)   // このページはCOWか?
+
 #define PTE_SEC     (1UL << 59) /* Security */
 #define PTE_S       (1UL << 60) /* Shareable */
 #define PTE_B       (1UL << 61) /* Bufferable */
@@ -483,5 +485,20 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PTE_RO		(PTE_R)
 #endif
 #define PTE_NORMAL	(PTE_RO | PTE_W)
+
+#define SCAUSE_INST_ALIGN   0UL
+#define SCAUSE_INST_ACCESS  1UL
+#define SCAUSE_INST_INVAL   2UL
+#define SCAUSE_BLKPOINT     3UL
+#define SCAUSE_LOAD_ALIGN   4UL
+#define SCAUSE_LOAD_ACCESS  5UL
+#define SCAUSE_STORE_ALIGN  6UL
+#define SCAUSE_STORE_ACCESS 7UL
+#define SCAUSE_EVCALL_USER  8UL
+#define SCAUSE_EVCALL_SV    9UL
+#define SCAUSE_EVCALL_MACHINE   11UL
+#define SCAUSE_PAGE_FETCH   12UL
+#define SCAUSE_PAGE_LOAD    13UL
+#define SCAUSE_PAGE_STORE   15UL
 
 #endif

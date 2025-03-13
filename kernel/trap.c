@@ -47,13 +47,15 @@ usertrap(void)
 
     struct proc *p = myproc();
 
+    uint64_t scause = r_scause();
+
     // 例外が発生したユーザpcを保存する.
     p->trapframe->epc = r_sepc();
 
     //which_dev = devintr();
-    trace("scause: %d, which_dev: %d", r_scause(), which_dev);
+    trace("scause: %d, which_dev: %d", scause, which_dev);
 
-    if (r_scause() == 8) {
+    if (scause == SCAUSE_EVCALL_USER) {
         // システムコール
         trace("1: scratch: 0x%016lx, tp: 0x%016lx, pid: %d, p: %p", r_sscratch(), r_tp(), p->pid, p);
 
@@ -71,7 +73,19 @@ usertrap(void)
         intr_on();
         syscall();
         trace("epc: 0x%lx, sp: 0x%lx, tp: 0x%lx, a0: 0x%lx", p->trapframe->epc, p->trapframe->sp, p->trapframe->tp, p->trapframe->a0);
-    } else if((which_dev = devintr()) != 0) {
+    // 13: ページアクセス例外 (load)
+    // 15: ページアクセス例外 (store)
+    } else if (scause == SCAUSE_PAGE_STORE) {
+        uint64_t addr = r_stval();
+        trace("pid[%d] alloc cow: addr=0x%lx", p->pid, addr);
+        int ret = alloc_cow_page(p->pagetable, addr);
+        if (ret < 0) {
+            error("alloc cow page failed addr=0x%lx", addr);
+            setkilled(p);
+        } else if (ret == 1) {
+            trace("not cow");
+        }
+    } else if ((which_dev = devintr()) != 0) {
         // ok
     } else {
         debug("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, r_scause(), r_sepc(), r_stval());
@@ -80,7 +94,7 @@ usertrap(void)
 
     if (killed(p)) {
         int xstate = p->xstate ? p->xstate : -1;
-        warn("pid[%d] was killed, xstate: %d", p->pid, xstate);
+        trace("pid[%d] was killed, xstate: %d", p->pid, xstate);
         exit(xstate);
     }
 
@@ -152,12 +166,6 @@ kerneltrap()
     uint64_t sstatus = r_sstatus();
     uint64_t scause = r_scause();
 
-#if 0
-    uint64_t scratch = r_sscratch();
-    uint64_t tp = r_tp();
-    static int count = 0;
-#endif
-
     if ((sstatus & SSTATUS_SPP) == 0)
         panic("kerneltrap: not from supervisor mode");
     if (intr_get() != 0)
@@ -173,13 +181,6 @@ kerneltrap()
         trace("yield");
         yield();
     }
-
-#if 0
-    if (which_dev == 1) {
-        if ((++count % 100) == 0)
-            debug("scratch: 0x%l016x, tp: 0x%l016x", scratch, tp);
-    }
-#endif
 
     // yield()でトラップが発生した可能性があるので、kernelvec.Sの
     // sepc命令で使用できるようにトラップレジスタを復元する。

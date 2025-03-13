@@ -161,17 +161,22 @@ void buddy_init(void) {
      *        free_listはブロックごとに1つずつある */
     memset(free_lists, 0, sizeof(struct free_list) * PAGE_MAX_DEPTH);
 
-    /* 3. pagesをPAGE_STARTの直前に作成して、0クリアする
-     *     pagesはPAGE_NUM個ある4KBのページのページ構造体のリスト
-     *     pagesはpage.cで(struct page *)として定義されている */
-    pages = (struct page*)(PAGE_START - (sizeof(struct page) * PAGE_NUM));
-    memset(pages, 0, sizeof(struct page) * PAGE_NUM);
-    trace("pages: 0x%08x, size: 0x%08x, PAGE_START: 0x%08x", pages, sizeof(struct page) * PAGE_NUM, PAGE_START);
+    /* 3. pages_refを初期化する。pages_refはシステムに存在するすべてのページを管理する構造体
+     *     pages_ref.lockはpage->refcntを守るlock
+     *     pages_ref.pagesはPAGE_NUM個ある4KBのページのページ構造体のリスト
+     *     pages_ref.pagesをPAGE_STARTの直下に作成する
+     *     pages_refはpage.cで定義されている
+     */
+    initlock(&pages_ref.lock, "pages_ref");
+    // FIXME: カーネルサイズが大きくなったらPAGE_STARTを見直す必要がある
+    pages_ref.pages = (struct page*)(PAGE_START - (sizeof(struct page) * PAGE_NUM));
+    memset(pages_ref.pages, 0, sizeof(struct page) * PAGE_NUM);
+    trace("pages: 0x%08x, size: 0x%08x, PAGE_START: 0x%08x", pages_ref.pages, sizeof(struct page) * PAGE_NUM, PAGE_START);
     trace("sizeof(struct page): 0x%04x\n", sizeof(struct page));
 
     // 3. page->indexの設定
     for (i = 0; i < PAGE_NUM; ++i) {
-        pages[i].index = i;
+        pages_ref.pages[i].index = i;
     }
 
     /* 4. pagesを max_page_blockの大きさ (2^10 * 4KB = 4MB) ブロックに分け、
@@ -180,11 +185,11 @@ void buddy_init(void) {
      */
     for (i = 0, len = PAGE_NUM / max_page_block; i < len; ++i) {
         /* pageはブロック(4MB)の先頭page */
-        page = &pages[i * max_page_block];
+        page = &pages_ref.pages[i * max_page_block];
 
         /* page->nextの設定 : 次のブロックの先頭; 最後のブロックは NULL */
         if (i < (len - 1)) {
-            page->next = &pages[(i + 1) * max_page_block];
+            page->next = &pages_ref.pages[(i + 1) * max_page_block];
         }
         /* 最初はすべて最大order(10)のブロック */
         page->order = PAGE_MAX_ORDER;
@@ -194,7 +199,7 @@ void buddy_init(void) {
     }
 
     /* 5. 最大ブロックのフリーリストの先頭をセットする */
-    free_lists[PAGE_MAX_ORDER].head = &pages[0];
+    free_lists[PAGE_MAX_ORDER].head = &pages_ref.pages[0];
     trace("\nfree_lists[10].head: %08p\n", free_lists[10].head);
 }
 
@@ -296,6 +301,11 @@ struct page *buddy_alloc(size_t size) {
     /* 5. 前方ブロックフラグをたてる。相棒にはこのフラグがない */
     page->flags |= PF_FIRST_PAGE;   // 使用済みフラグ
 
+    /* 6. 参照カウンタをセットする */
+    acquire(&pages_ref.lock);
+    page->refcnt = 1;
+    release(&pages_ref.lock);
+
     trace("size: %d, page: %08p, index: %d, flags: 0x%08x, order: %d, addr: %08p",
        size, page, page->index, page->flags, page->order, page_address(page));
     return page;
@@ -313,6 +323,16 @@ void buddy_free(struct page *page) {
     struct page *p, *bp;
     page_index bi;
 
+    /* 0. 参照カウンタを減ずる */
+    acquire(&pages_ref.lock);
+    if (page->refcnt > 1) {
+        page->refcnt--;
+        trace("pages[%ld] refcnt: %d", page->index, page->refcnt);
+        release(&pages_ref.lock);
+        return;
+    }
+    release(&pages_ref.lock);
+
     /* 1. lockを取得 */
     acquire(&buddy_lock);
     /* 2. ページが所属するフリーリストを取得する */
@@ -320,7 +340,7 @@ void buddy_free(struct page *page) {
     /* 3. ページの相棒のインデックスを取得する */
     bi = buddy_find_buddy_index(page);
     /* 4. 相棒のページを取得する */
-    bp = &pages[bi];
+    bp = &pages_ref.pages[bi];
 
     /* 5. 前方ブロックフラグを外す */
     page->flags &= ~PF_FIRST_PAGE;

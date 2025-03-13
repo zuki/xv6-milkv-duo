@@ -45,7 +45,9 @@
  *  (Duo256 : 0x8FE0_0000)
  *                           heap                   RW-
  *  PAGE_START    -> ----------------------------
- *  (0x8060_0000)     カーネル rodata, data, bss    RW-
+ *  (0x8060_0000)           pages_ref               RW-
+ *  0x8041_0000   -> ----------------------------
+ *                    カーネル rodata, data, bss    RW-
  *                   ----------------------------
  *                         カーネル text            R-X
  *  KERNBASE      -> ----------------------------
@@ -118,6 +120,7 @@
  * 期待している.
  */
 #define KERNBASE UL(0x80200000)
+
 /* DUo : PHYSTOP: 0x83E0_0000 */
 /* #define PHYSTOP (KERNBASE + 60*1024*1024) */
 /* DUo256 : PHYSTOP: 0x8FE0_0000 */
