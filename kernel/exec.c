@@ -8,6 +8,7 @@
 #include <defs.h>
 #include <elf.h>
 #include <printf.h>
+#include <errno.h>
 #include <linux/auxvec.h>
 
 static int loadseg(pde_t *, uint64_t, struct inode *, uint32_t, uint32_t);
@@ -26,7 +27,7 @@ int
 execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 {
     char *s, *last;
-    int i, off;
+    int i, off, errno = 0;
     uint64_t sz = 0, sp, ustack[MAXARG], estack[MAXARG], stackbase;
     struct elfhdr elf;
     struct inode *ip;
@@ -40,7 +41,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     if ((ip = namei(path)) == 0) {
         end_op();
         warn("path: %s couldn't find", path);
-        return -1;
+        return -ENOENT;
     }
     ilock(ip);
 
@@ -48,17 +49,20 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // Check ELF header
     if (readi(ip, 0, (uint64_t)&elf, 0, sizeof(elf)) != sizeof(elf)) {
         warn("readi elf error: inum=%d", ip->inum);
+        errno = EIO;
         goto bad;
     }
 
     if (elf.magic != ELF_MAGIC) {
         warn("bad magic: 0x%08x", elf.magic);
+        errno = ENOEXEC;
         goto bad;
     }
 
     // trampoline/p->trapframeをマッピングしたユーザページテーブルを作成する
     if ((pagetable = proc_pagetable(p)) == 0) {
         warn("couldn't make pagetable: pid=%d", p->pid);
+        errno = ENOMEM;
         goto bad;
     }
 
@@ -75,11 +79,13 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             continue;
         if (ph.memsz < ph.filesz) {
             warn("size error: memsz 0x%lx < filesz 0x%lx", ph.memsz, ph.filesz);
+            errno = ENOEXEC;
             goto bad;
         }
 
         if (ph.vaddr + ph.memsz < ph.vaddr) {
             warn("addr error: vaddr 0x%lx + memsz 0x%lx < vaddr 0x%lx", ph.vaddr, ph.memsz, ph.vaddr);
+            errno = ENOEXEC;
             goto bad;
         }
 
@@ -88,6 +94,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             sz = ph.vaddr;
             if (sz % PGSIZE != 0) {
                 warn("first section should be page aligned: 0x%lx", sz);
+                errno = ENOEXEC;
                 goto bad;
             }
         }
@@ -97,6 +104,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         uint64_t sz1;
         if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0) {
             warn("uvmalloc error: sz1 = 0x%lx", sz1);
+            errno = ENOMEM;
             goto bad;
         }
         trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
@@ -104,6 +112,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
+            errno = EIO;
             goto bad;
         }
 
@@ -174,6 +183,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     uint64_t sz1;
     if ((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0) {
         warn("uvmalloc for page boundary error");
+        errno = ENOMEM;
         goto bad;
     }
 
@@ -190,10 +200,12 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         sp -= sp % 16; // riscv sp must be 16-byte aligned
         if (sp < stackbase) {
             warn("sp: 0x%lx exeed stackbase for arg[%d]: 0x%lx", sp, i, stackbase);
+            errno = EFAULT;
             goto bad;
         }
         if (copyout(pagetable, sp, argv[i], strlen(argv[i]) + 1) < 0) {
             warn("copyout error: argv[%d]", i);
+            errno = EIO;
             goto bad;
         }
         ustack[i] = sp;
@@ -211,10 +223,12 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         sp -= sp % 16; // riscv sp must be 16-byte aligned
         if (sp < stackbase) {
             warn("sp: 0x%lx exeed stackbase for envp[%d]: 0x%lx", sp, i, stackbase);
+            errno = EFAULT;
             goto bad;
         }
         if (copyout(pagetable, sp, envp[i], strlen(envp[i]) + 1) < 0) {
             warn("copyout error: envp[%d]", i);
+            errno = EIO;
             goto bad;
         }
         estack[i] = sp;
@@ -235,6 +249,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     sp -= sp % 16;
     if (sp < stackbase) {
         warn("[2] sp: 0x%lx exeed stackbase for env: 0x%lx", sp, stackbase);
+        errno = EFAULT;
         goto bad;
     }
 
@@ -242,21 +257,25 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     uint64_t u64_argc = argc;
     if (copyout(pagetable, sp, (char *)&u64_argc, sizeof(uint64_t)) < 0) {
         warn("copyout argc error: %p", &u64_argc);
+        errno = EIO;
         goto bad;
     }
 
     if (copyout(pagetable, sp + sizeof(uint64_t), (char *)ustack, (argc+1)*sizeof(uint64_t)) < 0) {
         warn("copyout ustack error: %p", (char *)ustack);
+        errno = EIO;
         goto bad;
     }
 
     if (copyout(pagetable, sp + ((argc+2) * sizeof(uint64_t)), (char *)estack, (envc+1)*sizeof(uint64_t)) < 0) {
         warn("copyout error: estack: %p", (char *)estack);
+        errno = EIO;
         goto bad;
     }
 
     if (copyout(pagetable, sp + ((envc + argc + 3) * sizeof(uint64_t)), (char *)auxv_sta, auxv_size) < 0) {
         warn("copyout auxv error: %p", auxv_sta);
+        errno = EIO;
         goto bad;
     }
 
@@ -301,7 +320,7 @@ bad:
         iunlockput(ip);
         end_op();
     }
-    return -1;
+    return -errno;
 }
 
 // プログラムセグメントを仮想アドレスvaのpagetableにロードする。
