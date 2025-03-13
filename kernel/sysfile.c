@@ -87,17 +87,19 @@ long sys_dup(void)
 #endif
 }
 
+// ssize_t read(int fd, void *buf, size_t count);
 long sys_read(void)
 {
     struct file *f;
-    int n;
+    int fd, n;
     uint64_t p;
 
     if (argu64(1, &p) < 0 || argint(2, &n) < 0)
         return -EINVAL;
-    if (argfd(0, 0, &f) < 0)
+    if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    trace("ip: %d, p: 0x%lx, n: %d", f->ip->inum, p, n);
+    if (fd == 0)
+        trace("ip: %d, p: 0x%lx, n: %d", f->ip->inum, p, n);
     return fileread(f, p, n, 1);
 }
 
@@ -138,6 +140,7 @@ long sys_readv(void)
     return tot;
 }
 
+// ssize_t writev(int d, const struct iovec *iov, int iovcnt);
 ssize_t sys_writev(void)
 {
     struct file *f;
@@ -147,10 +150,13 @@ ssize_t sys_writev(void)
 
     if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
         return -EINVAL;
+    if (iovcnt == 0)
+        return 0;
+
     trace("n: 1, iov: %p", iov);
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    trace("fd: %d, ip: %d", fd, f->ip->inum);
+    trace("fd: %d, ip: %d, iov: %p, iovcnt: %d", fd, f->ip->inum, iov, iovcnt);
     ssize_t tot = 0;
     for (pp = iov; pp < iov + iovcnt; pp++) {
         if (copyin(p->pagetable, (char *)&iov_k, (uint64_t)pp, sizeof(struct iovec)) != 0)
@@ -454,6 +460,7 @@ long sys_execve(void)
     uint64_t arg_p, env_p;
     int argc = 0, envc = 0, error;
     struct proc *p = myproc();
+    int ret;
 
     if (argstr(0, path, MAXPATH) < 0) {
         warn("parse path error");
@@ -465,8 +472,8 @@ long sys_execve(void)
         return -EINVAL;
     }
 
-    if (p->pid == 3)
-        trace("path: %s, argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
+    //if (p->pid == 3)
+        trace("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
 
     memset(argv, 0, sizeof(argv));
     if (argvp != 0 && argvp != -1) {
@@ -563,7 +570,7 @@ long sys_execve(void)
     //int ret = exec(path, argv);
     if (p->pid == 3)
         trace("path: %s, argc: %d, envc: %d", path, argc, envc);
-    int ret = execve(path, argv, envp, argc, envc);
+    ret = execve(path, argv, envp, argc, envc);
 
     for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++) {
         if (p->pid == 3)
@@ -641,7 +648,7 @@ long sys_ioctl(void)
      || argfd(0, &fd, &f) < 0)
         return -EINVAL;
 
-    trace("fd: %d, f.type: %d, f.major: %d, req: 0x%lx, argp: %p", fd, f->type, f->major, req, argp);
+    trace("pid[%d] fd: %d, f.type: %d, f.major: %d, req: 0x%lx, argp: %p", myproc()->pid, fd, f->type, f->major, req, argp);
 
     if (f->type != FD_INODE && f->ip->type != T_DEVICE) {
         warn("bad type: %d, %d", f->type, f->ip->type);

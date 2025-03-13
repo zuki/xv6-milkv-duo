@@ -158,14 +158,14 @@ found:
     p->pgid = p->sid = p->pid;
     p->state = USED;
 
-    // Allocate a trapframe page.
+    // trapframeページを割り当てる.
     if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
         freeproc(p);
         release(&p->lock);
         return 0;
     }
 
-    // An empty user page table.
+    // trampolinとtrapframeだけマップしたユーザページテーブルを作成する.
     p->pagetable = proc_pagetable(p);
     if(p->pagetable == 0){
         freeproc(p);
@@ -321,7 +321,7 @@ userinit(void)
     p->state = RUNNABLE;
 
     release(&p->lock);
-    debug("initproc pid: %d, addr: %p", initproc->pid, initproc);
+    trace("initproc pid: %d, addr: %p", initproc->pid, initproc);
 }
 
 // Grow or shrink user memory by n bytes.
@@ -344,16 +344,16 @@ growproc(int n)
     return 0;
 }
 
-// Create a new process, copying the parent.
-// Sets up child kernel stack to return as if from fork() system call.
-int
-fork(void)
+// 新しいプロセスを作成し、親プロセスをコピーする。ただし、
+// ページを持つ部分はコピーしない。
+// fork()システムコールから復帰するかのようにこのカーネルスタックをセットする.
+int fork(void)
 {
     int i, pid;
     struct proc *np;
     struct proc *p = myproc();
 
-    // Allocate process.
+    // 新規プロセスを割り当てる.
     if ((np = allocproc()) == 0) {
         return -1;
     }
@@ -775,7 +775,7 @@ static void handle_signal(struct proc *p, int sig)
 }
 
 // IDがpidのプロセスにシグナルsigを送信する
-static void send_signal(struct proc *p, int sig)
+void send_signal(struct proc *p, int sig)
 {
     trace("pid=%d, sig=%d, state=%d, paused=%d", p->pid, sig, p->state, p->paused);
     if (sig == SIGKILL) {
@@ -799,9 +799,9 @@ static void send_signal(struct proc *p, int sig)
     }
 }
 
-// Kill the process with the given pid.
-// The victim won't exit until it tries to return
-// to user space (see usertrap() in trap.c).
+// 与えられたpidを持つプロセスを殺す。
+// 犠牲者は、ユーザ空間に戻ろうとするまで
+// 終了しない(trap.cのusertrap()を参照)。
 int kill(pid_t pid, int sig)
 {
     struct proc *p, *cp = myproc();
@@ -840,20 +840,20 @@ int kill(pid_t pid, int sig)
 void
 setkilled(struct proc *p)
 {
-  acquire(&p->lock);
-  p->killed = 1;
-  release(&p->lock);
+    acquire(&p->lock);
+    p->killed = 1;
+    release(&p->lock);
 }
 
 int
 killed(struct proc *p)
 {
-  int k;
+    int k;
 
-  acquire(&p->lock);
-  k = p->killed;
-  release(&p->lock);
-  return k;
+    acquire(&p->lock);
+    k = p->killed;
+    release(&p->lock);
+    return k;
 }
 
 // Copy to either a user address, or kernel address,

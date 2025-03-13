@@ -37,7 +37,9 @@ long sys_exit_group(void)
 
 long sys_getpid(void)
 {
-    return myproc()->pid;
+    pid_t pid = myproc()->pid;
+    trace("pid: %d", pid)
+    return pid;
 }
 
 long sys_getppid(void)
@@ -47,7 +49,9 @@ long sys_getppid(void)
 
 long sys_gettid(void)
 {
-    return myproc()->pid;
+    pid_t tid = myproc()->pid;
+    trace("tid: %d", tid)
+    return tid;
 }
 
 long sys_clone(void)
@@ -99,7 +103,7 @@ long sys_brk(void)
     if (newsz < 0)
         return oldsz;
 
-    trace("name %s: 0x%lx to 0x%lx", p->name, oldsz, newsz);
+    trace("name: %s, newsz: 0x%lx, oldsz: 0x%lx", p->name, newsz, oldsz);
 
     if (newsz == 0)
         return oldsz;
@@ -230,8 +234,10 @@ long sys_sysinfo(void)
     return -EINVAL;
 }
 
+// pid_t set_tid_address(int *tidptr);
 long sys_set_tid_address(void)
 {
+
     return myproc()->pid;
 }
 
@@ -291,6 +297,7 @@ long sys_rt_sigpending()
     return sigpending(pending);
 }
 
+// int rt_sigprocmask(int how, const kernel_sigset_t *set, kernel_sigset_t *oldset, size_t sigsetsize);
 long sys_rt_sigprocmask(void) {
     int how;
     sigset_t set;
@@ -303,7 +310,7 @@ long sys_rt_sigprocmask(void) {
     if (argptr(1, (char *)&set, sizeof(sigset_t)) < 0)
         return -EFAULT;
 
-    trace("how=%d, set=%p, oldset=0x%lx, size=%ld", how, &set, oldset, size);
+    trace("pid[%d] how=%d, set=%p, oldset=0x%lx, size=%ld", myproc()->pid, how, &set, oldset, size);
 
     if (size && size != 8) {
         warn("unsupport sigset size: %ld", size);
