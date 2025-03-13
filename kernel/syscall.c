@@ -263,7 +263,7 @@ static func syscalls[] = {
     [SYS_write]     = sys_write,                //  64
     [SYS_readv]     = sys_readv,                //  65
     [SYS_writev]    = sys_writev,               //  66
-    [SYS_ppoll]     = sys_ppoll,                // 73
+    [SYS_ppoll]     = sys_ppoll,                //  73
     [SYS_newfstatat] = sys_fstatat,             //  79
     [SYS_fstat]     = sys_fstat,                //  80
     [SYS_exit]      = sys_exit,                 //  93
@@ -390,6 +390,104 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_debug]     = "sys_debug",                // 999
 };
 
+// 引数の個数
+__attribute__((unused)) static int syscall_params[] = {
+    [SYS_getcwd] = 2,                           // 17
+    [SYS_dup] = 1,                              // 23
+    [SYS_dup3] = 3,                             // 24
+    [SYS_fcntl] = 2,                            // 25
+    [SYS_ioctl] = 2,                            // 29
+    [SYS_mknodat] = 4,                          // 33
+    [SYS_mkdirat] = 3,                          // 34
+    [SYS_unlinkat] = 3,                         // 35
+    [SYS_symlinkat] = 3,                        // 36
+    [SYS_linkat] = 5,                           // 37
+    [SYS_renameat] = 4,                         // 38
+    [SYS_umount2] = 2,                          // 39
+    [SYS_mount] = 5,                            // 40
+    [SYS_faccessat] = 4,                        // 48
+    [SYS_chdir] = 1,                            // 49
+    [SYS_fchmodat] = 4,                         // 53
+    [SYS_fchownat] = 5,                         // 54
+    [SYS_fchown] = 3,                           // 55
+    [SYS_openat] = 4,                           // 56
+    [SYS_close] = 1,                            // 57
+    [SYS_pipe2] = 2,                            // 59
+    [SYS_getdents64] = 3,                       // 61
+    [SYS_lseek] = 3,                            // 62
+    [SYS_read] = 3,                             // 63
+    [SYS_write] = 3,                            // 64
+    [SYS_readv] = 3,                            // 65
+    [SYS_writev] = 3,                           // 66
+    [SYS_pread64] = 4,                          // 67
+    [SYS_ppoll] = 4,                            // 73
+    [SYS_readlinkat] = 4,                       // 78
+    [SYS_newfstatat] = 4,                       // 79
+    [SYS_fstat] = 2,                            // 80
+    [SYS_fstat] = 0,                            // 81
+    [SYS_fsync] = 1,                            // 82
+    [SYS_fdatasync] = 1,                        // 83
+    [SYS_utimensat] = 4,                        // 88
+    [SYS_exit] = 1,                             // 93
+    [SYS_exit_group] = 1,                       // 94
+    [SYS_set_tid_address] = 1,                  // 96
+    [SYS_futex] = 6,                            // 98
+    [SYS_nanosleep] = 2,                        // 101
+    [SYS_getitimer] = 2,                        // 102
+    [SYS_setitimer] = 3,                        // 103
+    [SYS_clock_settime] = 2,                    // 112
+    [SYS_clock_gettime] = 2,                    // 113
+    [SYS_sched_getaffinity] = 3,                // 123
+    [SYS_sched_yield] = 0,                      // 124
+    [SYS_kill] = 2,                             // 129
+    [SYS_tkill] = 2,                            // 130
+    [SYS_rt_sigsuspend] = 2,                    // 133
+    [SYS_rt_sigaction] = 3,                     // 134
+    [SYS_rt_sigprocmask] = 4,                   // 135
+    [SYS_rt_sigpending] = 2,                    // 136
+    [SYS_rt_sigreturn] = 0,                     // 139
+    [SYS_setregid] = 2,                         // 143
+    [SYS_setgid] = 1,                           // 144
+    [SYS_setreuid] = 2,                         // 145
+    [SYS_setuid] = 1,                           // 146
+    [SYS_setresuid] = 3,                        // 147
+    [SYS_getresuid] = 3,                        // 148
+    [SYS_setresgid] = 3,                        // 149
+    [SYS_getresgid] = 3,                        // 150
+    [SYS_setfsuid] = 1,                         // 151
+    [SYS_setfsgid] = 1,                         // 152
+    [SYS_setpgid] = 2,                          // 154
+    [SYS_getpgid] = 1,                          // 155
+    [SYS_getgroups] = 2,                        // 158
+    [SYS_setgroups] = 2,                        // 159
+    [SYS_uname] = 1,                            // 160
+    [SYS_umask] = 1,                            // 166
+    [SYS_getpid] = 0,                           // 172
+    [SYS_getppid] = 0,                          // 173
+    [SYS_getuid] = 0,                           // 174
+    [SYS_geteuid] = 0,                          // 175
+    [SYS_getgid] = 0,                           // 176
+    [SYS_getegid] = 0,                          // 177
+    [SYS_gettid] = 0,                           // 178
+    [SYS_sysinfo] = 1,                          // 179
+    [SYS_brk] = 1,                              // 214
+    [SYS_munmap] = 2,                           // 215
+    [SYS_mremap] = 4,                           // 216
+    [SYS_clone] = 5,                            // 220
+    [SYS_execve] = 3,                           // 221
+    [SYS_mmap] = 6,                             // 222
+    [SYS_fadvise64] = 4,                        // 223
+    [SYS_mprotect] = 3,                         // 226
+    [SYS_msync] = 3,                            // 227
+    [SYS_madvise] = 3,                          // 233
+    [SYS_wait4] = 4,                            // 260
+    [SYS_prlimit64] = 2,                        // 261
+    [SYS_renameat2] = 5,                        // 276
+    [SYS_getrandom] = 3,                        // 278
+    [SYS_faccessat2] = 4,                       // 439
+    [SYS_debug]     = 2,                        // 999
+};
+
 
 // システムコールを処理する
 void syscall(void)
@@ -406,12 +504,40 @@ void syscall(void)
         // Use num to lookup the system call function for num, call it,
         // and store its return value in p->trapframe->a0
 #if 0
-        //if (p->pid == 3)
-            debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],
+        if (num != SYS_writev &&  num != SYS_read) {
+            switch(syscall_params[num]) {
+            case 5:
+                debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],
                 p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3, p->trapframe->a4);
+                break;
+            case 4:
+                debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx", p->pid, syscall_names[num],
+                p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3);
+                break;
+            case 3:
+                debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx", p->pid, syscall_names[num],
+                p->trapframe->a0, p->trapframe->a1, p->trapframe->a2);
+                break;
+            case 2:
+                debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx", p->pid, syscall_names[num],
+                p->trapframe->a0, p->trapframe->a1);
+                break;
+            case 1:
+                debug("pid[%d] (%s) a0: 0x%lx", p->pid, syscall_names[num], p->trapframe->a0);
+                break;
+            case 0:
+                debug("pid[%d] (%s)", p->pid, syscall_names[num]);
+                break;
+            default:
+                debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx, a5: 0x%lx, a6: 0x%lx", p->pid, syscall_names[num],
+                p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3, p->trapframe->a4, p->trapframe->a5, p->trapframe->a6);
+                break;
+            }
+        }
 #endif
         ret = syscalls[num]();
 
+        trace("pid[%d] (%s) ret: 0x%lx", p->pid, syscall_names[num], ret);
 #if 0
         if (num == SYS_mmap || num == SYS_brk  || num == SYS_getdents64) {
             debug("[%d] %s, return: 0x%l016x, pid: %d", num, syscall_names[num], ret, p->pid);
