@@ -33,9 +33,8 @@ kvmmake(void)
     kpgtbl = (pagetable_t) kalloc();
     memset(kpgtbl, 0, PGSIZE);
 
-    // uart registers
+    // 各種IOレジスタをマップする
     kvmmap(kpgtbl, UART0, UART0_PHY, PGSIZE, PTE_DEVICE);
-
     kvmmap(kpgtbl, MMIO_BASE, MMIO_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, CLKGEN_BASE, CLKGEN_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PINMUX_BASE, PINMUX_BASE, PGSIZE, PTE_DEVICE);
@@ -45,17 +44,17 @@ kvmmake(void)
     kvmmap(kpgtbl, PLIC, PLIC, 0x400000, PTE_DEVICE);
     kvmmap(kpgtbl, SD0_BASE, SD0_BASE, 16*PGSIZE, PTE_DEVICE);
 
-    // map kernel text executable and read-only.
+    // カーネルのtext, read-onlyセクションをマップする.
     kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64_t)etext-KERNBASE, PTE_EXEC);
 
-    // map kernel data and the physical RAM we'll make use of.
+    // カーネルのデータセクションから最大物理RAMまでマップする.
     kvmmap(kpgtbl, (uint64_t)etext, (uint64_t)etext, PHYSTOP-(uint64_t)etext, PTE_NORMAL);
 
-    // map the trampoline for trap entry/exit to
-    // the highest virtual address in the kernel.
+    // トラップ処理への入出力ようにトランポリンをカーネルの最大仮想アドレスにマップする
     kvmmap(kpgtbl, TRAMPOLINE, (uint64_t)trampoline, PGSIZE, PTE_EXEC);
 
-    // allocate and map a kernel stack for each process.
+    // 各プロセス用のカーネルスタックを割り当ててマップする.
+    // プロすす数の上限は決まっており、すべて割り当てる。
     proc_mapstacks(kpgtbl);
 
     return kpgtbl;
@@ -106,7 +105,7 @@ walk(pagetable_t pagetable, uint64_t va, int alloc)
         if(*pte & PTE_V) {
             pagetable = (pagetable_t)PTE2PA(*pte);
         } else {
-            if (!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+            if (!alloc || (pagetable = (pagetable_t)kalloc()) == 0)
                 return 0;
             memset(pagetable, 0, PGSIZE);
             *pte = PA2PTE(pagetable) | PTE_V;
@@ -138,18 +137,18 @@ walkaddr(pagetable_t pagetable, uint64_t va)
     return pa;
 }
 
-// add a mapping to the kernel page table.
-// only used when booting.
-// does not flush TLB or enable paging.
+// カーネルページテーブルにマッピングを追加する.
+// 起動時にのみ使用される。
+// TLBをflushしたり、ページングを有効にしてはならない.
 void
 kvmmap(pagetable_t kpgtbl, uint64_t va, uint64_t pa, uint64_t sz, uint64_t perm)
 {
-    if(mappages(kpgtbl, va, sz, pa, perm) != 0)
+    if (mappages(kpgtbl, va, sz, pa, perm) != 0)
         panic("kvmmap");
 }
 
 // paから始まる物理アドレスを参照するvaから始まる仮想アドレスのPTEを作成する.
-// vaとsizeはページアラインされていない場合がある。 might not
+// vaとsizeはページアラインされていない場合がある。
 // 成功したら 0, walk()が必要なページテーブルページを
 // 割り当てられなかった場合は -1 を返す。
 int
@@ -178,9 +177,9 @@ mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_
     return 0;
 }
 
-// Remove npages of mappings starting from va. va must be
-// page-aligned. The mappings must exist.
-// Optionally free the physical memory.
+// vaから始まるマッピングをnpagesページ削除する。vaはページアライン
+// されていなければならない。マッピングは存在しなければならない。
+// オプションで物理メモリを解放する。
 void
 uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
 {
@@ -191,8 +190,11 @@ uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
         panic("uvmunmap: not aligned");
 
     for (a = va; a < va + npages*PGSIZE; a += PGSIZE) {
-        if ((pte = walk(pagetable, a, 0)) == 0)
-            panic("uvmunmap: walk");
+        if ((pte = walk(pagetable, a, 0)) == 0) {
+            trace("no pte for va: 0x%lx", a);
+            continue;
+        }
+
         // uvmcopyと同じ理由
         if ((*pte & PTE_V) == 0) {
             trace("[%d] pte: %p, *pte: 0x%lx", a, pte, *pte);
@@ -287,21 +289,21 @@ uvmdealloc(pagetable_t pagetable, uint64_t oldsz, uint64_t newsz)
     return newsz;
 }
 
-// Recursively free page-table pages.
-// All leaf mappings must already have been removed.
+// 再帰的にページテーブルページを解放する.
+// リーフマッピングはすべて事前に削除されていなければならない.
 static void
 freewalk(pagetable_t pagetable)
 {
-    // there are 2^9 = 512 PTEs in a page table.
+    // ページテーブルには 2^9 = 512 個のPTEがある.
     for (int i = 0; i < 512; i++) {
         pte_t pte = pagetable[i];
         if ((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0) {
-            // this PTE points to a lower-level page table.
+            // このPTEは下位レベルのページテーブルを指している.
             uint64_t child = PTE2PA(pte);
             freewalk((pagetable_t)child);
             pagetable[i] = 0;
-        } else if(pte & PTE_V) {
-            error("PTE_V=0, pa: 0x%lx", PTE2PA(pte));
+        } else if (pte & PTE_V) {
+            error("leaf for pa: 0x%lx is not removed", PTE2PA(pte));
             panic("Invalid leaf PTE");
         }
     }
@@ -359,6 +361,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
     // Synchronize the instruction and data streams,
     // since we may copy pages with instructions.
     fence_i();
+
     return 0;
 
 err:
@@ -419,7 +422,7 @@ copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
 }
 
 // ユーザからカーネルにコピーする。
-// 与えられたページテーブルの仮想アドレスsrcvaからdstに
+// 与えられたページテーブルの仮想アドレスsrcvaからカーネル変数dstに
 // lenバイトコピーする。
 // 成功したら0を返し、エラーなら-1を返す。
 int copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)

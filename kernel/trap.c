@@ -7,6 +7,7 @@
 #include <defs.h>
 #include <config.h>
 #include <printf.h>
+#include <linux/mman.h>
 
 extern char trampoline[], uservec[], userret[];
 
@@ -31,26 +32,31 @@ trapinithart(void)
 
 //
 // ユーザ空間からの割り込み、例外、システムコールを処理する。
-// trampoline.S から呼び出される(pagetableはカーネル用になっている)
+// trampoline.S から呼び出される
+// この処理の間、pagetableはカーネルのpagetableであることに注意
 //
 void
 usertrap(void)
 {
     int which_dev = 0;
+    int ret = 0;
 
     if ((r_sstatus() & SSTATUS_SPP) != 0)
         panic("usertrap: not from user mode");
 
-    // 割り込みと例外を kerneltrap() に送る
-    // 現在はカーネルにいるからである。
+    // 現在はカーネルにいるので
+    // 割り込みと例外は kerneltrap() に送る
     w_stvec((uint64_t)kernelvec);
 
     struct proc *p = myproc();
 
+    // sepcとstvalを保存
+    uint64_t sepc = r_sepc();
+    uint64_t stval = r_stval();
     uint64_t scause = r_scause();
 
     // 例外が発生したユーザpcを保存する.
-    p->trapframe->epc = r_sepc();
+    p->trapframe->epc = sepc;
 
     //which_dev = devintr();
     trace("scause: %d, which_dev: %d", scause, which_dev);
@@ -74,21 +80,28 @@ usertrap(void)
         syscall();
         trace("epc: 0x%lx, sp: 0x%lx, tp: 0x%lx, a0: 0x%lx", p->trapframe->epc, p->trapframe->sp, p->trapframe->tp, p->trapframe->a0);
     // 13: ページアクセス例外 (load)
+    } else if (scause == SCAUSE_PAGE_LOAD) {
+        uint64_t addr = r_stval();
+        debug("LOAD: pid[%d] alloc page: addr=0x%lx", p->pid, addr);
+        if (alloc_mmap_page(p, addr) < 0) {
+            error("LOAD: alloc page failed addr=0x%lx", addr);
+            setkilled(p);
+        }
     // 15: ページアクセス例外 (store)
     } else if (scause == SCAUSE_PAGE_STORE) {
         uint64_t addr = r_stval();
-        trace("pid[%d] alloc cow: addr=0x%lx", p->pid, addr);
-        int ret = alloc_cow_page(p->pagetable, addr);
-        if (ret < 0) {
-            error("alloc cow page failed addr=0x%lx", addr);
+        trace("pid[%d] alloc page addr=0x%lx", p->pid, addr);
+        if ((ret = alloc_cow_page(p->pagetable, addr)) < 0) {
+            error("COW: alloc page failed addr=0x%lx", addr);
             setkilled(p);
-        } else if (ret == 1) {
-            trace("not cow");
+        } else if (ret == 1 && alloc_mmap_page(p, addr) < 0) {
+            error("STORE: alloc page failed addr=0x%lx", addr);
+            setkilled(p);
         }
     } else if ((which_dev = devintr()) != 0) {
         // ok
     } else {
-        debug("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, r_scause(), r_sepc(), r_stval());
+        debug("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, scause, sepc, stval);
         setkilled(p);
     }
 
@@ -165,6 +178,7 @@ kerneltrap()
     uint64_t sepc = r_sepc();
     uint64_t sstatus = r_sstatus();
     uint64_t scause = r_scause();
+    uint64_t stval = r_stval();
 
     if ((sstatus & SSTATUS_SPP) == 0)
         panic("kerneltrap: not from supervisor mode");
@@ -172,7 +186,7 @@ kerneltrap()
         panic("kerneltrap: interrupts enabled");
 
     if ((which_dev = devintr()) == 0){
-        debug("scause %d sepc=0x%lx stval=0x%lx", scause, r_sepc(), r_stval());
+        debug("scause %d sepc=0x%lx stval=0x%lx", scause, sepc, stval);
         panic("kerneltrap");
     }
 
@@ -249,7 +263,7 @@ static int devintr()
         //debug("timer");
 
         return 2;
-    #endif
+#endif
     } else {
         return 0;
     }

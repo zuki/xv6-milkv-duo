@@ -40,7 +40,8 @@ OBJS = \
   $K/page.o \
   $K/rtc.o \
   $K/signal.o \
-  $K/clock.o
+  $K/clock.o \
+  $K/mmap.o
 
 $K/ramdisk_data.o: fs.img
 
@@ -127,7 +128,9 @@ UPROGS=\
 	$U/sigtest\
 	$U/sigtest2\
 	$U/sigtest3 \
-	$U/bigtest
+	$U/bigtest \
+	$U/mmaptest \
+	$U/mmaptest2
 
 fs.img: mkfs/mkfs test.txt $(UPROGS)
 	mkfs/mkfs fs.img test.txt $(UPROGS)

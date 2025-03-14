@@ -3,8 +3,11 @@
 
 #include <common/types.h>
 #include <common/param.h>
+#include <common/file.h>
 #include <linux/signal.h>
 #include <spinlock.h>
+
+extern struct slab_cache *MMAPREGIONS;
 
 // カーネルコンテキストスイッチ用に保存するレジスタ.
 struct context {
@@ -53,7 +56,7 @@ struct trapframe {
   /*   8 */ uint64_t kernel_sp;     // プロセスのカーネルスタック
   /*  16 */ uint64_t kernel_trap;   // usertrap()
   /*  24 */ uint64_t epc;           // ユーザプログラムカウンタを保存
-  /*  32 */ uint64_t kernel_hartid; // カーネルのhartid（milkv-duoではプロセス構造体のアドレス）
+  /*  32 */ uint64_t kernel_hartid; // カーネルのhartid
   /*  40 */ uint64_t ra;
   /*  48 */ uint64_t sp;
   /*  56 */ uint64_t gp;
@@ -95,6 +98,17 @@ struct signal {
     struct sigaction actions[NSIG];
 };
 
+// mmap領域構造体
+struct mmap_region {
+    void       *addr;
+    uint64_t    length;
+    off_t       offset;
+    struct file *f;
+    int         prot;
+    int         flags;
+    struct mmap_region  *next;
+};
+
 // プロセスごとの状態
 struct proc {
     struct spinlock lock;
@@ -124,6 +138,7 @@ struct proc {
     struct file *ofile[NOFILE];     // オープンしているフィル
     struct inode *cwd;              // カレントワーキングディレクトリ
     char name[16];                  // プロセス名（デバッグ用）
+    struct mmap_region *regions;    // map済みのmmap領域のリストの先頭のポインタ
     struct signal signal;           // シグナル
     struct trapframe *oldtf;        // 旧trapframeを保存
 };

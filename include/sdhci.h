@@ -12,6 +12,8 @@
 #include <common/types.h>
 #include <mmc.h>
 #include <riscv-mmio.h>
+#include <config.h>
+
 #ifdef DUO256
 #include <sdhci_cv181x_reg.h>
 #else

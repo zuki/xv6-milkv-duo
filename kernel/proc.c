@@ -22,6 +22,7 @@ struct _q {
 } q;
 
 struct proc *initproc;
+struct slab_cache *MMAPREGIONS;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -35,8 +36,9 @@ extern char trampoline[]; // trampoline.S
 // p->lockする前に獲得しなければならない。
 struct spinlock wait_lock;
 
-// 各プロセス用のカーネルスタック用のページを割り当て
-// ガードページを挟んでメモリの高位アドレスにマップする
+// 各プロセス用のカーネルスタック用のページを割り当てる.
+// トランポリン領域の下にプロセスごとに2ページ割り当て、
+// 高位1ページはガードページで、下位1ページがスタック
 // KSTACK(p) (TRAMPOLINE - ((p)+1) * 2 * PGSIZE) ; p = 0 - NPROC
 void
 proc_mapstacks(pagetable_t kpgtbl)
@@ -69,6 +71,8 @@ procinit(void)
         p->state = UNUSED;
         p->kstack = KSTACK((int) (p - proc));
     }
+
+    MMAPREGIONS = slab_cache_create("mmap_region", sizeof(struct mmap_region), 0);
 }
 
 // 別のCPUに移されるプロセスとの競合を防ぐため、
@@ -157,6 +161,7 @@ found:
     p->pid = allocpid();
     p->pgid = p->sid = p->pid;
     p->state = USED;
+    p->regions = NULL;
 
     // trapframeページを割り当てる.
     if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -167,7 +172,7 @@ found:
 
     // trampolinとtrapframeだけマップしたユーザページテーブルを作成する.
     p->pagetable = proc_pagetable(p);
-    if(p->pagetable == 0){
+    if (p->pagetable == 0) {
         freeproc(p);
         release(&p->lock);
         return 0;
@@ -192,6 +197,8 @@ freeproc(struct proc *p)
     if (p->trapframe)
         kfree((void*)p->trapframe);
     p->trapframe = 0;
+    free_mmap_list(p);
+    p->regions = NULL;
     if (p->pagetable)
         proc_freepagetable(p->pagetable, p->sz);
     p->pagetable = 0;
@@ -207,6 +214,7 @@ freeproc(struct proc *p)
     p->chan = 0;
     p->killed = 0;
     p->xstate = 0;
+    p->regions = NULL;
     memset(&p->signal, 0, sizeof(struct signal));
     p->state = UNUSED;
 }
@@ -352,10 +360,11 @@ int fork(void)
     int i, pid;
     struct proc *np;
     struct proc *p = myproc();
+    int ret = 0;
 
     // 新規プロセスを割り当てる.
     if ((np = allocproc()) == 0) {
-        return -1;
+        return -ENOMEM;
     }
 
     // Copy user memory from parent to child.
@@ -363,8 +372,20 @@ int fork(void)
     if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
         freeproc(np);
         release(&np->lock);
-        return -1;
+        error("failed uvmcopy");
+        return -ENOMEM;
     }
+
+    if ((ret = copy_mmap_regions(p, np)) < 0) {
+        //debug("ret=%d", ret);
+        uvmfree(np->pagetable, np->sz);
+        freeproc(np);
+        release(&np->lock);
+        error("failed copy_mmap_regions");
+        return ret;
+    }
+    print_mmap_list(np, "new proc");
+
     np->sz = p->sz;
     np->pgid = p->pgid;
     np->sid = p->sid;
@@ -428,6 +449,17 @@ exit(int status)
     if (p == initproc)
         panic("init exiting");
 
+    // mappingを解除する
+    if (p->regions) {
+        long ret = 0;
+        struct mmap_region *region = p->regions;
+        while (region) {
+            ret += munmap(region->addr, region->length);
+            region = region->next;
+        }
+        p->regions = NULL;
+    }
+
     // Close all open files.
     for (int fd = 0; fd < NOFILE; fd++) {
         if (p->ofile[fd]) {
@@ -459,7 +491,7 @@ exit(int status)
     release(&wait_lock);
 
     // Jump into the scheduler, never to return.
-    trace("p[%d]: xstate=%d, state=%d", p->pid, p->xstate, p->state);
+    trace("pid[%d] xstate=0x%x, state=0x%x", p->pid, p->xstate, p->state);
     sched();
     panic("zombie exit");
 }
@@ -495,9 +527,8 @@ wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
                 || (options & WUNTRACED && pp->state == SLEEPING)
                 || (options & WNOHANG)) {
                 if (status) {
-                    //int xstate = (pp->xstate << 8);
-                    int xstate = pp->xstate;
-                    trace("pp->xstate: 0x%08x, xstate: 0x%08x, &xstate: 0x%lx, status: 0x%lx, size: %ld", pp->xstate, xstate, &xstate, status, sizeof(int));
+                    // status = xstatus << 8 || 0x0 (終了ステータス | exitで終了)
+                    int xstate = ((pp->xstate & 0xff) << 8);
                     if (copyout(p->pagetable, status, (char *)&xstate,
                                         sizeof(int)) < 0) {
                         release(&pp->lock);
@@ -524,7 +555,6 @@ wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
             release(&pp->lock);
         }
         if (!kids || killed(p)) {
-            //debug("no waiting children");
             release(&wait_lock);
             return -ECHILD;
         }

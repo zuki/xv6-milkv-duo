@@ -303,6 +303,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 
 #if 0
     uvmdump(p->pagetable, p->pid, p->name);
+
     printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
     for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
         uint64_t val;

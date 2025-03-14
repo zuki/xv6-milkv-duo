@@ -21,6 +21,7 @@ struct k_sigaction;
 struct pollfd;
 struct timespec;
 struct tm;
+struct mmap_region;
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
@@ -105,6 +106,20 @@ void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
 void            begin_op(void);
 void            end_op(void);
+
+// mmap.c
+long            mmap(void *addr, size_t length, int prot, int flags, struct file*, off_t offset);
+long            munmap(void *addr, size_t len);
+void           *mremap(void *old_addr, size_t old_length, size_t new_length, int flags, void *new_addr);
+long            msync(void *addr, size_t length, int flags);
+
+uint64_t        get_perm(int prot, int flags);
+long            mmap_load_pages(void *addr, size_t length, int prot, int flags, struct file *f, off_t offset);
+void            print_mmap_list(struct proc *p, const char *title);
+void            free_mmap_list(struct proc *p);
+long            copy_mmap_regions(struct proc *parent, struct proc *child);
+struct mmap_region  *find_mmap_region(struct proc *p, void *start);
+long            alloc_mmap_page(struct proc *p, uint64_t addr);
 
 // page.c
 void            page_init(void);

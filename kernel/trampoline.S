@@ -20,7 +20,7 @@ trampoline:
 .globl uservec
 uservec:
 	#
-        # trap.cはstvecがここを指すように設定する(trap.c#L115-116)ので、
+        # trap.cでstvecがここを指すように設定している(trap.c#L145-146)ので、
         # ユーザ空間からのトラップはここからスーパーバイザモードで
         # 開始される。ただし、ユーザページテーブルが使用される。
 
@@ -65,14 +65,14 @@ uservec:
         sd t5, 272(a0)
         sd t6, 280(a0)
 
-	# sscratchに保存していたユーザa0をp->trapframe->a0に保安する
+	# sscratchに保存していたユーザa0をp->trapframe->a0に保管する
         csrr t0, sscratch
         sd t0, 112(a0)
 
-        # p->trapframe->kernel_spの値を使って、カーネルスタックポインタを初期化する
+        # p->trapframe->kernel_spの値からこのプロセス用のカーネルスタックポインタを初期化する
         ld sp, 8(a0)
 
-        # tpはstruct procを新規作成した際にTLS領域に作成
+        # tpはmuslでセットされる
         //ld tp, 32(a0)
 
         # p->trapframe->kernel_trapの値を使って、usertrap()のアドレスをロードする
@@ -87,7 +87,7 @@ uservec:
         # カーネルページテーブルをインストールする
         csrw satp, t1
 
-        # 今や古くなったユーザエントリをTLBからフラッシュする
+        # 古くなったユーザエントリをTLBからフラッシュする
         sfence.vma zero, zero
 
         # usertrap()にジャンプする。この関数は戻らない

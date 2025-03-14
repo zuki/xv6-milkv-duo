@@ -176,6 +176,9 @@ extern long sys_mkdirat(void);
 extern long sys_close(void);
 extern long sys_ioctl(void);
 extern long sys_mmap(void);
+extern long sys_munmap(void);
+//extern long sys_mremap(void);
+extern long sys_msync(void);
 extern long sys_rt_sigsuspend(void);
 extern long sys_rt_sigaction(void);
 extern long sys_rt_sigprocmask(void);
@@ -286,9 +289,12 @@ static func syscalls[] = {
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
     [SYS_brk]       = sys_brk,                  // 214
+    [SYS_munmap]    = sys_munmap,               // 215
+//    [SYS_mremap]    = sys_mremap,               // 216
     [SYS_clone]     = sys_clone,                // 220
     [SYS_execve]    = sys_execve,               // 221
     [SYS_mmap]      = sys_mmap,                 // 222
+    [SYS_msync]     = sys_msync,                // 227
     [SYS_wait4]     = sys_wait4,                // 260
     [SYS_debug]     = sys_debug,                // 999
 };
@@ -504,7 +510,7 @@ void syscall(void)
         // Use num to lookup the system call function for num, call it,
         // and store its return value in p->trapframe->a0
 #if 0
-        if (num != SYS_writev &&  num != SYS_read) {
+        if (num != SYS_writev && num != SYS_read) {
             switch(syscall_params[num]) {
             case 5:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],
@@ -537,16 +543,12 @@ void syscall(void)
 #endif
         ret = syscalls[num]();
 
-        trace("pid[%d] (%s) ret: 0x%lx", p->pid, syscall_names[num], ret);
 #if 0
-        if (num == SYS_mmap || num == SYS_brk  || num == SYS_getdents64) {
-            debug("[%d] %s, return: 0x%l016x, pid: %d", num, syscall_names[num], ret, p->pid);
-        } else if (num == SYS_openat) {
-            debug("[%d] %s, return: %ld, pid: %d", num, syscall_names[num], ret, p->pid);
-        } else {
-            // do nothing
+        if (num != SYS_writev && num != SYS_read) {
+            debug("pid[%d] (%s) ret: 0x%lx", p->pid, syscall_names[num], ret);
         }
 #endif
+
         p->trapframe->a0 = ret;
     } else {
         debug("[%d] %s: unknown sys call %d: %s\n",

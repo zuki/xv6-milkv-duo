@@ -13,16 +13,15 @@
 #include <linux/signal.h>
 #include <common/file.h>
 
-#define WAIT_EXIT_CODE(status) (((status) & 0xff) << 8)
-
 long sys_exit(void)
 {
     int n;
     if (argint(0, &n) < 0)
         return -EINVAL;
-    trace("n: %d", n);
-    exit(WAIT_EXIT_CODE(n));
-    return 0;  // not reached
+    exit(n);
+
+    // never reached
+    return 0;
 }
 
 long sys_exit_group(void)
@@ -30,9 +29,11 @@ long sys_exit_group(void)
     int n;
     if (argint(0, &n) < 0)
         return -EINVAL;
-    trace("n: %d", n);
-    exit(WAIT_EXIT_CODE(n));
-    return 0;  // not reached
+    trace("pid[%d] n: %d", myproc()->pid, n);
+    exit(n);
+
+    // not reached
+    return 0;
 }
 
 long sys_getpid(void)
@@ -78,18 +79,17 @@ long sys_clone(void)
 
 long sys_wait4(void)
 {
-    int pid, options;
+    int wpid, options;
     uint64_t status, ru;
 
-    if (argint(0, &pid) < 0 || argu64(1, &status) < 0 ||argint(2, &options) < 0 || argu64(3, &ru) < 0)
+    if (argint(0, &wpid) < 0 || argu64(1, &status) < 0 ||argint(2, &options) < 0 || argu64(3, &ru) < 0)
         return -EINVAL;
 
     if (ru != 0)
         return -EINVAL;
 
-    trace("pid: %d, status: 0x%lx, options: 0x%x, ru: 0x%lx", pid, status, options, ru);
-    return wait4(pid, status, options, ru);
-    //return wait(wstatus);
+    trace("wpid: %d, status: 0x%lx, options: 0x%x, ru: 0x%lx", wpid, status, options, ru);
+    return wait4(wpid, status, options, ru);
 }
 
 long sys_brk(void)
@@ -165,21 +165,34 @@ size_t sys_mmap(void)
         return -EACCES;
     }
 
-    if (addr) {
-        if (prot != PROT_NONE) {
-            warn("mmap unimplemented");
-            return -EINVAL;
-        }
-        trace("map none at %p", addr);
-        return (size_t)addr;
-    } else {
-        if (prot != (PROT_READ | PROT_WRITE)) {
-            warn("non-rw unimplemented");
-            return -EINVAL;
-        }
-        error("unimplemented. ");
+    return mmap(addr, len, prot, flags, f, off);
+}
+
+long sys_munmap(void)
+{
+    void *addr;
+    size_t len;
+
+    if (argu64(0, (uint64_t *)&addr) < 0 || argu64(1, &len) < 0)
+         return -EINVAL;
+
+    trace("addr: 0x%llx, len: 0x%llx", addr, len);
+
+    return munmap(addr, len);
+}
+
+long sys_msync(void)
+{
+    void *addr;
+    size_t length;
+    int flags;
+
+    if (argu64(0, (uint64_t *)&addr) < 0 || argu64(1, &length) < 0
+     || argint(2, &flags) < 0)
         return -EINVAL;
-    }
+
+    return msync(addr, length, flags);
+
 }
 
 long sys_nanosleep(void)
