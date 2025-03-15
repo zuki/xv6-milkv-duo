@@ -306,25 +306,34 @@ struct mmap_region *find_mmap_region(struct proc *p, void *start)
     return NULL;
 }
 
+/* addr + length はp->regionsに含まれるか */
+bool is_mmap_region(struct proc *p, void *addr, uint64_t length)
+{
+    struct mmap_region *region = find_mmap_region(p, addr);
+    if (region == NULL)
+        return 0;
+    return ((uint64_t)addr + length <= (uint64_t)region->addr + region->length);
+}
+
 // 遅延mapを実装（trap.cから呼び出される）
 // 該当するアドレスを含む1ページ分の割り当て/ファイル読み込みをする
 long alloc_mmap_page(struct proc *p, uint64_t addr) {
     off_t offset = 0;
 
-    uint64_t roundup = PGROUNDUP(addr);
-    struct mmap_region *region = find_mmap_region(p, (void *)roundup);
+    uint64_t rounddown = PGROUNDDOWN(addr);
+    struct mmap_region *region = find_mmap_region(p, (void *)rounddown);
     if (region == NULL) {
         error("no region with addr 0x%lx", addr);
         return -1;
     }
     // ファイルオフセットの計算
     if (region->f) {
-        offset = region->offset + ((roundup - (uint64_t)region->addr) / PGSIZE) * PGSIZE;
+        offset = region->offset + ((rounddown - (uint64_t)region->addr) / PGSIZE) * PGSIZE;
     }
-    debug("pid[%d] addr: 0x%lx, roundup: 0x%lx, offset: %ld", p->pid, addr, roundup, offset);
-    if (mmap_load_page(p, (void *)roundup, region->prot, region->flags, region->f, offset) < 0) {
+    trace("pid[%d] addr: 0x%lx, rounddown: 0x%lx, offset: %ld", p->pid, addr, rounddown, offset);
+    if (mmap_load_page(p, (void *)rounddown, region->prot, region->flags, region->f, offset) < 0) {
         error("loading page failed: addr: 0x%lx, length: 0x%x, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
-            roundup, PGSIZE, region->prot, region->flags, region->f ? region->f->ip->inum : -1, offset);
+            rounddown, PGSIZE, region->prot, region->flags, region->f ? region->f->ip->inum : -1, offset);
         return -1;
     }
     return 0;
