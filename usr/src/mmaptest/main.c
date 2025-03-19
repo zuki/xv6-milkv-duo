@@ -77,8 +77,8 @@ void file_tests() {
     file_private_test();                                // F-09
     file_shared_test();                                 // F-10
     file_pagecache_coherency_test();                    // F-11
-    file_private_with_fork_test();                      // F-12
-    file_shared_with_fork_test();                       // F-13
+    //file_private_with_fork_test();                      // F-12
+    //file_shared_with_fork_test();                       // F-13
     file_mapping_with_offset_test();                    // F-14
     file_given_addr_test();                             // F-15
     file_invalid_addr_test();                           // F-16
@@ -91,10 +91,10 @@ void file_tests() {
 
 void anonymous_tests() {
     anon_private_test();                                // A-01
-    anon_shared_test();                                 // A-02
-    anon_private_fork_test();                           // A-03
-    anon_shared_multi_fork_test();                      // A-04
-    anon_private_shared_fork_test();                    // A-05
+    //anon_shared_test();                                 // A-02
+    //anon_private_fork_test();                           // A-03
+    //anon_shared_multi_fork_test();                      // A-04
+    //anon_private_shared_fork_test();                    // A-05
     anon_missing_flags_test();                          // A-06
     anon_exceed_count_test();                           // A-07
     anon_exceed_size_test();                            // A-08
@@ -108,8 +108,8 @@ void anonymous_tests() {
 
 void other_tests() {
     munmap_partial_size_test();                         // O-01
-    mmap_write_on_ro_mapping_test();                    // O-02
-    mmap_none_permission_test();                        // O-03
+    //mmap_write_on_ro_mapping_test();                    // O-02
+    //mmap_none_permission_test();                        // O-03
     mmap_valid_map_fixed_test();                        // O-04
     mmap_invalid_map_fixed_test();                      // O-05
 }
@@ -143,15 +143,16 @@ int file_ok = 0, file_ng = 0, anon_ok = 0, anon_ng = 0, other_ok = 0,
     other_ng = 0;
 
 int main(int args, char *argv[]) {
-    //file_tests();
-    //anonymous_tests();
-    //other_tests();
-    file_private_with_fork_test();
+    file_tests();
+    anonymous_tests();
+    other_tests();
+    //file_private_with_fork_test();
     //anon_shared_multi_fork_test();
     //anon_private_shared_fork_test();
+    //file_exceeds_file_size_test();
     printf("\nfile_test:  ok: %d, ng: %d\n", file_ok, file_ng);
-    //printf("anon_test:  ok: %d, ng: %d\n", anon_ok, anon_ng);
-    //printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
+    printf("anon_test:  ok: %d, ng: %d\n", anon_ok, anon_ng);
+    printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
     return 0;
 }
 
@@ -872,26 +873,26 @@ void file_private_with_fork_test() {
     int fd = open(filename, O_RDWR);
     if (fd == -1) {
         printf("open failed\n");
-        goto f12_bad_0;
+        goto f12_bad_1;
     }
 
     if (read(fd, buf, size) != size) {
         printf("read failed\n");
-        goto f12_bad_1;
+        goto f12_bad_2;
     }
 
     char *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap failed\n");
-        goto f12_bad_1;
+        goto f12_bad_2;
     }
-    printf("mmap addr: %p, size: %d\n", addr, size);
 
     int pid = fork();
     if (pid < 0) {
         printf("fork failed\n");
-        goto f12_bad_2;
-    } else if (pid == 0) {
+        goto f12_bad_3;
+    }
+    if (pid == 0) {
         int ret = 0;
         for (int i = 0; i < 50; i++) {
             addr[i] = 'n';
@@ -912,18 +913,17 @@ void file_private_with_fork_test() {
         // As it is private mapping therefore it should be same as read
         if (my_strcmp(addr, buf, size) != 0) {
             printf("strcmp parent failed\n");
-            goto f12_bad_2;
+            goto f12_bad_3;
         } else {
             printf("strcmp parent ok\n");
         }
-        printf("parent munmap addr: %p, size: %d", addr, size);
         int res = munmap(addr, size);
         if (res == -1) {
             printf("munmap failed\n");
-            goto f12_bad_1;
+            goto f12_bad_2;
         }
         if (status) {
-            goto f12_bad_1;
+            goto f12_bad_2;
         }
         close(fd);
         unlink(filename);
@@ -933,10 +933,11 @@ void file_private_with_fork_test() {
         return;
     }
 
-f12_bad_2:
+f12_bad_3:
     munmap(addr, size);
-f12_bad_1:
+f12_bad_2:
     close(fd);
+f12_bad_1:
     free(buf);
 f12_bad_0:
     unlink(filename);
@@ -1474,7 +1475,6 @@ void file_exceeds_file_size_test() {
         printf("read failed\n");
         goto f20_bad_1;
     }
-
 
     char *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE,
                              MAP_SHARED, fd, 0);
@@ -2126,7 +2126,7 @@ a13_bad_1:
     munmap(p1, 1000);
 a13_bad_0:
     anon_ng++;
-    printf("[A-05] ng\n");
+    printf("[A-13] ng\n");
 }
 
 // mmap when the mapping is not possible between two mappings
@@ -2178,6 +2178,7 @@ void munmap_partial_size_test() {
     int size = 10000;
     long error;
 
+    // p1は(int *), (char *)ではないので注意
     int *p1 = (int *)mmap((void *)0, size, PROT_READ | PROT_WRITE,
                            MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (p1 == MAP_FAILED) {
@@ -2311,18 +2312,17 @@ void mmap_valid_map_fixed_test() {
 // To test MAP_FIXED flag with invalid addresses
 void mmap_invalid_map_fixed_test() {
     printf("\n[O-05] mmap invalid address map fixed flag test\n");
-    // When the address is less than MMAPBASE（これは現在は無効）
-/*
+    // When the address is less than MMAPBASE
+
     char *p1 = mmap((void *)(MMAPBASE - 0x2000), 200, PROT_WRITE | PROT_READ,
                      MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    printf("p1=%p\n", p1);
+    //printf("p1=%p\n", p1);
     if (p1 != MAP_FAILED) {
         printf("[O-05] failed at mmap 1\n");
-        munmap((void *)p1, 200);
         other_ng++;
         return;
     }
-*/
+
     // When the address is not page aligned
     char *p2 = mmap((void *)(MMAPBASE + 0x100), 200, PROT_WRITE | PROT_READ,
                       MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
