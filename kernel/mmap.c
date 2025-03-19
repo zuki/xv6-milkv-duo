@@ -520,7 +520,7 @@ long munmap(void *addr, size_t length)
 
     if (region->length < length) {
         warn("length 0x%lx is bigger than region->length 0x%lx", length, region->length);
-        return -EINVAL;
+        length = region->length;
     }
     trace(" - found: addr=%p", region->addr);
     // MAP_SHARED領域で背後にあるファイルに書き込みがあったら書き戻す
