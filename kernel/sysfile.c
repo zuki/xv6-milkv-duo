@@ -147,6 +147,8 @@ ssize_t sys_writev(void)
     int fd, iovcnt;
     struct iovec *iov, *pp, iov_k;
     struct proc *p = myproc();
+    //char buf[32];
+    // uint64_t blen;
 
     if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
         return -EINVAL;
@@ -158,11 +160,20 @@ ssize_t sys_writev(void)
         return -EBADF;
     trace("fd: %d, ip: %d, iov: %p, iovcnt: %d", fd, f->ip->inum, iov, iovcnt);
     ssize_t tot = 0;
+    //int i = 0;
     for (pp = iov; pp < iov + iovcnt; pp++) {
         if (copyin(p->pagetable, (char *)&iov_k, (uint64_t)pp, sizeof(struct iovec)) != 0)
             return -EIO;
+#if 0
+        blen = iov_k.iov_len > 32 ? 32 : iov_k.iov_len;
+        copyin(p->pagetable, buf, (uint64_t)iov_k.iov_base, blen);
+        debug("iov[%d] blen: %ld", i, blen)
+        for (int j=0; j < blen; j++)
+            printf(" %02x", buf[j]);
+        printf("\n");
+#endif
         tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len);
-        //debug("pp: %p, base: %p, len: %ld, tot: %ld", pp, iov_k.iov_base, iov_k.iov_len, tot);
+        trace("[%d]: base: %p, len: 0x%lx, tot: 0x%lx", i++, iov_k.iov_base, iov_k.iov_len, tot);
     }
     return tot;
 }

@@ -14,11 +14,17 @@
 static int in_user(uint64_t addr, size_t n)
 {
     struct proc *p = myproc();
-    if (addr >= p->sz || addr + sizeof(uint64_t) > p->sz) {
-        debug("wrong addr: 0x%lx, p->sz: 0x%lx", addr, p->sz);
-        return 0;
+
+    // 1. addr + n が code+data 内にある
+    if (addr + n <= p->sz)
+        return 1;
+
+    // 2. addr + n が mmap_region内にある
+    if (is_mmap_region(p, (void *)addr, n)) {
+        return 1;
     }
-    return 1;
+
+    return 0;
 }
 
 // カレントプロセスのaddrにあるuint64_tを取得する
@@ -510,7 +516,8 @@ void syscall(void)
         // Use num to lookup the system call function for num, call it,
         // and store its return value in p->trapframe->a0
 #if 0
-        if (num != SYS_writev && num != SYS_read) {
+        //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
+        if (p->pid == 4) {
             switch(syscall_params[num]) {
             case 5:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],

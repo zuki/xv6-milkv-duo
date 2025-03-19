@@ -18,6 +18,7 @@ long sys_exit(void)
     int n;
     if (argint(0, &n) < 0)
         return -EINVAL;
+    trace("pid[%d] exit with %d", myproc()->pid, n);
     exit(n);
 
     // never reached
@@ -55,6 +56,8 @@ long sys_gettid(void)
     return tid;
 }
 
+// long clone(unsigned long flags, void *child_stack, pid_t *ptid,
+//            struct user_desc *tls, pid_t *ctid);
 long sys_clone(void)
 {
     void *childstk;
@@ -66,7 +69,8 @@ long sys_clone(void)
      || argint(4, &ctid) < 0)
         return -EINVAL;
 
-    trace("flag: 0x%lx, cstk: %p, ptid: %d, tls: 0x%lx, ctid: %d", flag, childstk, ptid, tls, ctid);
+
+    trace("flag: 0x%lx, cstk: %p, ptid: %d, tls: 0x%lx, ctid: 0x%lx", flag, childstk, ptid, tls, ctid);
     // FIXME: vforkの実装
     // flags = 0x4011の例あり(CLONE_VFORK | SIGCHLD)
     // FIXME: SIGCHLD(=17)のdefine
@@ -77,6 +81,7 @@ long sys_clone(void)
     return fork();
 }
 
+// pid_t wait4(pid_t wpid, int *status, int options, struct rusage *rusage);
 long sys_wait4(void)
 {
     int wpid, options;
@@ -161,7 +166,7 @@ size_t sys_mmap(void)
     // MAP_SHAREかつPROT_WRITEの場合はバックにあるファイルがwritableでなければならない
     if (!(flags & MAP_ANONYMOUS) && (flags & MAP_SHARED)
      && (prot & PROT_WRITE) && !f->writable) {
-        warn("file is not writable");
+        error("file is not writable");
         return -EACCES;
     }
 
@@ -323,7 +328,7 @@ long sys_rt_sigprocmask(void) {
     if (argptr(1, (char *)&set, sizeof(sigset_t)) < 0)
         return -EFAULT;
 
-    trace("pid[%d] how=%d, set=%p, oldset=0x%lx, size=%ld", myproc()->pid, how, &set, oldset, size);
+    trace("pid[%d] how=%d, set=0x%lx, &set: 0x%lx, oldset=0x%lx, size=%ld", myproc()->pid, how, set, &set, oldset, size);
 
     if (size && size != 8) {
         warn("unsupport sigset size: %ld", size);
@@ -350,7 +355,7 @@ long sys_ppoll(void) {
     if (argu64(1, &nfds) < 0
      || argptr(2, (char *)&timeout_ts, sizeof(struct timespec)) < 0
      || argptr(3, (char *)&sigmask, sizeof(sigset_t)) < 0) {
-        error("invald either of nfds, timeout, sigmask");
+        trace("invald either of nfds, timeout, sigmask");
         return -EINVAL;
      }
 

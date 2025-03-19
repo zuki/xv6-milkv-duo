@@ -143,15 +143,15 @@ int file_ok = 0, file_ng = 0, anon_ok = 0, anon_ng = 0, other_ok = 0,
     other_ng = 0;
 
 int main(int args, char *argv[]) {
-    file_tests();
-    anonymous_tests();
-    other_tests();
-    //anon_private_fork_test();
+    //file_tests();
+    //anonymous_tests();
+    //other_tests();
+    file_private_with_fork_test();
     //anon_shared_multi_fork_test();
     //anon_private_shared_fork_test();
     printf("\nfile_test:  ok: %d, ng: %d\n", file_ok, file_ng);
-    printf("anon_test:  ok: %d, ng: %d\n", anon_ok, anon_ng);
-    printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
+    //printf("anon_test:  ok: %d, ng: %d\n", anon_ok, anon_ng);
+    //printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
     return 0;
 }
 
@@ -164,7 +164,7 @@ void file_invalid_fd_test() {
     int size = 100;
     int fds[3] = {-1, 10, 128};
     for (int i = 0; i < 3; i++) {
-        void *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fds[i], 0);
+        void *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fds[i], 0);
         if (addr == MAP_FAILED) {
             continue;
         }
@@ -306,7 +306,7 @@ void file_private_mapping_perm_test() {
     //printf("- addr=%p\n", addr);
 
     // write & read private mapping on read only opened file
-    char *addr2 = mmap((void *)0, 200, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE | MAP_POPULATE, fd, 0);
+    char *addr2 = mmap((void *)0, 200, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (addr2 == MAP_FAILED) {
         printf("mmap2 failed\n");
         goto f5_bad_2;
@@ -357,7 +357,7 @@ void file_exceed_size_test() {
     }
 
     size_t size = MMAPTOP;
-    void *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+    void *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (addr != MAP_FAILED) {
         printf("mmap failed\n");
         goto f6_bad_1;
@@ -393,7 +393,7 @@ void file_exceed_count_test() {
     }
 
     for (; i < count; i++) {
-        addr[i] = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+        addr[i] = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
         if (addr[i] == MAP_FAILED) {
             printf("mmap %d failed \n", i);
             break;
@@ -533,7 +533,7 @@ void file_private_test() {
         goto f9_bad_1;
     }
     char *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                             MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap failed 1\n");
         goto f9_bad_1;
@@ -804,7 +804,7 @@ void file_pagecache_coherency_test() {
     //fflush(stdout);
 
     // offset 4096 から 100バイトマッピング
-    char *addr2 = mmap((void *)0, (size2 - 4096), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fd2, 4096);
+    char *addr2 = mmap((void *)0, (size2 - 4096), PROT_READ | PROT_WRITE, MAP_PRIVATE, fd2, 4096);
     if (addr2 == MAP_FAILED) {
         printf("mmap addr2 failed\n");
         goto f11_bad_3;
@@ -880,12 +880,12 @@ void file_private_with_fork_test() {
         goto f12_bad_1;
     }
 
-    char *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+    char *addr = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap failed\n");
         goto f12_bad_1;
     }
-    //printf("addr: %p\n", addr);
+    printf("mmap addr: %p, size: %d\n", addr, size);
 
     int pid = fork();
     if (pid < 0) {
@@ -900,9 +900,10 @@ void file_private_with_fork_test() {
         if (my_strcmp(addr, buf, size) == 0) {
             printf("strcmp child failed\n");
             ret = 1;
+        } else {
+            printf("strcmp child ok\n");
         }
         close(fd);
-        //unlink(filename);
         exit(ret);
     } else {
         int status;
@@ -912,8 +913,11 @@ void file_private_with_fork_test() {
         if (my_strcmp(addr, buf, size) != 0) {
             printf("strcmp parent failed\n");
             goto f12_bad_2;
+        } else {
+            printf("strcmp parent ok\n");
         }
-        int res = munmap((void *)addr, size);
+        printf("parent munmap addr: %p, size: %d", addr, size);
+        int res = munmap(addr, size);
         if (res == -1) {
             printf("munmap failed\n");
             goto f12_bad_1;
@@ -1094,7 +1098,7 @@ void file_mapping_with_offset_test() {
 
     // オフセット 4096 から 200バイトマッピング
     char *addr = mmap((void *)0, (size - 4096), PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 4096);
+                             MAP_PRIVATE, fd, 4096);
     if (addr == MAP_FAILED) {
         printf("mmap failed\n");
         goto f14_bad_1;
@@ -1152,7 +1156,7 @@ void file_given_addr_test() {
     }
 
     char *addr = mmap((void *)(MMAPBASE + 0x1000), 200, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                             MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap failed\n");
         goto f15_bad_1;
@@ -1189,7 +1193,7 @@ void file_invalid_addr_test(void) {
     }
 
     char *addr = mmap((void *)(MMAPBASE - 0x1000), 200, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                             MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap failed\n");
         goto f16_bad_1;
@@ -1229,7 +1233,7 @@ void file_overlap_given_addr_test() {
     }
 
     char *addr = mmap((void *)(MMAPBASE + 0x1000), 8000, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                             MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap failed\n");
         goto f17_bad_1;
@@ -1296,14 +1300,14 @@ void file_intermediate_given_addr_test() {
     }
 
     char *addr = mmap((void *)0, 1000, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                             MAP_PRIVATE, fd, 0);
     if (addr == MAP_FAILED) {
         printf("mmap 1 failed\n");
         goto f18_bad_1;
     }
     //printf("addr=%p\n", addr);
     char *addr2 = mmap((void *)(MMAPBASE + 0x3000), 200, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                              MAP_PRIVATE, fd, 0);
     if (addr2 == MAP_FAILED) {
         printf("mmap 2 failed\n");
         goto f18_bad_2;
@@ -1311,7 +1315,7 @@ void file_intermediate_given_addr_test() {
 
     //printf("addr2=%p\n", addr2);
     char *addr3 = mmap((void *)(MMAPBASE + 0x100), 1000, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                              MAP_PRIVATE, fd, 0);
     if (addr3 == MAP_FAILED) {
         printf("mmap 3 failed\n");
         goto f18_bad_3;
@@ -1376,7 +1380,7 @@ void file_intermediate_given_addr_not_possible_test() {
     }
 
     char *addr = mmap((void *)0, 1000, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                             MAP_PRIVATE, fd, 0);
     //printf("addr =%p\n", addr);
     if (addr == MAP_FAILED) {
         printf("mmap addr failed\n");
@@ -1384,7 +1388,7 @@ void file_intermediate_given_addr_not_possible_test() {
     }
 
     char *addr2 = mmap((void *)(MMAPBASE + 0x3000), 200, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                              MAP_PRIVATE, fd, 0);
     //printf("addr2=%p\n", addr2);
     if (addr2 == MAP_FAILED) {
         printf("mmap addr2 failed\n");
@@ -1392,7 +1396,7 @@ void file_intermediate_given_addr_not_possible_test() {
     }
 
     char *addr3 = mmap((void *)(MMAPBASE + 0x100), 10000, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE, fd, 0);
+                              MAP_PRIVATE, fd, 0);
     //printf("addr3=%p\n", addr3);
     if (addr3 == MAP_FAILED) {
         printf("mmap addr3 failed\n");
@@ -1556,7 +1560,7 @@ void anon_private_test() {
     int size = 10000;
 
     int *p1 = mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                           MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("mmap failed\n");
         goto a1_bad_0;
@@ -1645,7 +1649,7 @@ void anon_private_fork_test() {
     }
     int size = 200;
     char *p1 = mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                     MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);  // Shared mapping
+                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);  // Shared mapping
     if (p1 == MAP_FAILED) {
         printf("mmap failed\n");
         goto a3_bad_0;
@@ -1823,7 +1827,7 @@ void anon_private_shared_fork_test() {
         data2[i] = 'r';
     }
     char *p1 = mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                     MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);  // Private mapping
+                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);  // Private mapping
     if (p1 == MAP_FAILED) {
         printf("anonymous mmap failed\n");
         goto a5_bad_0;
@@ -1913,7 +1917,7 @@ void anon_exceed_count_test(void) {
 
     for (; i < count; i++) {
         char *p1 = mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                         MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+                         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
         arr[i] = p1;
         //printf("arr[%d]=%p\n", i, arr[i]);
         if (p1 == MAP_FAILED) {
@@ -1955,7 +1959,7 @@ void anon_exceed_size_test(void) {
     printf("\n[A-08] anonymous exceed mapping size test\n");
     unsigned long size = (1UL << 48);  // USERTOP
     char *p1 = (char *)mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                             MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+                             MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (p1 != MAP_FAILED) {
         printf("[A-08] failed at mmap: p1=%p\n", p1);
         munmap((void *)p1, size);
@@ -1970,7 +1974,7 @@ void anon_exceed_size_test(void) {
 void anon_zero_size_test(void) {
     printf("\n[A-09] anonymous zero size mapping test\n");
     char *p1 = (char *)mmap((void *)0, 0, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 != MAP_FAILED) {
         printf("[A-09] failed\n");
         munmap((void *)p1, 0);
@@ -1985,7 +1989,7 @@ void anon_zero_size_test(void) {
 void anon_given_addr_test() {
     printf("\n[A-10] anonymous valid provided address test\n");
     char *p1 = (char *)mmap((void *)(MMAPBASE + 0x1000), 200, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("[A-10] failed: at mmap\n");
         anon_ng++;
@@ -2007,7 +2011,7 @@ void anon_invalid_addr_test(void) {
     printf("\n[A-11] anonymous invalid provided address test\n");
 /*
     char *p1 = (char *)mmap((void *)0x50001000, 200, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 != MAP_FAILED) {
         printf("[A-11] failed at mmap\n");
         munmap((void *)p1, 200);
@@ -2026,14 +2030,14 @@ void anon_overlap_given_addr_test() {
 
     printf("\n[A-12] anonymous overlapping provided address test\n");
     char *p1 = (char *)mmap((void *)(MMAPBASE + 0x1000), 10000, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("[A-12] failed: at first mmap\n");
         anon_ng++;
         return;
     }
     char *p2 = (char *)mmap((void *)(MMAPBASE + 0x1000), 200, PROT_READ | PROT_WRITE ,
-                              MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p2 == MAP_FAILED || p2 == (void *)(MMAPBASE + 0x1000)) {
         printf("[A-12] failed at second mmap\n");
         munmap((void *)p1, 10000);
@@ -2063,7 +2067,7 @@ void anon_intermediate_given_addr_test() {
 
     printf("\n[A-13] 中間のアドレスを指定したanonymousマッピング\n");
     char *p1 = (char *)mmap((void *)0, 1000, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("mmap p1 failed\n");
         goto a13_bad_0;
@@ -2071,7 +2075,7 @@ void anon_intermediate_given_addr_test() {
     printf("p1=%p\n", p1);
 
     char *p2 = (char *)mmap((void *)(MMAPBASE + 0x3000), 200, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if (p2 == MAP_FAILED) {
         printf("mmap p2 failed\n");
@@ -2080,7 +2084,7 @@ void anon_intermediate_given_addr_test() {
     printf("p2=%p\n", p2);
 
     char *p3 = (char *)mmap((void *)(MMAPBASE + 0x100), 1000, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p3 == MAP_FAILED) {
         printf("mmap p3 failed\n");
         goto a13_bad_2;
@@ -2130,14 +2134,14 @@ void anon_intermediate_given_addr_not_possible_test() {
     printf(
         "\n[A-14] anonymous intermediate provided address not possible test\n");
     char *p1 = (char *)mmap((void *)0, 1000, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("[A-14] failed at first mmap\n");
         anon_ng++;
         return;
     }
     char *p2 = (char *)mmap((void *)(MMAPBASE + 0x3000), 200, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p2 == MAP_FAILED) {
         printf("[A-14] failed at second mmap\n");
         anon_ng++;
@@ -2145,7 +2149,7 @@ void anon_intermediate_given_addr_not_possible_test() {
         return;
     }
     char *p3 = (char *)mmap((void *)(MMAPBASE + 0x100), 10000, PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p3 == MAP_FAILED) {
         printf("[A-14] failed at second mmap\n");
         anon_ng++;
@@ -2175,7 +2179,7 @@ void munmap_partial_size_test() {
     long error;
 
     int *p1 = (int *)mmap((void *)0, size, PROT_READ | PROT_WRITE,
-                           MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("[O-01] failed at mmap\n");
         other_ng++;
@@ -2288,7 +2292,7 @@ void mmap_valid_map_fixed_test() {
     long error;
 
     char *p1 = mmap((void *)(MMAPBASE + 0x1000), 200, PROT_WRITE | PROT_READ,
-                     MAP_FIXED | MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("[O-04] failed at mmap\n");
         other_ng++;
@@ -2310,7 +2314,7 @@ void mmap_invalid_map_fixed_test() {
     // When the address is less than MMAPBASE（これは現在は無効）
 /*
     char *p1 = mmap((void *)(MMAPBASE - 0x2000), 200, PROT_WRITE | PROT_READ,
-                     MAP_FIXED | MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     printf("p1=%p\n", p1);
     if (p1 != MAP_FAILED) {
         printf("[O-05] failed at mmap 1\n");
@@ -2321,7 +2325,7 @@ void mmap_invalid_map_fixed_test() {
 */
     // When the address is not page aligned
     char *p2 = mmap((void *)(MMAPBASE + 0x100), 200, PROT_WRITE | PROT_READ,
-                      MAP_FIXED | MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                      MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     //printf("p2=%p\n", p2);
     if (p2 != MAP_FAILED) {
         printf("[O-05] failed at mmap 2\n");
@@ -2331,7 +2335,7 @@ void mmap_invalid_map_fixed_test() {
     // Mapping is not possible because other mapping already exists at provided
     // address (MMAPBASEはdash)
     char *p3 = mmap((void *)MMAPBASE, 200, PROT_WRITE | PROT_READ,
-                      MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     //printf("p3=%p\n", p3);
     if (p3 == MAP_FAILED) {
         printf("[O-05] failed mmap 3\n");
@@ -2339,7 +2343,7 @@ void mmap_invalid_map_fixed_test() {
         return;
     }
     char *p4 = mmap(p3, 200, PROT_WRITE | PROT_READ,
-                      MAP_FIXED | MAP_PRIVATE | MAP_POPULATE | MAP_ANONYMOUS, -1, 0);
+                      MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     //printf("p4=%p\n", p4);
     if (p4 != MAP_FAILED) {
         printf("[O-05] failed mmap 4\n");

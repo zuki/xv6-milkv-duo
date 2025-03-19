@@ -210,6 +210,7 @@ uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
         *pte = 0;
     }
     sfence_vma();
+    fence_i();
 }
 
 // 空のユーザページテーブルを作成する.
@@ -508,19 +509,22 @@ int alloc_cow_page(pagetable_t pagetable, uint64_t va)
         return -1;
 
     pte_t *pte = walk(pagetable, va, 0);
-    if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
-        return -1;
+    // COW領域でない
+    if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0) {
+        return 1;
+    }
 
     // COW領域ではない書き込み不可アドレスの書き込み例外: プロセスをkill
-    if (!(*pte & PTE_COW) && !(*pte & PTE_W))
+    if (!(*pte & PTE_COW) && !(*pte & PTE_W)) {
+        debug("*pte DAGU_XWRV = %08b", *pte & 0xff);
         return -1;
+    }
 
     // COW領域ではない書き込み可アドレスの書き込み例外: ここでは何もしない
     if ((*pte & PTE_W) || !(*pte & PTE_COW)) {
         trace("pid[%d] va: 0x%lx not COW", myproc()->pid)
         return 1;
     }
-
 
     uint64_t flags = PTE_FLAGS(*pte);
     uint64_t pa = PTE2PA(*pte);
@@ -552,6 +556,7 @@ int alloc_cow_page(pagetable_t pagetable, uint64_t va)
         fence_i();
         return 0;
     } else {
+        error("unknown error: va=0x%lx", va);
         return -1;
     }
 }

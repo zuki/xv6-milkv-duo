@@ -61,7 +61,8 @@ struct file*    filedup(struct file*);
 void            fileinit(void);
 int             fileread(struct file*, uint64_t, int n, int user);
 int             filestat(struct file*, uint64_t addr);
-int             filewrite(struct file*, uint64_t, int n);
+int             filewrite(struct file *f, uint64_t addr, int n);
+int             writeback(struct file *f, off_t off, uint64_t addr);
 int             fileioctl(struct file*, unsigned long, void *argp);
 long            filelseek(struct file *f, off_t offset, int whence);
 long            filelink(char *old, char *new);
@@ -86,7 +87,7 @@ struct inode*   namei(char*);
 struct inode*   nameiparent(char*, char*);
 int             readi(struct inode *ip, int user_dst, uint64_t dst, uint32_t off, uint32_t n);
 void            stati(struct inode*, struct stat*);
-int             writei(struct inode*, int, uint64_t, uint32_t, uint32_t);
+int             writei(struct inode *ip, int user_src, uint64_t src, uint32_t off, uint32_t n);
 void            itrunc(struct inode*);
 int             unlink(struct inode *dp, uint32_t off);
 int             getdents(struct file *f, uint64_t data, size_t size);
@@ -119,7 +120,8 @@ void            print_mmap_list(struct proc *p, const char *title);
 void            free_mmap_list(struct proc *p);
 long            copy_mmap_regions(struct proc *parent, struct proc *child);
 struct mmap_region  *find_mmap_region(struct proc *p, void *start);
-long            alloc_mmap_page(struct proc *p, uint64_t addr);
+bool            is_mmap_region(struct proc *p, void *addr, uint64_t length);
+long            alloc_mmap_page(struct proc *p, uint64_t addr, uint64_t scause);
 
 // page.c
 void            page_init(void);

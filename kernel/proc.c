@@ -367,7 +367,7 @@ int fork(void)
         return -ENOMEM;
     }
 
-    // Copy user memory from parent to child.
+    // 親プロセスから子プロセスにユーザメモリをコピーする.
     trace("uvmcopy pid[%d] to new_pid[%d]", p->pid, np->pid);
     if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
         freeproc(np);
@@ -376,6 +376,7 @@ int fork(void)
         return -ENOMEM;
     }
 
+    // 親プロセスから子プロセスにmmap_regionsをコピーする
     if ((ret = copy_mmap_regions(p, np)) < 0) {
         //debug("ret=%d", ret);
         uvmfree(np->pagetable, np->sz);
@@ -384,7 +385,6 @@ int fork(void)
         error("failed copy_mmap_regions");
         return ret;
     }
-    print_mmap_list(np, "new proc");
 
     np->sz = p->sz;
     np->pgid = p->pgid;
@@ -399,7 +399,7 @@ int fork(void)
     np->trapframe->a0 = 0;
 
     // increment reference counts on open file descriptors.
-    for(i = 0; i < NOFILE; i++)
+    for (i = 0; i < NOFILE; i++)
         if (p->ofile[i])
             np->ofile[i] = filedup(p->ofile[i]);
     np->fdflag = p->fdflag;
@@ -431,6 +431,7 @@ static void reparent(struct proc *p)
 
     for (pp = proc; pp < &proc[NPROC]; pp++) {
         if (pp->parent == p) {
+            debug("pid[%d] reparent", pp->pid);
             pp->parent = initproc;
             wakeup(initproc);
         }
@@ -450,20 +451,24 @@ exit(int status)
         panic("init exiting");
 
     // mappingを解除する
+    //print_mmap_list(p, "before exit");
     if (p->regions) {
-        long ret = 0;
         struct mmap_region *region = p->regions;
         while (region) {
-            ret += munmap(region->addr, region->length);
+            if (region->f)
+                trace("pid[%d] f->ip: %d refcnt[1]: %d", p->pid, region->f->ip->inum, region->f->ip->ref);
+            munmap(region->addr, region->length);
             region = region->next;
         }
         p->regions = NULL;
     }
+    //print_mmap_list(p, "after  exit");
 
     // Close all open files.
     for (int fd = 0; fd < NOFILE; fd++) {
         if (p->ofile[fd]) {
             struct file *f = p->ofile[fd];
+            trace("pid[%d] f->ip: %d refcnt[2]: %d", p->pid, f->ip->inum, f->ip->ref);
             fileclose(f);
             p->ofile[fd] = 0;
         }
@@ -481,6 +486,7 @@ exit(int status)
     reparent(p);
 
     // Parent might be sleeping in wait().
+    trace("pid[%d] wakup parent[%d]", p->pid, p->parent->pid);
     wakeup(p->parent);
 
     acquire(&p->lock);
@@ -496,19 +502,18 @@ exit(int status)
     panic("zombie exit");
 }
 
-// Wait for a child process to exit and return its pid.
-// Return -1 if this process has no children. int *status, struct rusage *ru
+// 子プロセスがexitするのを待ち、そのpidを返す.
+// このプロセスが子を持たいない場合、-1 を返す。
 int
 wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
 {
     struct proc *pp;
-    int rpid, kids;
+    int rpid, kids = 0, xstate;
     struct proc *p = myproc();
 
     acquire(&wait_lock);
     while(1) {
-        kids = 0;
-        // Scan through table looking for exited children.
+        // プロセステーブルを走査してexitした子プロセスを見つける
         for (pp = proc; pp < &proc[NPROC]; pp++) {
             if (pp->parent != p) continue;
             if (pid > 0) {
@@ -528,7 +533,7 @@ wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
                 || (options & WNOHANG)) {
                 if (status) {
                     // status = xstatus << 8 || 0x0 (終了ステータス | exitで終了)
-                    int xstate = ((pp->xstate & 0xff) << 8);
+                    xstate = ((pp->xstate & 0xff) << 8);
                     if (copyout(p->pagetable, status, (char *)&xstate,
                                         sizeof(int)) < 0) {
                         release(&pp->lock);
@@ -549,16 +554,19 @@ wait4(pid_t pid, uint64_t status, int options, uint64_t ru)
                 freeproc(pp);
                 release(&pp->lock);
                 release(&wait_lock);
-                //debug("p[%d]: status: %d, rpid: %d", p->pid, *status, rpid);
+                trace("pid[%d] was exit: xstate: 0x%x", rpid, xstate);
                 return rpid;
             }
             release(&pp->lock);
         }
+        // pは子を持たない、またはpがkillされた
         if (!kids || killed(p)) {
             release(&wait_lock);
             return -ECHILD;
         }
+
         // Wait for a child to exit.
+        trace("pid[%d] sleep for exit", p->pid)
         sleep(p, &wait_lock);  //DOC: wait-sleep
     }
 }
@@ -1076,7 +1084,7 @@ long sigprocmask(int how, sigset_t *set, uint64_t oldset)
                 ret = -EINVAL;
         }
     }
-    trace(" newmask=0x%lx", signal->mask);
+    trace("pid[%d]: newmask=0x%lx", myproc()->pid, signal->mask);
     release(&q.siglock);
     return ret;
 }

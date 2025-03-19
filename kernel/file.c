@@ -210,6 +210,30 @@ filewrite(struct file *f, uint64_t addr, int n)
     return ret;
 }
 
+// 書き込みのあったMAP_SHAREのmmap領域の1ページをファイルに書き戻す
+// 書き戻しはファイルのサイズ内部分のみ行う。サイズ外の変更は無視する。
+
+int writeback(struct file *f, off_t off, uint64_t addr)
+{
+    int r;
+    struct timespec ts;
+
+    if (f->writable == 0 || f->type != FD_INODE) {
+        return 0;
+    }
+
+    uint32_t n = off + PGSIZE > f->ip->size ? f->ip->size - off : PGSIZE;
+    begin_op();
+    ilock(f->ip);
+    r = writei(f->ip, 1, addr, off, n);
+    rtc_gettime(&ts);
+    f->ip->mtime = f->ip->atime = ts;
+    iunlock(f->ip);
+    end_op();
+    trace("addr: 0x%lx, off: 0x%lx, n: %d, r: %d", addr, off, n, r);
+    return r == n ? r : -1;
+}
+
 // ioctl request with arg from/to f
 int fileioctl(struct file *f, unsigned long request, void *argp)
 {

@@ -26,6 +26,7 @@ static void delete_mmap_node(struct proc *p, struct mmap_region *node)
     //print_mmap_list(p, "delete node before");
 
     struct mmap_region *region, *prev;
+    // nodeがp->regionsの先頭region
     if (node->addr == p->regions->addr) {
         if (p->regions->next != NULL)
             p->regions = p->regions->next;
@@ -157,7 +158,7 @@ static long map_file_page(struct proc *p, void *addr, uint64_t perm, struct file
     }
 
     // メモリをユーザプロセスにマッピング
-    debug("- map_region: addr=%p, mem=%p", addr, mem);
+    trace("pid[%d] mapping: addr=%p, mem=%p, offset: 0x%x, len: 0x%x", p->pid, addr, mem, offset, len);
     if ((error = mappages(p->pagetable, (uint64_t)addr, PGSIZE, (uint64_t)mem, perm)) < 0) {
         //cprintf("map_pagecache_page: map_region failed\n");
         kfree(mem);
@@ -177,7 +178,7 @@ static long map_anon_page(struct proc *p, void *addr, uint64_t perm)
         return -ENOMEM;
     }
     memset(page, 0, PGSIZE);
-    debug("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr, page, perm);
+    trace("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr, page, perm);
     if (mappages(p->pagetable, (uint64_t)addr, PGSIZE, (uint64_t)page, perm) < 0) {
         kfree(page);
         return -EINVAL;
@@ -222,7 +223,7 @@ static long scale_mmap_region(struct mmap_region *region, uint64_t size)
 // struct mmap_region listを出力
 void print_mmap_list(struct proc *p, const char *title)
 {
-    printf("== PRINT mmap_region[%d] (%s): regions=%p ==\n", p->pid, title, p->regions);
+    printf("[INFO] pid[%d]: mmap_region list (%s) at %p\n", p->pid, title, p->regions);
 
     struct mmap_region *region = p->regions;
     int i=0;
@@ -254,24 +255,22 @@ long copy_mmap_regions(struct proc *parent, struct proc *child)
         copy_mmap_region(region, node);
 
         // mmap_regionに該当するpagetableのコピー
+        // MAP_SHARED以外のnodeはコピーしない
+
         va = (uint64_t)node->addr;
         for (; va < (uint64_t)node->addr + node->length; va += PGSIZE) {
-            // MAP_SHARED以外のnodeはコピーしない
             if ((node->flags & MAP_SHARED) == 0)
                 continue;
-
             pa = walkaddr(parent->pagetable, va);
-            // 親プロセスがメモリ/ファイルにマッピングしていなけば子プロセスもしない
-            if (pa == 0) {
+            // 親プロセスがメモリ/ファイルをマップしていなけば子プロセスもしない
+            if (pa == 0)
                 continue;
-            }
 
             uint64_t perm = get_perm(node->prot, node->flags);
             if (mappages(child->pagetable, va, PGSIZE, pa, perm) < 0) {
                 error("mmapages failed");
                 goto err;
             }
-
             // 物理ページの参照カウンタをincrement
             page_refcnt_inc((void *)pa);
         }
@@ -286,6 +285,7 @@ long copy_mmap_regions(struct proc *parent, struct proc *child)
     }
 
     child->regions = cnode;
+
     return 0;
 
 err:
@@ -317,7 +317,7 @@ bool is_mmap_region(struct proc *p, void *addr, uint64_t length)
 
 // 遅延mapを実装（trap.cから呼び出される）
 // 該当するアドレスを含む1ページ分の割り当て/ファイル読み込みをする
-long alloc_mmap_page(struct proc *p, uint64_t addr) {
+long alloc_mmap_page(struct proc *p, uint64_t addr,  uint64_t scause) {
     off_t offset = 0;
 
     uint64_t rounddown = PGROUNDDOWN(addr);
@@ -326,6 +326,12 @@ long alloc_mmap_page(struct proc *p, uint64_t addr) {
         error("no region with addr 0x%lx", addr);
         return -1;
     }
+
+    if (scause == SCAUSE_PAGE_STORE && (region->prot & PROT_WRITE) == 0) {
+        error("region is not writable");
+        return -1;
+    }
+
     // ファイルオフセットの計算
     if (region->f) {
         offset = region->offset + ((rounddown - (uint64_t)region->addr) / PGSIZE) * PGSIZE;
@@ -432,7 +438,7 @@ select_addr:
     if (f) {
         filedup(f);
         if (!(flags & MAP_ANONYMOUS)) {
-            region->f = f;         // FIXEME: raspiではfiledup(f)としていた
+            region->f = filedup(f);  // munmapとofile-closeで2回decrementされる
         } else {
             goto out;
         }
@@ -473,7 +479,7 @@ set_region:
     region->addr = addr;
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
-    print_mmap_list(p, "mmap");
+    //print_mmap_list(p, "mmap");
     return (long)region->addr;
 
 out:
@@ -486,7 +492,6 @@ out:
 long munmap(void *addr, size_t length)
 {
     struct proc *p = myproc();
-    long error;
 
     // addrはページ境界になければならない
     if ((uint64_t)addr & (PGSIZE - 1))
@@ -494,7 +499,7 @@ long munmap(void *addr, size_t length)
     // lengthは境界になくてもよいが、処理は境界に合わせる
     length = PGROUNDUP(length);
 
-    trace("addr=%p, length=0x%x", addr, length);
+    trace("pid[%d] addr=%p, length=0x%x", p->pid, addr, length);
 
     struct mmap_region *region = find_mmap_region(p, addr);
     if (region == NULL) {
@@ -502,35 +507,49 @@ long munmap(void *addr, size_t length)
         return 0;
     }
 
+    if (region->length < length) {
+        warn("length 0x%lx is bigger than region->length 0x%lx", length, region->length);
+        return -EINVAL;
+    }
     trace(" - found: addr=%p", region->addr);
-    // map_regionをすべて削除
-    // 背後にあるファイルを書き戻す
-    // FIXME: バッファページのdirtyフラグを見て変更のあったページのみ書き戻す
-    if ((region->flags & MAP_SHARED) && region->f && (region->prot & PROT_WRITE)) {
-        begin_op();
-        error = writei(region->f->ip, 1, (uint64_t)region->addr, (uint32_t)region->offset, (uint32_t)region->length);
-        end_op();
-        if (error < 0) {
-            return error;
+    // MAP_SHARED領域で背後にあるファイルに書き込みがあったら書き戻す
+    //int len = (f->ip->size - f->off) > PGSIZE ? PGSIZE : (f->ip->size - f->off);
+    if (region->flags & MAP_SHARED) {
+        for (uint64_t ra = (uint64_t)addr; ra < (uint64_t)addr + length; ra += PGSIZE) {
+            pte_t *pte = walk(p->pagetable, ra, 0);
+            if (!pte) panic("no pte");
+            uint64_t flags = PTE_FLAGS(*pte);
+            if (flags & PTE_D) {
+                if (writeback(region->f, region->offset + ra - (uint64_t)region->addr, ra) < 0) {
+                    error("failed writeback");
+                    return -EACCES;
+                }
+            }
         }
     }
 
-    if (region->length <= length) {
+    // mmap_regionを全部削除
+    if (region->length == length) {
+        trace("delete WHOLE");
         if (region->f) {
             fileclose(region->f);
         }
         delete_mmap_node(p, region);
-    // map_regionの一部を削除
+    // mmap_regionの一部を削除
     } else {
-        trace("uvmumap: pid=%d, addr=%p", p->pid, addr);
+        trace("delete PART");
         uvmunmap(p->pagetable, (uint64_t)addr, length / PGSIZE, 1);
-        region->addr += length;
+        if (region->addr == addr) {
+            region->addr += length;
+            region->offset += length;
+        }
         region->length -= length;
         trace("new region: addr=%p, length=0x%x", region->addr, region->length);
     }
+    //print_mmap_list(p, "munmap");
+    //uvmdump(p->pagetable, p->pid, "munmap");
     return 0;
 }
-
 
 void *mremap(void *old_addr, size_t old_length, size_t new_length, int flags, void *new_addr)
 {

@@ -377,7 +377,7 @@ iput(struct inode *ip)
         ip->type = 0;
         iupdate(ip);
         ip->valid = 0;
-
+        debug("ip %d was freed", ip->inum);
         releasesleep(&ip->lock);
 
         acquire(&itable.lock);

@@ -81,21 +81,19 @@ usertrap(void)
         trace("epc: 0x%lx, sp: 0x%lx, tp: 0x%lx, a0: 0x%lx", p->trapframe->epc, p->trapframe->sp, p->trapframe->tp, p->trapframe->a0);
     // 13: ページアクセス例外 (load)
     } else if (scause == SCAUSE_PAGE_LOAD) {
-        uint64_t addr = r_stval();
-        debug("LOAD: pid[%d] alloc page: addr=0x%lx", p->pid, addr);
-        if (alloc_mmap_page(p, addr) < 0) {
-            error("LOAD: alloc page failed addr=0x%lx", addr);
+        trace("pid[%d] LOAD: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
+        if (alloc_mmap_page(p, stval, scause) < 0) {
+            error("pid[%d] LOAD: alloc page failed");
             setkilled(p);
         }
     // 15: ページアクセス例外 (store)
     } else if (scause == SCAUSE_PAGE_STORE) {
-        uint64_t addr = r_stval();
-        trace("pid[%d] alloc page addr=0x%lx", p->pid, addr);
-        if ((ret = alloc_cow_page(p->pagetable, addr)) < 0) {
-            error("COW: alloc page failed addr=0x%lx", addr);
+        trace("pid[%d] STORE: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
+        if ((ret = alloc_cow_page(p->pagetable, stval)) < 0) {
+            error("pid[%d] COW: alloc page failed");
             setkilled(p);
-        } else if (ret == 1 && alloc_mmap_page(p, addr) < 0) {
-            error("STORE: alloc page failed addr=0x%lx", addr);
+        } else if (ret == 1 && alloc_mmap_page(p, stval, scause) < 0) {
+            error("pid[%d] STORE: alloc page failed");
             setkilled(p);
         }
     } else if ((which_dev = devintr()) != 0) {
@@ -107,7 +105,7 @@ usertrap(void)
 
     if (killed(p)) {
         int xstate = p->xstate ? p->xstate : -1;
-        trace("pid[%d] was killed, xstate: %d", p->pid, xstate);
+        debug("pid[%d] was killed, xstate: %d", p->pid, xstate);
         exit(xstate);
     }
 
