@@ -519,12 +519,15 @@ long munmap(void *addr, size_t length)
             pte_t *pte = walk(p->pagetable, ra, 0);
             if (!pte) panic("no pte");
             uint64_t flags = PTE_FLAGS(*pte);
+            off_t offset = region->offset + ra - (uint64_t)region->addr;
             if (flags & PTE_D) {
-                if (writeback(region->f, region->offset + ra - (uint64_t)region->addr, ra) < 0) {
+                if (writeback(region->f, offset, ra) < 0) {
                     error("failed writeback");
                     return -EACCES;
                 }
             }
+            if (region->f->ip->size <= offset + PGSIZE)
+                break;
         }
     }
 
