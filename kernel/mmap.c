@@ -120,12 +120,23 @@ static int is_usable(void *addr, size_t length)
 {
     struct proc *p = myproc();
 
+    // MMAPBASE未満のアドレスは使用不可
+    if (addr <= (void *)MMAPBASE)
+        return 0;
+
     struct mmap_region *cursor = p->regions;
+    // regionが一つも作成されていなければ使用可能
+    if (cursor == NULL)
+        return 1;
+
     while (cursor) {
-        // 1: 右端が最左のregionより小さい
+        // 1. 使用済み
+        if (addr == cursor->addr)
+            return 0;
+        // 2: 右端が最左のregionより小さい
         if (addr + length <= cursor->addr)
             return 1;
-        // 2: 左端が最左のregionより大きい、かつ、次のregionがないか、右端が次のregionより小さい
+        // 3: 左端が最左のregionより大きい、かつ、次のregionがないか、右端が次のregionより小さい
         if (cursor->addr + cursor->length <= addr && (cursor->next == 0 || addr + length <= cursor->next->addr))
             return 1;
         cursor = cursor->next;
