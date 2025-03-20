@@ -30,9 +30,9 @@
 
 static struct termios termios;
 
-// send one character to the uart.
-// called by printf(), and to echo input characters,
-// but not from write().
+// uartに1文字送信する.
+// pritf()と入力文字をエコーする際に呼び出されるが、
+// write()からは呼び出されない。
 //
 void
 consputc(int c)
@@ -83,7 +83,7 @@ static void set_default_termios(struct termios *termios)
 }
 
 //
-// user write()s to the console go here.
+// ユーザがコンソールにwrite()した際はこの関数が呼び出される.
 //
 int
 consolewrite(int user_src, uint64_t src, int n)
