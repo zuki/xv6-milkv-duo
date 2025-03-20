@@ -139,10 +139,9 @@ fs.img: mkfs/mkfs test.txt $(UPROGS)
 
 clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*/*.o */*.d */*.asm */*.sym \
 	$U/initcode $U/initcode.out $K/kernel $K/kernel.bin $K/kernel.ld fs.img \
 	mkfs/mkfs .gdbinit
-
+#	*/*.o */*.d */*.asm */*.sym \
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
