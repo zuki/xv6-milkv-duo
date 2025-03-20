@@ -24,6 +24,7 @@ OBJ = ../obj/usr
 #CFLAGS = -march=rv64gcxthead -std=gnu99 -Os -static -MMD -MP -z max-page-size=4096 -fmerge-all-constants
 CFLAGS = -std=gnu99 -Os -fno-pie -MMD -MP -z max-page-size=4096 -fmerge-all-constants
 CFLAGS += -fno-omit-frame-pointer
+CFLAGS += -fno-builtin
 
 LDFLAGS = -static -z norelro
 
