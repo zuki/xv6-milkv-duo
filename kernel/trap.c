@@ -83,17 +83,17 @@ usertrap(void)
     } else if (scause == SCAUSE_PAGE_LOAD) {
         trace("pid[%d] LOAD: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
         if (alloc_mmap_page(p, stval, scause) < 0) {
-            error("pid[%d] LOAD: alloc page failed");
+            error("pid[%d] LOAD: alloc page failed", p->pid);
             setkilled(p);
         }
     // 15: ページアクセス例外 (store)
     } else if (scause == SCAUSE_PAGE_STORE) {
         trace("pid[%d] STORE: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
         if ((ret = alloc_cow_page(p->pagetable, stval)) < 0) {
-            error("pid[%d] COW: alloc page failed");
+            error("pid[%d] COW: alloc page failed", p->pid);
             setkilled(p);
         } else if (ret == 1 && alloc_mmap_page(p, stval, scause) < 0) {
-            error("pid[%d] STORE: alloc page failed");
+            error("pid[%d] STORE: alloc page failed", p->pid);
             setkilled(p);
         }
     } else if ((which_dev = devintr()) != 0) {
