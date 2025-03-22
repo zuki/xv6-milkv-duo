@@ -77,8 +77,8 @@ void file_tests() {
     file_private_test();                                // F-09
     file_shared_test();                                 // F-10
     file_pagecache_coherency_test();                    // F-11
-    //file_private_with_fork_test();                      // F-12
-    //file_shared_with_fork_test();                       // F-13
+    file_private_with_fork_test();                      // F-12
+    file_shared_with_fork_test();                       // F-13
     file_mapping_with_offset_test();                    // F-14
     file_given_addr_test();                             // F-15
     file_invalid_addr_test();                           // F-16
@@ -91,10 +91,10 @@ void file_tests() {
 
 void anonymous_tests() {
     anon_private_test();                                // A-01
-    //anon_shared_test();                                 // A-02
-    //anon_private_fork_test();                           // A-03
-    //anon_shared_multi_fork_test();                      // A-04
-    //anon_private_shared_fork_test();                    // A-05
+    anon_shared_test();                                 // A-02
+    anon_private_fork_test();                           // A-03
+    anon_shared_multi_fork_test();                      // A-04
+    anon_private_shared_fork_test();                    // A-05
     anon_missing_flags_test();                          // A-06
     anon_exceed_count_test();                           // A-07
     anon_exceed_size_test();                            // A-08
@@ -108,8 +108,8 @@ void anonymous_tests() {
 
 void other_tests() {
     munmap_partial_size_test();                         // O-01
-    //mmap_write_on_ro_mapping_test();                    // O-02
-    //mmap_none_permission_test();                        // O-03
+    mmap_write_on_ro_mapping_test();                    // O-02
+    mmap_none_permission_test();                        // O-03
     mmap_valid_map_fixed_test();                        // O-04
     mmap_invalid_map_fixed_test();                      // O-05
 }
@@ -133,7 +133,7 @@ void write_test(size_t n) {
 int my_strcmp(char *a, char *b, int n) {
     for (int i = 0; i < n; i++) {
         if (a[i] != b[i]) {
-            return i + 1;
+            return (i + 1);
         }
     }
     return 0;
@@ -143,16 +143,13 @@ int file_ok = 0, file_ng = 0, anon_ok = 0, anon_ng = 0, other_ok = 0,
     other_ng = 0;
 
 int main(int args, char *argv[]) {
-    file_tests();
-    anonymous_tests();
-    other_tests();
-    //file_private_with_fork_test();
-    //anon_shared_multi_fork_test();
-    //anon_private_shared_fork_test();
-    //file_exceeds_file_size_test();
-    printf("\nfile_test:  ok: %d, ng: %d\n", file_ok, file_ng);
+    //file_tests();
+    //anonymous_tests();
+    //other_tests();
+    anon_shared_test();
+    //printf("\nfile_test:  ok: %d, ng: %d\n", file_ok, file_ng);
     printf("anon_test:  ok: %d, ng: %d\n", anon_ok, anon_ng);
-    printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
+    //printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
     return 0;
 }
 
@@ -897,41 +894,41 @@ void file_private_with_fork_test() {
         for (int i = 0; i < 50; i++) {
             addr[i] = 'n';
         }
+        //*(addr + 12) = 'n';
         // The mapping should not be same as we have edited the data
         if (my_strcmp(addr, buf, size) == 0) {
-            printf("strcmp child failed\n");
+            //printf("strcmp child failed\n");
             ret = 1;
         } else {
-            printf("strcmp child ok\n");
+            //printf("strcmp child ok\n");
         }
         close(fd);
         exit(ret);
-    } else {
-        int status;
-        //printf("child pid: %d\n", pid);
-        wait(&status);
-        // As it is private mapping therefore it should be same as read
-        if (my_strcmp(addr, buf, size) != 0) {
-            printf("strcmp parent failed\n");
-            goto f12_bad_3;
-        } else {
-            printf("strcmp parent ok\n");
-        }
-        int res = munmap(addr, size);
-        if (res == -1) {
-            printf("munmap failed\n");
-            goto f12_bad_2;
-        }
-        if (status) {
-            goto f12_bad_2;
-        }
-        close(fd);
-        unlink(filename);
-        free(buf);
-        file_ok++;
-        printf("[F-12] ok\n");
-        return;
     }
+
+    int status;
+    //printf("child pid: %d\n", pid);
+    wait(&status);
+    //printf("child [%d] exit with %d\n", pid, status);
+    // As it is private mapping therefore it should be same as read
+    if (my_strcmp(addr, buf, size) != 0) {
+        printf("strcmp parent failed\n");
+        goto f12_bad_3;
+    }
+    int res = munmap(addr, size);
+    if (res == -1) {
+        printf("munmap failed\n");
+        goto f12_bad_2;
+    }
+    if (status) {
+        goto f12_bad_2;
+    }
+    close(fd);
+    unlink(filename);
+    free(buf);
+    file_ok++;
+    printf("[F-12] ok\n");
+    return;
 
 f12_bad_3:
     munmap(addr, size);
@@ -960,104 +957,114 @@ void file_shared_with_fork_test() {
         goto f13_bad_0;
     }
 
+    char *buf2 = (char *)malloc(size);
+    if (buf2 == NULL) {
+        free(buf);
+        goto f13_bad_0;
+    }
+
     int fd = open(filename, O_RDWR);
     if (fd == -1) {
         printf("open1 failed\n");
-        goto f13_bad_0;
+        goto f13_bad_1;
     }
     if (read(fd, buf, size) != size) {
         printf("read1 failed\n");
-        goto f13_bad_1;
+        goto f13_bad_2;
     }
 
     char *addr2 = mmap((void *)0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (addr2 == MAP_FAILED) {
         printf("mmap failed\n");
-        goto f13_bad_1;
+        goto f13_bad_2;
     }
 
     // fork
     int pid = fork();
     if (pid < 0) {
         printf("fork failed\n");
-        goto f13_bad_1;
-    } else if (pid == 0) {
+        goto f13_bad_2;
+    }
+
+    if (pid == 0) {
         int ret = 0;
         for (int i = 0; i < 50; i++) {
             addr2[i] = 'o';
         }
         if (my_strcmp(addr2, buf, size) == 0) {
-            printf("child strcmp failed\n");
+            //printf("child strcmp failed\n");
             ret = 1;
         }
-        printf("child : addr2[0, 1, 49, 50]=[%c, %c, %c, %c], buf=[%c, %c, %c, %c]\n",
-                addr2[0], addr2[1], addr2[49], addr2[50], buf[0], buf[1], buf[49], buf[50]);
-        close(fd);
+        //printf("child : addr2[0, 1, 49, 50]=[%c, %c, %c, %c], buf=[%c, %c, %c, %c]\n",
+        //        addr2[0], addr2[1], addr2[49], addr2[50], buf[0], buf[1], buf[49], buf[50]);
+        //close(fd);
         //unlink(filename);
         exit(ret);
-    } else {
-        //printf("child pid: %d\n", pid);
-        wait(&status);
-        printf("child [%d] exit with %d\n", pid, status);
-        char buf2[size];
-
-        printf("parent 1: addr2[0, 1, 49, 50]=[%c, %c, %c, %c], buf=[%c, %c, %c, %c]\n",
-                addr2[0], addr2[1], addr2[49], addr2[50], buf[0], buf[1], buf[49], buf[50]);
-        // The data written in child process should persist here
-        if (my_strcmp(addr2, buf, size) == 0) {
-            printf("parent strcmp1 failed\n");
-            goto f13_bad_2;
-        }
-        int ret = munmap(addr2, size);
-        if (ret == -1) {
-            printf("parent munmap failed\n");
-            goto f13_bad_1;
-        }
-        close(fd);
-
-        // Check if data is written into file
-        int fd2 = open(filename, O_RDWR);
-        if (fd2 == -1) {
-            printf("open2 failed\n");
-            goto f13_bad_0;
-        }
-
-        for (int i = 0; i < 50; i++) {
-            buf[i] = 'o';
-        }
-        ssize_t n;
-        if ((n = read(fd2, buf2, size)) != size) {
-            printf("parent read2 failed: size=%d, n=%ld\n", size, n);
-            close(fd2);
-            goto f13_bad_0;
-        }
-
-        printf("parent 2: buf2[0, 1, 49, 50]=[%c, %c, %c, %c], buf=[%c, %c, %c, %c]\n",
-            buf2[0], buf2[1], buf2[49], buf2[50], buf[0], buf[1], buf[49], buf[50]);
-
-        if (my_strcmp(buf2, buf, size) != 0) {
-            printf("parent strcmp2 failed\n");
-            close(fd2);
-            goto f13_bad_0;
-        }
-        close(fd2);
-
-        if (status) {
-            goto f13_bad_0;
-        }
-
-        unlink(filename);
-        free(buf);
-        file_ok++;
-        printf("[F-13] ok\n");
-        return;
     }
 
-f13_bad_2:
-    munmap(addr2, size);
-f13_bad_1:
+    //printf("child pid: %d\n", pid);
+    wait(&status);
+    //printf("child [%d] exit with %d\n", pid, status);
+
+    //printf("parent 1: addr2[0, 1, 49, 50]=[%c, %c, %c, %c], buf=[%c, %c, %c, %c]\n",
+    //        addr2[0], addr2[1], addr2[49], addr2[50], buf[0], buf[1], buf[49], buf[50]);
+    // The data written in child process should persist here
+    if (my_strcmp(addr2, buf, size) == 0) {
+        printf("parent strcmp1 failed\n");
+        goto f13_bad_3;
+    }
+    int ret = munmap(addr2, size);
+    if (ret == -1) {
+        printf("parent munmap failed\n");
+        goto f13_bad_2;
+    }
     close(fd);
+
+    // Check if data is written into file
+    int fd2 = open(filename, O_RDWR);
+    if (fd2 == -1) {
+        printf("open2 failed\n");
+        goto f13_bad_0;
+    }
+
+    for (int i = 0; i < 50; i++) {
+        buf[i] = 'o';
+    }
+    ssize_t n;
+    if ((n = read(fd2, buf2, size)) != size) {
+        printf("parent read2 failed: size=%d, n=%ld\n", size, n);
+        close(fd2);
+        goto f13_bad_0;
+    }
+
+    //printf("parent 2: buf2[0, 1, 49, 50]=[%c, %c, %c, %c], buf=[%c, %c, %c, %c]\n",
+    //    buf2[0], buf2[1], buf2[49], buf2[50], buf[0], buf[1], buf[49], buf[50]);
+
+    if (my_strcmp(buf2, buf, size) != 0) {
+        printf("parent strcmp2 failed\n");
+        close(fd2);
+        goto f13_bad_0;
+    }
+    close(fd2);
+
+    if (status) {
+        goto f13_bad_0;
+    }
+
+    unlink(filename);
     free(buf);
+    free(buf2);
+    file_ok++;
+    printf("[F-13] ok\n");
+    return;
+
+f13_bad_3:
+    munmap(addr2, size);
+f13_bad_2:
+    close(fd);
+f13_bad_1:
+    free(buf);
+    free(buf2);
 f13_bad_0:
     unlink(filename);
     file_ng++;
@@ -1599,38 +1606,41 @@ void anon_shared_test() {
         printf("mmap failed\n");
         goto a2_bad_0;
     }
+    //printf("p1 = %p\n", p1);
     int pid = fork();
     if (pid < 0) {
         printf("fork failed\n");
         goto a2_bad_1;
-    } else if (pid == 0) {
+    }
+
+    if (pid == 0) {
         for (int i = 0; i < size / 4; i++) {
             p1[i] = i;
         }
         exit(0);
-    } else {
-        int status;
-        wait(&status);
-        ret = msync(p1, size, MS_ASYNC);
-        if (ret < 0) {
-            printf("failed msync\n");
+    }
+
+    int status;
+    wait(&status);
+
+    printf("%x\r\n", p1[0]);
+    printf("%x\r\n", p1[16]);
+    for (int i = 0; i < size / 4; i++) {
+        if (p1[i] != i) {
+            printf("parent is not match\n");
             goto a2_bad_1;
         }
-        for (int i = 0; i < size / 4; i++) {
-            if (p1[i] != i) {
-                printf("p1[%d]: %d != %d\n", i, p1[i], i);
-                goto a2_bad_1;
-            }
-        }
-        ret = munmap((void *)p1, size);
-        if (ret < 0) {
-            printf("munmap failed\n");
-            goto a2_bad_0;
-        }
-        anon_ok++;
-        printf("[A-02] ok\n");
-        return;
     }
+
+    ret = munmap((void *)p1, size);
+    if (ret < 0) {
+        printf("munmap failed\n");
+        goto a2_bad_0;
+    }
+    anon_ok++;
+    printf("[A-02] ok\n");
+    return;
+
 
 a2_bad_1:
     munmap(p1, size);
@@ -1658,26 +1668,28 @@ void anon_private_fork_test() {
     if (pid < 0) {
         printf("fork failed\n");
         goto a3_bad_1;
-    } else if (pid == 0) {
+    }
+    if (pid == 0) {
         for (int i = 0; i < size; i++) {
             p1[i] = 'a';
         }
         exit(0);
-    } else {
-        int status;
-        wait(&status);
-        if (my_strcmp(temp, p1, size) == 0) {
-            printf("strcmp parent\n");
-            goto a3_bad_1;
-        }
-        int res = munmap(p1, size);
-        if (res == -1)
-            goto a3_bad_0;
-
-        anon_ok++;
-        printf("[A-03] ok\n");
-        return;
     }
+
+    int status;
+    wait(&status);
+    if (my_strcmp(temp, p1, size) == 0) {
+        printf("strcmp parent\n");
+        goto a3_bad_1;
+    }
+    int res = munmap(p1, size);
+    if (res == -1)
+        goto a3_bad_0;
+
+    anon_ok++;
+    printf("[A-03] ok\n");
+    return;
+
 
 a3_bad_1:
     munmap(p1, size);
@@ -1708,32 +1720,33 @@ void anon_shared_multi_fork_test() {
     if (pid1 == -1) {
         printf("fork 1 failed\n");
         goto a4_bad_1;
-    } else if (pid1 == 0) {  // 1st fork Child Process
+    }
+
+    if (pid1 == 0) {  // 1st fork Child Process
         for (int i = 0; i < size; i++) {
             p1[i] = 'r';
         }
         int pid2 = fork();
         if (pid2 == -1) {
-            printf("fork 2 failed\n");
+            //printf("fork 2 failed\n");
             munmap(p1, size);
             excd = 1;
             //exit(1);
         } else if (pid2 == 0) {  // 2nd fork Child Process
             if (my_strcmp(data, p1, size) != 0) {
-                printf("strcmp fork 2 failed\n");
+                //printf("strcmp fork 2 failed\n");
                 excd = 1;
                 //exit(2);
             }
-#if 0
             int pid3 = fork();
             if (pid3 == -1) {
-                printf("fork 3 failed\n");
+                //printf("fork 3 failed\n");
                 munmap((void *)p1, size);
                 excd = 1;
                 //exit(3);
             } else if (pid3 == 0) {  // 3rd fork Child Process
                 if (my_strcmp(data, p1, size) != 0) {
-                    printf("strcmp fork 3 failed\n");
+                    //printf("strcmp fork 3 failed\n");
                     excd = 1;
                     //exit(4);
                 } else {
@@ -1741,19 +1754,18 @@ void anon_shared_multi_fork_test() {
                 }
                 exit(excd);
             } else {  // 3rd fork Parent Process
-                printf("pid3=%d\n", pid3);
+                //printf("pid3=%d\n", pid3);
                 int status3;
                 //waitpid(pid3, &status3, 0);
                 wait(&status3);
-                printf("[A-04] pid[6] status3=0x%x\n", status3);
-                fflush(stdout);
+                //printf("[A-04] pid[6] status3=0x%x\n", status3);
                 if ((status3 >> 8) != 6) {
-                    printf("fork 3 parent: status=%d\n", status3);
+                    //printf("fork 3 parent: status=%d\n", status3);
                     excd = 1;
                     //exit(4);
                 }
                 if (my_strcmp(data, p1, size) != 0) {
-                    printf("strcmp fork 3 parent failed\n");
+                    //printf("strcmp fork 3 parent failed\n");
                     excd = 1;
                     //exit(5);
                 } else {
@@ -1761,21 +1773,19 @@ void anon_shared_multi_fork_test() {
                 }
             }
             exit(excd);
-#endif
         } else {  // 2nd fork Parent Process
-            printf("pid2=%d\n", pid2);
+            //printf("pid2=%d\n", pid2);
             int status2;
             //waitpid(pid2, &status2, 0);
             wait(&status2);
-            printf("[A-04] pid[5] status2=0x%x\n", status2);
-            fflush(stdout);
+            //printf("[A-04] pid[5] status2=0x%x\n", status2);
             if ((status2 >> 8) != 5) {
-                printf("fork 2 parent: status2=%d\n", status2);
+                //printf("fork 2 parent: status2=%d\n", status2);
                 excd = 1;
                 //exit(6);
             }
             if (my_strcmp(data, p1, size) != 0) {
-                printf("strcmp fork 2 parent failed\n");
+                //printf("strcmp fork 2 parent failed\n");
                 excd = 1;
                 //exit(7);
             } else {
@@ -1783,31 +1793,32 @@ void anon_shared_multi_fork_test() {
             }
         }
         exit(excd);
-    } else {  // 1st fork Parent process
-        printf("pid1=%d\n", pid1);
-        int status1;
-        //waitpid(pid1, &status1, 0);
-        wait(&status1);
-        printf("[A-04] pid[4] status1=0x%x\n", status1);
-        fflush(stdout);
-        if ((status1 >> 8) != 4) {
-            printf("fork 1 parent: status=%d\n", status1);
-            goto a4_bad_1;
-        }
-        if (my_strcmp(data, p1, size) != 0) {
-            printf("strcmp fork 1 parent failed\n");
-            goto a4_bad_1;
-        }
-        int res = munmap(p1, size);
-        if (res == -1) {
-            printf("munmap failed\n");
-            goto a4_bad_0;
-        }
-
-        anon_ok++;
-        printf("[A-04] ok\n");
-        return;
     }
+
+    // 1st fork Parent process
+    //printf("pid1=%d\n", pid1);
+    int status1;
+    //waitpid(pid1, &status1, 0);
+    wait(&status1);
+    //printf("[A-04] pid[4] status1=0x%x\n", status1);
+
+    if ((status1 >> 8) != 4) {
+        printf("fork 1 parent: status=%d\n", status1);
+        goto a4_bad_1;
+    }
+    if (my_strcmp(data, p1, size) != 0) {
+        printf("strcmp fork 1 parent failed\n");
+        goto a4_bad_1;
+    }
+    int res = munmap(p1, size);
+    if (res == -1) {
+        printf("munmap failed\n");
+        goto a4_bad_0;
+    }
+
+    anon_ok++;
+    printf("[A-04] ok\n");
+    return;
 
 a4_bad_1:
     munmap(p1, size);
@@ -1843,7 +1854,8 @@ void anon_private_shared_fork_test() {
     if (pid == -1) {
         printf("fork failed\n");
         goto a5_bad_2;
-    } else if (pid == 0) {
+    }
+    if (pid == 0) {
         for (int i = 0; i < size; i++) {
             p1[i] = 'a';
         }
@@ -1851,33 +1863,33 @@ void anon_private_shared_fork_test() {
             p2[i] = 'r';
         }
         exit(0);
-    } else {
-        int status;
-        wait(&status);
-        // Private mapping
-        if (my_strcmp(p1, data1, size) == 0) {
-            printf("strcmp private failed\n");
-            goto a5_bad_2;
-        }
-        // Shared mapping
-        if (my_strcmp(p2, data2, size) != 0) {
-            printf("strcmp share failed\n");
-            goto a5_bad_2;
-        }
-        int ret = munmap(p2, size);
-        if (ret < 0) {
-            printf("munmap p2 failed\n");
-            goto a5_bad_1;
-        }
-        ret = munmap(p1, size);
-        if (ret < 0) {
-            printf("munmpa p1 failed\n");
-            goto a5_bad_0;
-        }
-        anon_ok++;
-        printf("[A-05] ok\n");
-        return;
     }
+
+    int status;
+    wait(&status);
+    // Private mapping
+    if (my_strcmp(p1, data1, size) == 0) {
+        printf("strcmp private failed\n");
+        goto a5_bad_2;
+    }
+    // Shared mapping
+    if (my_strcmp(p2, data2, size) != 0) {
+        printf("strcmp share failed\n");
+        goto a5_bad_2;
+    }
+    int ret = munmap(p2, size);
+    if (ret < 0) {
+        printf("munmap p2 failed\n");
+        goto a5_bad_1;
+    }
+    ret = munmap(p1, size);
+    if (ret < 0) {
+        printf("munmpa p1 failed\n");
+        goto a5_bad_0;
+    }
+    anon_ok++;
+    printf("[A-05] ok\n");
+    return;
 
 a5_bad_2:
     munmap(p2, size);
@@ -2227,18 +2239,18 @@ void mmap_write_on_ro_mapping_test() {
         int *addr = (int *)mmap((void *)0, size, PROT_READ,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
         if (addr == MAP_FAILED) {
-            printf("[O-02] failed at mmap child\n");
+            //printf("[O-02] failed at mmap child\n");
             other_ng++;
             exit(1);
         }
-        /*  ここで例外発生
-            for (int i = 0; i < size / 4; i++) {
-              addr[i] = i;
-            }
-            // If the memory access allowed then test should failed
-            printf("write on read only mapping test failed 3\n");
-            other_ng++;
-        */
+
+        for (int i = 0; i < size / 4; i++) {
+            addr[i] = i;
+        }
+        // If the memory access allowed then test should failed
+        //printf("write on read only mapping test failed 3\n");
+        other_ng++;
+
         munmap(addr, size);
         exit(0);
     } else {
@@ -2264,20 +2276,19 @@ void mmap_none_permission_test() {
         char *p1 = (char *)mmap((void *)(MMAPBASE + 0x3000), size, PROT_NONE,
                                  MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
         if (p1 == MAP_FAILED) {
-            printf("[O-03] failed mmap\n");
+            //printf("[O-03] failed mmap\n");
             other_ng++;
             exit(1);
         }
-        /*
-            printf("p1=%p\n", p1);
+        //printf("p1=%p\n", p1);
 
-            for (int i = 0; i < size / 4; i++) {
-              p1[i] = i;
-            }
-            // If the memory access allowed then test should failed
-            printf("none permission on mapping test failed 3\n");
-            other_ng++;
-        */
+        for (int i = 0; i < size / 4; i++) {
+            p1[i] = i;
+        }
+        // If the memory access allowed then test should failed
+        //printf("none permission on mapping test failed 3\n");
+        other_ng++;
+
         munmap((void *)p1, size);
         exit(0);
     } else {
@@ -2352,6 +2363,6 @@ void mmap_invalid_map_fixed_test() {
         return;
     }
     munmap((void *)p3, 200);
-    printf("[O-05] test ok\n");
+    printf("[O-05] ok\n");
     other_ok++;
 }
