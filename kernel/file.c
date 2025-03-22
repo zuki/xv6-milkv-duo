@@ -218,7 +218,7 @@ int writeback(struct file *f, off_t off, uint64_t addr)
     int r;
     struct timespec ts;
 
-    if (f->writable == 0 || f->type != FD_INODE) {
+    if (f == NULL || f->writable == 0 || f->type != FD_INODE) {
         return 0;
     }
 

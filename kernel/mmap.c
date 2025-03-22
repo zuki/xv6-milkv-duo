@@ -525,7 +525,7 @@ long munmap(void *addr, size_t length)
     trace(" - found: addr=%p", region->addr);
     // MAP_SHARED領域で背後にあるファイルに書き込みがあったら書き戻す
     //int len = (f->ip->size - f->off) > PGSIZE ? PGSIZE : (f->ip->size - f->off);
-    if (region->flags & MAP_SHARED && region->prot & PROT_WRITE) {
+    if ((region->flags & MAP_ANONYMOUS) == 0 && region->flags & MAP_SHARED && region->prot & PROT_WRITE) {
         for (uint64_t ra = (uint64_t)addr; ra < (uint64_t)addr + length; ra += PGSIZE) {
             pte_t *pte = walk(p->pagetable, ra, 0);
             if (!pte) panic("no pte");
