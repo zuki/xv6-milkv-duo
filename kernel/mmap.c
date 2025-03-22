@@ -630,23 +630,34 @@ long msync(void *addr, size_t length, int flags)
     // addrはページ境界になければならない。
     if (NOT_PAGEALIGN((uint64_t)addr)) return error;
 
-    struct mmap_region *region = p->regions;
-    while (region) {
-        if (region->addr == addr) {
-            if ((region->flags & MAP_SHARED) && (region->prot & PROT_WRITE) && region->f) {
-                size_t len = region->length < length ? region->length : length;
-                begin_op();
-                error = writei(region->f->ip, 1, (uint64_t)region->addr, (uint32_t)region->offset, (uint32_t)len);
-                end_op();
-                if (error < 0)
-                    return error;
-                addr += len;
-                length -= len;
-                if (length <= 0) break;
-            }
-
-        }
-        region = region->next;
+    struct mmap_region *region = find_mmap_region(p, addr);
+    if (region == NULL) {
+        warn("no region with addr %p", addr);
+        return 0;
     }
+
+    if (region->length < length) {
+        warn("length 0x%lx is bigger than region->length 0x%lx", length, region->length);
+        length = region->length;
+    }
+
+
+    if ((region->flags & MAP_ANONYMOUS) == 0 && region->flags & MAP_SHARED && region->prot & PROT_WRITE) {
+        for (uint64_t ra = (uint64_t)addr; ra < (uint64_t)addr + length; ra += PGSIZE) {
+            pte_t *pte = walk(p->pagetable, ra, 0);
+            if (!pte) panic("no pte");
+            uint64_t flags = PTE_FLAGS(*pte);
+            off_t offset = region->offset + ra - (uint64_t)region->addr;
+            if (flags & PTE_D) {
+                if (writeback(region->f, offset, ra) < 0) {
+                    error("failed writeback");
+                    return -EACCES;
+                }
+            }
+            if (region->f->ip->size <= offset + PGSIZE)
+                break;
+        }
+    }
+
     return 0;
 }
