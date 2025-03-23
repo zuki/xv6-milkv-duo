@@ -71,7 +71,7 @@ static void fork_test3(void) {
     printf("[01] mmap\n");
 
     int *p1 = mmap((void *)0, 16, PROT_READ | PROT_WRITE,
-                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+                           MAP_ANONYMOUS | MAP_SHARED, -1, 0);
     if (p1 == MAP_FAILED) {
         printf("mmap failed\n");
         ng++;
@@ -87,11 +87,13 @@ static void fork_test3(void) {
         return;
     }
     if (pid == 0) {
-        printf("p1[0]=%d\n", p1[0]);
+        printf("child: p1[0]=%d\n", p1[0]);
         exit(0);
     }
     int status;
     wait(&status);
+    msync(p1, 16, MS_ASYNC);
+    printf("parent: p1[0]=%d\n", p1[0]);
     munmap(p1, 16);
     printf("03: ok, status=%d\n", status);
     ok++;

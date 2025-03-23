@@ -146,78 +146,112 @@ static int is_usable(void *addr, size_t length)
 }
 
 /*
- * ファイルを1ページ分、マッピングする
+ * offsetからファイルの内容をaddrにlengthマッピングする
  */
-static long map_file_page(struct proc *p, void *addr, uint64_t perm, struct file *f, off_t offset)
+static long map_file_pages(struct proc *p, void *addr, uint64_t length, uint64_t perm, struct file *f, off_t offset)
 {
-    int error;
+    long ret;
+    uint64_t cur;
 
-    //trace("addr=%p, length=0x%x, offset=0x%x", addr, length, offset);
-    char *mem = kalloc();
-    if (!mem) {
-        return -ENOMEM;
-    }
-    memset(mem, 0, PGSIZE);
+    for (cur = 0; cur < length; cur += PGSIZE) {
+        f->off = offset;
+        int len = (f->ip->size - f->off) > PGSIZE ? PGSIZE : (f->ip->size - f->off);
+        if (len == 0)
+            break;
+        //trace("addr=%p, length=0x%x, offset=0x%x", addr, length, offset);
+        char *mem = kalloc();
+        if (!mem) {
+            ret = -ENOMEM;
+            goto err;
+        }
+        memset(mem, 0, PGSIZE);
+        if ((ret = fileread(f, (uint64_t)mem, len, 0)) < 0) {
+            trace("fileread failed");
+            kfree(mem);
+            goto err;
+        }
 
-    // ファイルコンテンツをメモリへコピー
-    f->off = offset;
-    int len = (f->ip->size - f->off) > PGSIZE ? PGSIZE : (f->ip->size - f->off);
-    if ((error = fileread(f, (uint64_t)mem, len, 0)) < 0) {
-        trace("fileread failed");
-        kfree(mem);
-        return error;
-    }
-
-    // メモリをユーザプロセスにマッピング
-    trace("pid[%d] mapping: addr=%p, mem=%p, offset: 0x%x, len: 0x%x", p->pid, addr, mem, offset, len);
-    if ((error = mappages(p->pagetable, (uint64_t)addr, PGSIZE, (uint64_t)mem, perm)) < 0) {
-        //cprintf("map_pagecache_page: map_region failed\n");
-        kfree(mem);
-        return error;
+        // メモリをユーザプロセスにマッピング
+        trace("pid[%d] mapping: addr=%p, mem=%p, offset: 0x%x, len: 0x%x", p->pid, addr+cur, mem, offset, len);
+        if ((ret = mappages(p->pagetable, (uint64_t)addr + cur, (uint64_t)len, (uint64_t)mem, perm)) < 0) {
+            kfree(mem);
+            return ret;
+        }
+        offset += len;
     }
 
     fence_i();
+    fence_rw();
+
     return 0;
+
+err:
+    if (cur != 0) {
+        uvmunmap(p->pagetable, (uint64_t)addr, cur / PGSIZE, 1);
+    }
+    return ret;
 }
 
-// 無名マッピングに1ページを割り当てる
-static long map_anon_page(struct proc *p, void *addr, uint64_t perm)
+// 無名ページに（複数）ページを割り当てる
+static long map_anon_pages(struct proc *p, void *addr, uint64_t length, uint64_t perm)
 {
-    char *page = kalloc();
-    if (!page) {
-        error("map_anon_page: memory exhausted");
-        return -ENOMEM;
-    }
-    memset(page, 0, PGSIZE);
-    trace("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr, page, perm);
-    if (mappages(p->pagetable, (uint64_t)addr, PGSIZE, (uint64_t)page, perm) < 0) {
-        kfree(page);
-        return -EINVAL;
+    long ret;
+    uint64_t cur;
+
+    for (cur = 0; cur < length; cur += PGSIZE) {
+        char *page = kalloc();
+        if (!page) {
+            error("map_anon_page: memory exhausted");
+            ret = -ENOMEM;
+            goto err;
+        }
+        memset(page, 0, PGSIZE);
+        trace("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr+cur, page, perm);
+        if (mappages(p->pagetable, (uint64_t)addr + cur, PGSIZE, (uint64_t)page, perm) < 0) {
+            kfree(page);
+            ret = -EINVAL;
+            goto err;
+        }
     }
 
     fence_i();
+    fence_rw();
+
     return 0;
+
+err:
+    if (cur != 0) {
+        uvmunmap(p->pagetable, (uint64_t)addr, cur / PGSIZE, 1);
+    }
+    return ret;
 }
 
-/* addrから1ページ分のメモリ割り当て/ファイル読み込みを行う */
-static long mmap_load_page(struct proc *p, void *addr, int prot, int flags, struct file *f, off_t offset)
+/* addrにメモリを割り当てる */
+long mmap_load_pages(void *addr, uint64_t length, int prot, int flags, struct file *f, off_t offset)
 {
+    struct proc *p = myproc();
+
     uint64_t perm = get_perm(prot, flags);
-    perm |= PTE_W;
+    //if (flags & MAP_SHARED) perm |= PTE_W;
 
     if (flags & MAP_ANONYMOUS)
-        return map_anon_page(p, addr, perm);
+        return map_anon_pages(p, addr, length, perm);
     else
-        return map_file_page(p, addr, perm, f, offset);
+        return map_file_pages(p, addr, length, perm, f, offset);
 }
 
+
 // regionのサイズをsizeにする（拡大する場合は、拡大可能であることが保証されていること）
+// sizeはPGSIZEの整数倍とする
 static long scale_mmap_region(struct mmap_region *region, uint64_t size)
 {
+    long error;
+
     if (region->length == size) return 0;
 
     if (region->length < size) { // 拡大
-       region->length = size;
+        if ((error = mmap_load_pages(region->addr + region->length, size - region->length, region->prot, region->flags, region->f, region->offset)) < 0)
+            return error;
     } else {                        // 縮小
         uint64_t dstart = PGROUNDDOWN((uint64_t)region->addr + region->length);
         uint64_t dpages = (region->length - dstart + PGSIZE - 1) / PGSIZE;
@@ -248,14 +282,8 @@ void print_mmap_list(struct proc *p, const char *title)
 // 親プロセスから子プロセスにmmap_regionをコピー.
 long copy_mmap_regions(struct proc *parent, struct proc *child)
 {
-    //uint64_t *ptep, *ptec;
-
     struct mmap_region *node = parent->regions;
     struct mmap_region *cnode = NULL, *tail = 0;
-
-    uint64_t pa, va, start_addr = 0;
-    if (node)
-        start_addr = (uint64_t)node->addr;
 
     while (node) {
         struct mmap_region *region = slab_cache_alloc(MMAPREGIONS);
@@ -264,27 +292,6 @@ long copy_mmap_regions(struct proc *parent, struct proc *child)
 
         // mmap_regionのコピー
         copy_mmap_region(region, node);
-
-        // mmap_regionに該当するpagetableのコピー
-        // MAP_SHARED以外のnodeはコピーしない
-
-        va = (uint64_t)node->addr;
-        for (; va < (uint64_t)node->addr + node->length; va += PGSIZE) {
-            if ((node->flags & MAP_SHARED) == 0)
-                continue;
-            pa = walkaddr(parent->pagetable, va);
-            // 親プロセスがメモリ/ファイルをマップしていなけば子プロセスもしない
-            if (pa == 0)
-                continue;
-
-            uint64_t perm = get_perm(node->prot, node->flags);
-            if (mappages(child->pagetable, va, PGSIZE, pa, perm) < 0) {
-                error("mmapages failed");
-                goto err;
-            }
-            // 物理ページの参照カウンタをincrement
-            page_refcnt_inc((void *)pa);
-        }
 
         if (cnode == 0)
             cnode = region;
@@ -298,10 +305,6 @@ long copy_mmap_regions(struct proc *parent, struct proc *child)
     child->regions = cnode;
 
     return 0;
-
-err:
-    uvmunmap(child->pagetable, start_addr, (va - start_addr) / PGSIZE, 0);
-    return -1;
 }
 
 /* startを含むregionを探す */
@@ -348,7 +351,7 @@ long alloc_mmap_page(struct proc *p, uint64_t addr,  uint64_t scause) {
         offset = region->offset + ((rounddown - (uint64_t)region->addr) / PGSIZE) * PGSIZE;
     }
     trace("pid[%d] addr: 0x%lx, rounddown: 0x%lx, offset: %ld", p->pid, addr, rounddown, offset);
-    if (mmap_load_page(p, (void *)rounddown, region->prot, region->flags, region->f, offset) < 0) {
+    if (mmap_load_pages((void *)rounddown, PGSIZE, region->prot, region->flags, region->f, offset) < 0) {
         error("loading page failed: addr: 0x%lx, length: 0x%x, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
             rounddown, PGSIZE, region->prot, region->flags, region->f ? region->f->ip->inum : -1, offset);
         return -1;
@@ -461,7 +464,7 @@ select_addr:
     // 3.1 これがプロセスの最初のmmap_regionの場合はp->regionsに追加する
     if (p->regions == NULL) {
         p->regions = region;
-        goto set_region;
+        goto load_pages;
     }
 
     // 3.2 そうでない場合は適切な位置に追加して、p->regionsを更新する
@@ -486,11 +489,14 @@ select_addr:
     }
     p->regions = prev;
 
-set_region:
+load_pages:
+    if ((error = mmap_load_pages(addr, length, prot, flags, f, offset)) < 0)
+        goto out;
+
     region->addr = addr;
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
-    //print_mmap_list(p, "mmap");
+
     return (long)region->addr;
 
 out:
@@ -575,6 +581,8 @@ void *mremap(void *old_addr, size_t old_length, size_t new_length, int flags, vo
     if (region == NULL) return (void *)error;
 
     if (region->length != old_length) return  (void *)error;
+
+    new_length = PGROUNDUP(new_length);
 
     // 1: その場で拡大（縮小）可能の場合
     if (!region->next || region->addr + new_length <= region->next->addr) {

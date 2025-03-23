@@ -143,13 +143,13 @@ int file_ok = 0, file_ng = 0, anon_ok = 0, anon_ng = 0, other_ok = 0,
     other_ng = 0;
 
 int main(int args, char *argv[]) {
-    //file_tests();
-    //anonymous_tests();
-    //other_tests();
-    anon_shared_test();
-    //printf("\nfile_test:  ok: %d, ng: %d\n", file_ok, file_ng);
+    file_tests();
+    anonymous_tests();
+    other_tests();
+    //anon_shared_test();
+    printf("\nfile_test:  ok: %d, ng: %d\n", file_ok, file_ng);
     printf("anon_test:  ok: %d, ng: %d\n", anon_ok, anon_ng);
-    //printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
+    printf("other_test: ok: %d, ng: %d\n", other_ok, other_ng);
     return 0;
 }
 
@@ -1623,8 +1623,7 @@ void anon_shared_test() {
     int status;
     wait(&status);
 
-    printf("%x\r\n", p1[0]);
-    printf("%x\r\n", p1[16]);
+    msync(p1, size, MS_ASYNC);
     for (int i = 0; i < size / 4; i++) {
         if (p1[i] != i) {
             printf("parent is not match\n");

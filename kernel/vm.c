@@ -6,6 +6,7 @@
 #include <defs.h>
 #include <proc.h>
 #include <common/fs.h>
+#include <linux/mman.h>
 #include <config.h>
 #include <printf.h>
 #ifdef DUO256
@@ -165,8 +166,11 @@ mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_
     for(;;) {
         if((pte = walk(pagetable, a, 1)) == 0)
             return -1;
-        if (*pte & PTE_V)
+        if (*pte & PTE_V) {
+            debug("va: 0x%lx, pte: 0x%lx, *pte=0x%lx", a, pte, *pte);
             panic("mappages: remap");
+        }
+
         *pte = PA2PTE(pa) | perm | PTE_V | PTE_A | PTE_D;
         if (a == last)
             break;
@@ -322,52 +326,70 @@ uvmfree(pagetable_t pagetable, uint64_t sz)
 }
 
 // 親プロセスのページテーブルを子のページテーブルにコピーする。
-// 物理メモリはコピーしない (Copy on Write).
+// 物理メモリもコピーする.
 // 成功したら 0, 失敗したら -1 を返す.
 // 失敗した場合は割り当てたページをすべて開放する.
 int
-uvmcopy(pagetable_t old, pagetable_t new, uint64_t sz)
+uvmcopy(struct proc *old, struct proc *new)
 {
-    pte_t *pte;
-    uint64_t pa, i;
+    pte_t *pte_2, *pte_1, *pte_0;
+    pagetable_t pg1, pg0;
+    uint64_t pa, va;
     uint64_t flags;
+    char *mem;
+    struct mmap_region *region;
 
-    for (i = 0; i < sz; i += PGSIZE) {
-        if ((pte = walk(old, i, 0)) == 0)
-            panic("uvmcopy: pte should exist");
-        // もともとユーザプログラムは0x0から配置されていたのでエラーとしていたが
-        // 0x10000から配置するようになったため、i=0などマッピングしていない
-        // pteがある
-        if ((*pte & PTE_V) == 0) {
-            trace("[%d] pte: %p, *pte: 0x%lx", i, pte, *pte);
-            continue;
+    for (int i = 0; i < 256; i++) {
+        pte_2 = &old->pagetable[i];
+        if (*pte_2 & PTE_V) {
+            pg1 = (pagetable_t)PTE2PA(*pte_2);
+            for (int j = 0; j < 512; j++) {
+                pte_1 = &pg1[j];
+                if (*pte_1 & PTE_V) {
+                    pg0 = (pagetable_t)PTE2PA(*pte_1);
+                    for (int k = 0; k < 512; k++) {
+                        // MAXVA - USERTOP : trampoline, trapframce, guardpageはmapping済み
+                        if (i == 255 && j == 511 && k >= 509)
+                            continue;
+                        pte_0 = &pg0[k];
+                        if (*pte_0 & PTE_V) {
+                            va = (uint64_t)i << 30 | (uint64_t)j << 21 | (uint64_t)k << 12;
+                            pa = PTE2PA(*pte_0);
+                            flags = PTE_FLAGS(*pte_0);
+                            region = find_mmap_region(old, (void *)va);
+                            // mmapされたアドレスでMAP_SHAREDの場合は親のpaをそのまま使用
+                            // それ以外は新規paに親のpaをコピーして使用
+                            if (region && region->flags & MAP_SHARED) {
+                                mem = (char *)pa;
+                                page_refcnt_inc((void *)pa);
+                                trace("use parent's pa: 0x%lx, refcnt: %d", pa, page_refcnt_get((void *)pa));
+                            } else {
+                                if ((mem = kalloc()) == 0)
+                                    goto err;
+                                memmove(mem, (char*)pa, PGSIZE);
+                            }
+                            if (mappages(new->pagetable, va, PGSIZE, (uint64_t)mem, flags) != 0) {
+                                goto err;
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-        pa = PTE2PA(*pte);
-
-        if (*pte & PTE_W) {
-            *pte |= PTE_COW;
-            *pte &= ~PTE_W;
-            trace("cow: va=0x%lx, pa=0x%lx", i, pa);
-        }
-        flags = PTE_FLAGS(*pte);
-
-        // 物理メモリは割り当てず、親のpaをマッピングする
-        if (mappages(new, i, PGSIZE, pa, flags) != 0) {
-            goto err;
-        }
-        page_refcnt_inc((void *)pa);
-        trace("pa: 0x%lx, refcnt: %d", pa, page_refcnt_get((void *)pa));
     }
-    // Synchronize the instruction and data streams,
-    // since we may copy pages with instructions.
+
     fence_i();
+    fence_rw();
 
     return 0;
 
 err:
-    uvmunmap(new, 0, i / PGSIZE, 1);
+    if (va < MMAPBASE)
+        uvmunmap(new->pagetable, 0, va / PGSIZE, 1);
+    else
+        uvmunmap(new->pagetable, 0, (va - MMAPBASE) / PGSIZE, 1);
     return -1;
+
 }
 
 // ユーザーアクセスに対してPTEを無効とマークする。
@@ -461,10 +483,11 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
 {
     uint64_t n = 0, va0, pa0;
     int got_null = 0;
+    trace("pid[%d] dst=%p, srcva=0x%lx, max=%ld", myproc()->pid, dst, srcva, max);
 
     if (srcva == 0UL) {
         // 空送信
-        *dst = '\0';
+        //*dst = '\0';
         return 0;
     }
 
@@ -472,6 +495,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
         va0 = PGROUNDDOWN(srcva);
         pa0 = walkaddr(pagetable, va0);
         if (pa0 == 0) {
+            trace("va0: 0x%lx, pa0=0", va0);
             return -1;
         }
 

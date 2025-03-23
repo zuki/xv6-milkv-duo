@@ -367,23 +367,22 @@ int fork(void)
         return -ENOMEM;
     }
 
-    // 親プロセスから子プロセスにユーザメモリをコピーする.
-    trace("uvmcopy pid[%d] to new_pid[%d]", p->pid, np->pid);
-    if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
-        freeproc(np);
-        release(&np->lock);
-        error("failed uvmcopy");
-        return -ENOMEM;
-    }
-
     // 親プロセスから子プロセスにmmap_regionsをコピーする
     if ((ret = copy_mmap_regions(p, np)) < 0) {
         //debug("ret=%d", ret);
-        uvmfree(np->pagetable, np->sz);
         freeproc(np);
         release(&np->lock);
         error("failed copy_mmap_regions");
         return ret;
+    }
+
+    // 親プロセスから子プロセスにユーザメモリをコピーする.
+    trace("uvmcopy pid[%d] to new_pid[%d]", p->pid, np->pid);
+    if (uvmcopy(p, np) < 0) {
+        freeproc(np);
+        release(&np->lock);
+        error("failed uvmcopy");
+        return -ENOMEM;
     }
 
     np->sz = p->sz;
@@ -420,6 +419,10 @@ int fork(void)
     np->state = RUNNABLE;
     release(&np->lock);
     trace("pid: old: %d, new: %d", p->pid, pid);
+
+    fence_i();
+    fence_rw();
+
     return pid;
 }
 

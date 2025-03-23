@@ -130,7 +130,8 @@ UPROGS=\
 	$U/sigtest3 \
 	$U/bigtest \
 	$U/mmaptest \
-	$U/mmaptest3
+	$U/mmaptest3 \
+	$U/forktest
 
 fs.img: mkfs/mkfs test.txt $(UPROGS)
 	mkfs/mkfs fs.img test.txt $(UPROGS)
