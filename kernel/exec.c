@@ -333,12 +333,13 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
 {
     uint32_t i, n;
     uint64_t pa;
+    int bytes;
 
     // vaがページアラインしていない場合はページ内オフセットを考慮
     uint64_t addr = va & 0x0fffUL;           // 先頭ページ内のオフセット
 
     for (i = 0; i < sz; i += PGSIZE) {
-        pa = walkaddr(pagetable, va + i);
+        pa = walkaddr(pagetable, va);
         if (pa == 0)
             panic("loadseg: address should exist");
         if (addr > 0) {
@@ -351,9 +352,13 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
         } else {
             n = PGSIZE;
         }
-        trace("va: 0x%lx, pa: 0x%lx, off: 0x%x, n: 0x%x", va + i, pa, offset+i, n);
-        if (readi(ip, 0, pa, offset+i, n) != n)
+        trace("va: 0x%lx, pa: 0x%lx, off: 0x%x, n: 0x%x", va, pa, offset, n);
+        if ((bytes = readi(ip, 0, pa, offset, n)) != n) {
+            trace("n: 0x%x, bytes: 0x%x", n, bytes);
             return -1;
+        }
+        offset += n;
+        va += n;
     }
 
     return 0;
