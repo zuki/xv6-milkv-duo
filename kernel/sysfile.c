@@ -114,7 +114,7 @@ long sys_write(void)
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
     trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
-    return filewrite(f, p, n);
+    return filewrite(f, p, n, 1);
 }
 
 struct iovec {
@@ -172,7 +172,7 @@ ssize_t sys_writev(void)
             printf(" %02x", buf[j]);
         printf("\n");
 #endif
-        tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len);
+        tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len, 1);
         trace("[%d]: base: %p, len: 0x%lx, tot: 0x%lx", i++, iov_k.iov_base, iov_k.iov_len, tot);
     }
     return tot;

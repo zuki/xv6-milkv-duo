@@ -161,7 +161,7 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
 // Write to file f.
 // addr is a user virtual address.
 int
-filewrite(struct file *f, uint64_t addr, int n)
+filewrite(struct file *f, uint64_t addr, int n, int user)
 {
     trace("ip: %d, addr: 0x%lx, n: %d", f->ip->inum, addr, n);
     int r, ret = 0;
@@ -189,7 +189,7 @@ filewrite(struct file *f, uint64_t addr, int n)
             ssize_t n1 = MIN(max, n - i);
             begin_op();
             ilock(f->ip);
-            if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
+            if ((r = writei(f->ip, user, addr + i, f->off, n1)) > 0)
                 f->off += r;
             rtc_gettime(&ts);
             f->ip->mtime = f->ip->atime = ts;
@@ -531,9 +531,9 @@ long fileopen(char *path, int flags, mode_t mode)
             warn("wrong flags 0x%llx", flags);
             return -EINVAL;
         }
-/*
+
         if (ip->type == T_SYMLINK) {
-            if ((n = readi(ip, buf, 0, sizeof(buf) - 1)) <= 0) {
+            if ((n = readi(ip, 0, (uint64_t)buf, 0, sizeof(buf) - 1)) <= 0) {
                 iunlockput(ip);
                 end_op();
                 warn("couldn't read sysmlink target");
