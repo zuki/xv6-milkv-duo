@@ -181,7 +181,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // 2ページ目をユーザスタックとして使用する。
     sz = PGROUNDUP(sz);
     uint64_t sz1;
-    if ((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0) {
+    if ((sz1 = uvmalloc(pagetable, sz, sz + 3*PGSIZE, PTE_W)) == 0) {
         warn("uvmalloc for page boundary error");
         errno = ENOMEM;
         goto bad;
@@ -190,9 +190,9 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     sp = sp_top = sz = sz1;
 
     // 1ページ目をガードページとしてユーザアクセス禁止とする
-    uvmclear(pagetable, sz - 2 * PGSIZE);
+    uvmclear(pagetable, sz - 3 * PGSIZE);
     stackbase = sp - PGSIZE;
-    trace("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 2*PGSIZE, sz - PGSIZE);
+    trace("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 3*PGSIZE, sz - PGSIZE);
 
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
     for (i = 0; i < argc; i++) {
