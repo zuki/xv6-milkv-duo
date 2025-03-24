@@ -166,6 +166,10 @@ extern long sys_dup(void);
 extern long sys_getpid(void);
 extern long sys_getppid(void);
 extern long sys_gettid(void);
+extern long sys_getgid(void);
+extern long sys_getuid(void);
+extern long sys_setgid(void);
+extern long sys_setuid(void);
 extern long sys_getdents64(void);
 extern long sys_lseek(void);
 extern long sys_brk(void);
@@ -243,6 +247,23 @@ long sys_futex(void) {
         return 0;
 }
 
+long sys_uname(void) {
+    uint64_t utsp;
+    struct utsname uts;
+
+    if (argu64(0, &utsp) < 0)
+        return -EINVAL;
+
+    strncpy(uts.sysname, UNAME_SYSNAME, sizeof(UNAME_SYSNAME));
+    strncpy(uts.nodename, UNAME_NODENAME, sizeof(UNAME_NODENAME));
+    strncpy(uts.release, UNAME_RELEASE, sizeof(UNAME_RELEASE));
+    strncpy(uts.version, UNAME_VERSION, sizeof(UNAME_VERSION));
+    strncpy(uts.machine, UNAME_MACHINE, sizeof(UNAME_MACHINE));
+    copyout(myproc()->pagetable, utsp, (char *)&uts, sizeof(struct utsname));
+
+    return 0;
+}
+
 long sys_debug(void) {
     int num;
     uint64_t val;
@@ -288,10 +309,14 @@ static func syscalls[] = {
     [SYS_rt_sigprocmask] = sys_rt_sigprocmask,  // 135
     [SYS_rt_sigpending] = sys_rt_sigpending,    // 136
     [SYS_rt_sigreturn] = sys_rt_sigreturn,      // 139
+    [SYS_setgid]    = sys_setgid,               // 144
     [SYS_setpgid]   = sys_setpgid,              // 154
     [SYS_getpgid]   = sys_getpgid,              // 155
+    [SYS_uname]     = sys_uname,                // 160
     [SYS_getpid]    = sys_getpid,               // 172
     [SYS_getppid]   = sys_getppid,              // 173
+    [SYS_setuid]    = sys_setuid,               // 146
+    [SYS_getuid]    = sys_getuid,               // 174
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
     [SYS_brk]       = sys_brk,                  // 214

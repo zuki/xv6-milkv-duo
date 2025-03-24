@@ -399,3 +399,82 @@ long sys_setpgid(void)
 
     return setpgid(pid, pgid);
 }
+
+long sys_getuid()
+{
+    return myproc()->uid;
+}
+
+long sys_getgid()
+{
+    return myproc()->gid;
+}
+
+/* グループIDを設定する */
+long sys_setgid()
+{
+    struct proc *p = myproc();
+    gid_t gid; // old_egid = p->egid;
+
+    if (argint(0, (int *)&gid) < 0)
+        return -EINVAL;
+    p->gid = gid;
+
+#if 0
+    if (capable(CAP_SETGID)) {
+        if (old_egid != gid) disb();
+        p->gid = p->egid = p->sgid = gid;
+    } else if ((gid == p->gid) || (gid == p->sgid)) {
+        if (old_egid != gid) disb();
+        p->egid = gid;
+    } else {
+        return -EPERM;
+    }
+#endif
+
+    fence_i();
+    fence_rw();
+    return 0;
+
+}
+
+/* ユーザIDを設定する */
+long sys_setuid()
+{
+    struct proc *p = myproc();
+    uid_t uid; //, old_ruid, old_euid, old_suid, new_ruid, new_suid;
+
+    if (argint(0, (int *)&uid) < 0)
+        return -EINVAL;
+
+    p->uid = uid;
+#if 0
+    old_euid = p->euid;
+    old_ruid = new_ruid = p->uid;
+    new_suid = old_suid = p->suid;
+
+    debug("uid: %d, old: euid=%d ruid=%d suid=%d, new: ruid=%d suid=%d",
+        uid, old_euid, old_ruid, old_suid, new_ruid, new_suid);
+    debug("p[%d] cap_effective=%d", p->pid, p->cap_effective);
+
+    if (capable(CAP_SETUID)) {
+        if (uid != old_ruid) {
+            p->uid = uid;
+            new_suid = uid;
+        } else if ((uid != p->uid) && (uid != new_suid)) {
+            return -EPERM;
+        }
+    }
+
+    if (old_euid != uid) disb();
+    p->fsuid = p->euid = uid;
+    p->suid = new_suid;
+
+    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+#endif
+
+    fence_i();
+    fence_rw();
+
+    return 0;
+}
