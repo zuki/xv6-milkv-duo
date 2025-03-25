@@ -7,6 +7,7 @@ struct buf;
 struct context;
 struct file;
 struct inode;
+struct dirent;
 struct page;
 struct pipe;
 struct proc;
@@ -66,14 +67,16 @@ int             writeback(struct file *f, off_t off, uint64_t addr);
 int             fileioctl(struct file*, unsigned long, void *argp);
 long            filelseek(struct file *f, off_t offset, int whence);
 long            filelink(char *old, char *new);
+long            filesymlink(char *old, char *new);
 long            fileunlink(char *path, int flags);
 struct inode *  create(char *path, short type, short major, short minor, mode_t mode);
 long            fileopen(char *path, int flags, mode_t mode);
 
 // fs.c
 void            fsinit(int);
-int             dirlink(struct inode*, char*, uint32_t);
-struct inode*   dirlookup(struct inode*, char*, uint*);
+int             dirlink(struct inode *dp, char *name, uint32_t inum);
+struct inode*   dirlookup(struct inode *dp, char *name, uint32_t *poff);
+int             direntlookup(struct inode *dp, int inum, struct dirent *dep, size_t *ofp);
 struct inode*   ialloc(uint32_t, short);
 struct inode*   idup(struct inode*);
 void            iinit();

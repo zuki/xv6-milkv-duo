@@ -343,6 +343,53 @@ bad:
     return error;
 }
 
+long filesymlink(char *old, char *new)
+{
+    char name[DIRSIZ];
+    struct inode *dp, *ip;
+    long error;
+    struct timespec ts;
+
+    begin_op();
+    if ((dp = nameiparent(new, name)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+
+    ilock(dp);
+    if ((ip = ialloc(dp->dev, T_SYMLINK)) == 0) {
+        iunlockput(dp);
+        end_op();
+        return -ENOMEM;
+    }
+
+    ilock(ip);
+    ip->major = 0;
+    ip->minor = 0;
+    ip->nlink = 1;
+    ip->mode = S_IFLNK | 0777;
+    ip->type = T_SYMLINK;
+    rtc_gettime(&ts);
+    ip->atime = ip->mtime = ip->ctime = ts;
+    iupdate(ip);
+
+    if ((error = dirlink(dp, name, ip->inum)) != 0) {
+        iunlockput(dp);
+        iunlockput(ip);
+        end_op();
+        return error;
+    }
+
+    iupdate(dp);
+    iunlockput(dp);
+
+    writei(ip, 0, (uint64_t)old, 0, strlen(old));
+    iupdate(ip);
+    iunlockput(ip);
+    end_op();
+    return 0;
+}
+
 long fileunlink(char *path, int flags)
 {
     trace("path: %s, flags: %d", path, flags);
@@ -494,9 +541,8 @@ long fileopen(char *path, int flags, mode_t mode)
 {
     struct inode *ip;
     struct file *f;
-    //char buf[512];
-    int fd;
-    //long error;
+    char buf[512];
+    int fd, n;
     trace("path: %s, flags: %d, mod: %ld", path, flags, mode);
 
     begin_op();
@@ -517,7 +563,7 @@ long fileopen(char *path, int flags, mode_t mode)
             ilock(ip);
         }
     } else {
-//loop:
+loop:
         if ((ip = namei(path)) == 0) {
             end_op();
             trace("%s is not found", path);
@@ -544,7 +590,7 @@ long fileopen(char *path, int flags, mode_t mode)
             iunlockput(ip);
             goto loop;
         }
-*/
+
     }
 
     int readable = FILE_READABLE((int)flags);

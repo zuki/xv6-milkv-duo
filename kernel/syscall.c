@@ -191,6 +191,7 @@ extern long sys_writev(void);
 extern long sys_mknodat(void);
 extern long sys_unlinkat(void);
 extern long sys_linkat(void);
+extern long sys_symlinkat(void);
 extern long sys_mkdirat(void);
 extern long sys_close(void);
 extern long sys_ioctl(void);
@@ -291,13 +292,14 @@ static func syscalls[] = {
     [SYS_mknodat]   = sys_mknodat,              //  33
     [SYS_mkdirat]   = sys_mkdirat,              //  34
     [SYS_unlinkat]  = sys_unlinkat,             //  35
+    [SYS_symlinkat] = sys_symlinkat,            //  36
     [SYS_linkat]    = sys_linkat,               //  37
     [SYS_chdir]     = sys_chdir,                //  49
     [SYS_openat]    = sys_openat,               //  56
     [SYS_close]     = sys_close,                //  57
     [SYS_pipe2]     = sys_pipe2,                //  59
     [SYS_getdents64] = sys_getdents64,          //  61
-    [SYS_lseek]     = sys_lseek,                // 62
+    [SYS_lseek]     = sys_lseek,                //  62
     [SYS_read]      = sys_read,                 //  63
     [SYS_write]     = sys_write,                //  64
     [SYS_readv]     = sys_readv,                //  65

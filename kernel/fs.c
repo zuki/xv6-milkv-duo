@@ -892,3 +892,22 @@ int getdents(struct file *f, uint64_t data, size_t size)
     //debug_bytes("data:", data, tlen);
     return tlen;
 }
+
+/* 指定のディレクトリから指定のinumを持つディレクトリエントリを検索する */
+int direntlookup(struct inode *dp, int inum, struct dirent *dep, size_t *ofp)
+{
+    struct dirent de;
+
+    if (dp->type != T_DIR) panic("dp is not DIR");
+
+    for (uint32_t off = 0; off < dp->size; off += sizeof(de)) {
+        if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
+            panic("readi");
+        if (de.inum == inum) {
+            if (ofp) *ofp = off;
+            memmove(dep, &de, sizeof(de));
+            return 0;
+        }
+    }
+    return -1;
+}

@@ -298,6 +298,25 @@ long sys_linkat(void)
     return filelink(oldpath, newpath);
 }
 
+long sys_symlinkat()
+{
+    char target[MAXPATH], linkpath[MAXPATH];
+    int fd;
+
+    if (argstr(0, target, MAXPATH) < 0 || argint(1, &fd) < 0 || argstr(2, linkpath, MAXPATH) < 0)
+        return -EINVAL;
+
+    trace("fd: %d, target: %s, path: %s", fd, target, linkpath);
+
+    // TODO: AT_FDCWD以外の実装
+    if (fd != AT_FDCWD) return -EINVAL;
+
+    if (strncmp(target, "", 1) == 0 || strncmp(linkpath, "", 1) == 0)
+        return -ENOENT;
+
+    return filesymlink(target, linkpath);
+}
+
 long sys_unlinkat(void)
 {
     char path[MAXPATH];
