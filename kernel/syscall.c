@@ -149,6 +149,7 @@ int argstr(int n, char *buf, int max)
 typedef long (*func)();
 
 // Prototypes for the functions that handle system calls.
+extern char *sys_getcwd(void);
 extern long sys_clone(void);
 extern long sys_exit(void);
 extern long sys_exit_group(void);
@@ -286,6 +287,7 @@ long sys_debug(void) {
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static func syscalls[] = {
+    [SYS_getcwd]    = (func)sys_getcwd,         //  17
     [SYS_dup]       = sys_dup,                  //  23
     [SYS_fcntl]     = sys_fcntl,                //  25
     [SYS_ioctl]     = sys_ioctl,                //  29

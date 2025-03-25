@@ -748,3 +748,67 @@ long sys_getdents64(void)
 
     return getdents(f, dirp, size);
 }
+
+/* カレントワーキングディレクトリ名の取得 */
+void *sys_getcwd()
+{
+    uint64_t bufp;
+    size_t size;
+    char buf[MAXPATH];
+    struct proc *p = myproc();
+    struct inode *cwd, *dp;
+    struct dirent de;
+    int i, n, pos = 0;
+
+    if (argu64(0, &bufp) < 0 || argu64(1, &size) < 0)
+        return (void *)-EINVAL;
+
+    begin_op();
+    cwd = idup(p->cwd);
+    if (cwd->inum == ROOTINO) goto root;
+    while (1) {
+        dp = dirlookup(cwd, "..", 0);
+        ilock(dp);
+        if (direntlookup(dp, cwd->inum, &de, 0) < 0)
+            goto bad;
+        n = strlen(de.name);
+        if ((n + pos + 2) > size)
+            goto bad;
+
+        iput(cwd);
+        iunlock(dp);
+        for (i = 0; i < n; i++) {
+            buf[pos + i] = de.name[n - i - 1];  // bufに逆順に詰める
+        }
+        pos += i;
+        if (dp->inum == ROOTINO) break;
+        buf[pos++] = '/';
+        cwd = idup(dp);
+        iput(dp);
+    }
+    iput(dp);
+    end_op();
+
+root:
+    buf[pos] = '/';
+    // bufを反転する
+    char c;
+    for (i = 0; i < (pos + 1) / 2; i++) {
+        c = buf[i];
+        buf[i] = buf[pos - i];
+        buf[pos - i] = c;
+    }
+    buf[++pos] = 0;             // NULL終端
+    trace("buf: %s", buf);
+    if (bufp) {
+        copyout(p->pagetable, bufp, buf, pos+1);
+    }
+    return (char *)bufp;
+
+bad:
+    iput(cwd);
+    iunlockput(dp);
+    end_op();
+    return NULL;
+}
+
