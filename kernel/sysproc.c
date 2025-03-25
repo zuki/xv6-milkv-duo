@@ -400,64 +400,82 @@ long sys_setpgid(void)
     return setpgid(pid, pgid);
 }
 
+/* 実ユーザIDを取得する */
 long sys_getuid()
 {
     return myproc()->uid;
 }
 
+/* 実効ユーザID、保存ユーザIDを取得する */
+long sys_geteuid()
+{
+    return myproc()->euid;
+}
+
+/* 実ユーザID、実効ユーザID、保存ユーザIDを取得する */
+long sys_getresuid()
+{
+    struct proc *p = myproc();
+    uint64_t ruid, euid, suid;
+
+    if (argu64(0, &ruid) < 0 || argu64(1, &euid) < 0 || argu64(2, &suid) < 0)
+        return -EINVAL;
+
+    copyout(p->pagetable, ruid, (char *)&p->uid, sizeof(uid_t));
+    copyout(p->pagetable, euid, (char *)&p->euid, sizeof(uid_t));
+    copyout(p->pagetable, suid, (char *)&p->suid, sizeof(uid_t));
+
+    return 0;
+}
+
+/* 実グループIDを取得する */
 long sys_getgid()
 {
     return myproc()->gid;
 }
 
-/* グループIDを設定する */
-long sys_setgid()
+/* 実効グループIDを取得する */
+long sys_getegid()
+{
+    return myproc()->egid;
+}
+
+/* 実グループID、実効グループID、保存グループIDを取得する */
+long sys_getresgid()
 {
     struct proc *p = myproc();
-    gid_t gid; // old_egid = p->egid;
+    uint64_t rgid, egid, sgid;
 
-    if (argint(0, (int *)&gid) < 0)
+    if (argu64(0, &rgid) < 0 || argu64(1, &egid) < 0 || argu64(2, &sgid) < 0)
         return -EINVAL;
-    p->gid = gid;
 
-#if 0
-    if (capable(CAP_SETGID)) {
-        if (old_egid != gid) disb();
-        p->gid = p->egid = p->sgid = gid;
-    } else if ((gid == p->gid) || (gid == p->sgid)) {
-        if (old_egid != gid) disb();
-        p->egid = gid;
-    } else {
-        return -EPERM;
-    }
-#endif
+    copyout(p->pagetable, rgid, (char *)&p->gid, sizeof(gid_t));
+    copyout(p->pagetable, egid, (char *)&p->egid, sizeof(gid_t));
+    copyout(p->pagetable, sgid, (char *)&p->sgid, sizeof(gid_t));
 
-    fence_i();
-    fence_rw();
     return 0;
-
 }
 
 /* ユーザIDを設定する */
 long sys_setuid()
 {
     struct proc *p = myproc();
-    uid_t uid; //, old_ruid, old_euid, old_suid, new_ruid, new_suid;
+    uid_t uid, old_ruid, old_euid, old_suid, new_ruid, new_suid;
 
     if (argint(0, (int *)&uid) < 0)
         return -EINVAL;
 
-    p->uid = uid;
-#if 0
     old_euid = p->euid;
     old_ruid = new_ruid = p->uid;
     new_suid = old_suid = p->suid;
 
     debug("uid: %d, old: euid=%d ruid=%d suid=%d, new: ruid=%d suid=%d",
         uid, old_euid, old_ruid, old_suid, new_ruid, new_suid);
-    debug("p[%d] cap_effective=%d", p->pid, p->cap_effective);
+    //debug("p[%d] cap_effective=%d", p->pid, p->cap_effective);
 
-    if (capable(CAP_SETUID)) {
+
+    //if (capable(CAP_SETUID)) {
+    if (p->uid == 0) {
         if (uid != old_ruid) {
             p->uid = uid;
             new_suid = uid;
@@ -466,15 +484,258 @@ long sys_setuid()
         }
     }
 
-    if (old_euid != uid) disb();
+    if (old_euid != uid) {
+        fence_i();
+        fence_rw();
+    }
     p->fsuid = p->euid = uid;
     p->suid = new_suid;
 
-    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
-#endif
-
-    fence_i();
-    fence_rw();
+    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
+}
+
+/* 実 (real)ユーザIDと実効 (effective)ユーザIDを設定する */
+long sys_setreuid()
+{
+    struct proc *p = myproc();
+    uid_t ruid, euid, old_ruid, old_euid /*, old_suid */, new_ruid, new_euid;
+
+    if (argint(0, (int *)&ruid) < 0 || argint(1, (int *)&euid) < 0)
+        return -EINVAL;
+
+    new_ruid = old_ruid = p->uid;
+    new_euid = old_euid = p->euid;
+    //old_suid = p->suid;
+
+    if (ruid != (uid_t)-1) {
+        new_ruid = ruid;
+        if ((old_ruid != ruid) && (p->euid != ruid) && p->uid != 0 /* !capable(CAP_SETUID) */)
+            return -EPERM;
+    }
+
+    if (euid != (uid_t)-1) {
+        new_euid = euid;
+        if ((old_euid != euid) && (p->suid != euid) && p->uid != 0 /* !capable(CAP_SETUID) */)
+            return -EPERM;
+    }
+
+    if (new_ruid != old_ruid)
+        p->uid = ruid;
+
+    if (new_euid != old_euid) {
+        fence_i();
+        fence_rw();
+    }
+    p->fsuid = p->euid = new_euid;
+
+    if (ruid != (uid_t)-1 || (euid != (uid_t)-1 && euid != old_ruid))
+        p->suid = p->euid;
+    p->fsuid = p->euid;
+
+    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+
+    return 0;
+}
+
+/* ユーザの実ID、実効ID、保存IDを設定する */
+long sys_setresuid()
+{
+    struct proc *p = myproc();
+    uid_t ruid, euid, suid;
+    // uid_t old_ruid = p->uid, old_euid = p->euid, old_suid = p->suid;
+
+    if (argint(0, (int *)&ruid) < 0 || argint(1, (int *)&euid) < 0
+     || argint(2, (int *)&suid) < 0)
+        return -EINVAL;
+
+    if (p->pid != 0 /*!capable(CAP_SETUID) */) {
+        if ((ruid != (uid_t)-1) && (ruid != p->uid) &&
+            (ruid != p->euid) && (ruid != p->suid))
+            return -EPERM;
+        if ((euid != (uid_t)-1) && (euid != p->uid) &&
+            (euid != p->euid) && (euid != p->suid))
+            return -EPERM;
+        if ((suid != (uid_t)-1) && (suid != p->uid) &&
+            (suid != p->euid) && (suid != p->suid))
+            return -EPERM;
+    }
+
+    if (ruid != (uid_t)-1)
+        p->uid = ruid;
+
+    if (euid != (uid_t)-1) {
+        if (euid != p->euid) {
+            fence_i();
+            fence_rw();
+        }
+        p->euid = euid;
+        p->fsuid = euid;
+    }
+    if (suid != (uid_t)-1)
+        p->suid = suid;
+
+    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+
+    return 0;
+}
+
+/* ファイルシステムのチェックに用いられるユーザIDを設定する */
+long sys_setfsuid()
+{
+    struct proc *p = myproc();
+
+    uid_t fsuid, old_fsuid = p->fsuid;
+
+    if (argint(0, (int *)&fsuid) < 0)
+        return -EINVAL;
+
+    if (fsuid == p->uid || fsuid == p->euid || fsuid == p->suid
+     || fsuid == p->fsuid || p->uid == 0 /* capable(CAP_SETUID) */) {
+        if (fsuid != old_fsuid) {
+            fence_i();
+            fence_rw();
+        }
+        p->fsuid = fsuid;
+    }
+
+#if 0
+    if (old_fsuid == 0 && p->fsuid != 0)
+        cap_t(p->cap_effective) &= ~CAP_FS_MASK;
+    if (old_fsuid != 0 && p->fsuid == 0)
+        cap_t(p->cap_effective) |= (cap_t(p->cap_permitted) & CAP_FS_MASK);
+#endif
+
+    return old_fsuid;
+}
+
+/* グループIDを設定する */
+long sys_setgid()
+{
+    struct proc *p = myproc();
+    gid_t gid, old_egid = p->egid;
+
+    if (argint(0, (int *)&gid) < 0)
+        return -EINVAL;
+
+    //if (capable(CAP_SETGID)) {
+    if (p->gid == 0) {
+        if (old_egid != gid) {
+            fence_i();
+            fence_rw();
+        }
+        p->gid = p->egid = p->sgid = gid;
+    } else if (gid == p->gid || gid == p->sgid) {
+        if (old_egid != gid) {
+            fence_i();
+            fence_rw();
+        }
+        p->egid = gid;
+    } else {
+        return -EPERM;
+    }
+
+    return 0;
+}
+
+/* 実グループIDと実効グループIDを設定する */
+long sys_setregid()
+{
+    struct proc *p = myproc();
+    gid_t rgid, egid;
+    gid_t old_rgid = p->gid, old_egid = p->egid;
+    gid_t new_rgid, new_egid;
+
+    if (argint(0, (int *)&rgid) < 0 || argint(1, (int *)&egid) < 0)
+        return -EINVAL;
+
+    new_rgid = old_rgid;
+    new_egid = old_egid;
+
+    if (rgid != (gid_t)-1) {
+        if (old_rgid == rgid || p->egid == rgid || p->gid == 0 /* capable(CAP_SETGID) */)
+            new_rgid = rgid;
+        else
+            return -EPERM;
+    }
+    if (egid != (gid_t)-1) {
+        if (old_rgid == egid || p->egid == egid || p->sgid == egid
+          || p->gid == 0 /* capable(CAP_SETGID) */)
+            new_egid = egid;
+        else
+            return -EPERM;
+    }
+
+    if (new_egid != old_egid) {
+        fence_i();
+        fence_rw();
+    }
+    if (rgid != (gid_t)-1 || (egid != (gid_t)-1 && egid != old_rgid))
+        p->sgid = new_egid;
+    p->fsgid = new_egid;
+    p->egid = new_egid;
+    p->gid = new_rgid;
+
+    return 0;
+}
+
+/* 実グループID、実効グループID、保存グループIDを設定する */
+long sys_setresgid()
+{
+    struct proc *p = myproc();
+    gid_t rgid, egid, sgid;
+
+    if (argint(0, (int *)&rgid) < 0 || argint(1, (int *)&egid) < 0
+     || argint(2, (int *)&sgid) < 0)
+        return -EINVAL;
+
+    if (p->gid != 0 /* !capable(CAP_SETGID) */) {
+        if ((rgid != (gid_t)-1) && (rgid != p->gid) &&
+            (rgid != p->egid) && (rgid != p->sgid))
+            return -EPERM;
+        if ((egid != (gid_t)-1) && (egid != p->gid) &&
+            (egid != p->egid) && (egid != p->sgid))
+            return -EPERM;
+        if ((sgid != (gid_t)-1) && (sgid != p->gid) &&
+            (sgid != p->egid) && (sgid != p->sgid))
+            return -EPERM;
+    }
+
+    if (egid != (gid_t)-1) {
+        if (egid != p->egid) {
+            fence_i();
+            fence_rw();
+        }
+        p->egid = egid;
+        p->fsgid = egid;
+    }
+
+    if (rgid != (gid_t)-1)
+        p->gid = rgid;
+    if (sgid != (gid_t)-1)
+        p->sgid = sgid;
+
+    return 0;
+}
+
+/* ファイルシステムのチェックに用いられるグループIDを設定する */
+long sys_setfsgid()
+{
+    struct proc *p = myproc();
+    gid_t fsgid, old_fsgid = p->fsgid;
+
+    if (argint(0, (int *)&fsgid) < 0)
+        return -EINVAL;
+
+    if (fsgid == p->gid || fsgid == p->egid || fsgid == p->sgid
+     || fsgid == p->fsgid || p->gid == 0 /* capable(CAP_SETGID) */) {
+        if (fsgid != old_fsgid) {
+            fence_i();
+            fence_rw();
+        }
+        p->fsgid = fsgid;
+    }
+
+    return old_fsgid;
 }

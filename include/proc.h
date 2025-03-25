@@ -122,8 +122,8 @@ struct proc {
     pid_t pid;                      // プロセス ID
     pid_t pgid;                     // プロセスグループ ID
     pid_t sid;                      // セッション ID
-    uid_t uid;                      // ユーザーID
-    gid_t gid;                      // グループID
+    uid_t uid, euid, suid, fsuid;   // ユーザーID
+    gid_t gid, egid, sgid, fsgid;   // グループID
 
     // 次の項目を使用する場合はwait_lockを保持する必要がある:
     struct proc *parent;            // 親プロセスへのポインタ

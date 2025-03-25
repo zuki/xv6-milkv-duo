@@ -166,10 +166,19 @@ extern long sys_dup(void);
 extern long sys_getpid(void);
 extern long sys_getppid(void);
 extern long sys_gettid(void);
-extern long sys_getgid(void);
-extern long sys_getuid(void);
 extern long sys_setgid(void);
+extern long sys_setreuid(void);
 extern long sys_setuid(void);
+extern long sys_setresuid(void);
+extern long sys_getresuid(void);
+extern long sys_setresgid(void);
+extern long sys_getresgid(void);
+extern long sys_setfsuid(void);
+extern long sys_setfsgid(void);
+extern long sys_getuid(void);
+extern long sys_geteuid(void);
+extern long sys_getgid(void);
+extern long sys_getegid(void);
 extern long sys_getdents64(void);
 extern long sys_lseek(void);
 extern long sys_brk(void);
@@ -310,6 +319,14 @@ static func syscalls[] = {
     [SYS_rt_sigpending] = sys_rt_sigpending,    // 136
     [SYS_rt_sigreturn] = sys_rt_sigreturn,      // 139
     [SYS_setgid]    = sys_setgid,               // 144
+    [SYS_setreuid]  = sys_setreuid,             // 145
+    [SYS_setuid]    = sys_setuid,               // 146
+    [SYS_setresuid] = sys_setresuid,            // 147
+    [SYS_getresuid] = sys_getresuid,            // 148
+    [SYS_setresgid] = sys_setresgid,            // 149
+    [SYS_getresgid] = sys_getresgid,            // 150
+    [SYS_setfsuid]  = sys_setfsuid,             // 151
+    [SYS_setfsgid]  = sys_setfsgid,             // 152
     [SYS_setpgid]   = sys_setpgid,              // 154
     [SYS_getpgid]   = sys_getpgid,              // 155
     [SYS_uname]     = sys_uname,                // 160
@@ -317,6 +334,10 @@ static func syscalls[] = {
     [SYS_getppid]   = sys_getppid,              // 173
     [SYS_setuid]    = sys_setuid,               // 146
     [SYS_getuid]    = sys_getuid,               // 174
+    [SYS_geteuid]   = sys_geteuid,              // 175
+    [SYS_getgid]    = sys_getgid,               // 176
+    [SYS_getegid]   = sys_getegid,              // 177
+    [SYS_gettid]    = sys_gettid,               // 178
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
     [SYS_brk]       = sys_brk,                  // 214
