@@ -109,7 +109,7 @@ tags: $(OBJS) _init
 	etags *.S *.c
 
 mkfs/mkfs: mkfs/mkfs.c
-	gcc -Werror -Wall -Imkfs -o mkfs/mkfs mkfs/mkfs.c
+	gcc -Werror -Wall -Wno-unused-but-set-variable -Imkfs -o mkfs/mkfs mkfs/mkfs.c
 
 UPROGS=\
 	$U/cat\
@@ -133,8 +133,8 @@ UPROGS=\
 	$U/mmaptest3 \
 	$U/forktest
 
-fs.img: mkfs/mkfs test.txt $(UPROGS)
-	mkfs/mkfs fs.img test.txt $(UPROGS)
+fs.img: mkfs/mkfs test2.txt $(UPROGS)
+	mkfs/mkfs fs.img test2.txt $(UPROGS)
 
 -include kernel/*.d
 

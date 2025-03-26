@@ -1,6 +1,9 @@
 #ifndef MKFS_H
 #define MKFS_H
 
+#define SDMAJOR     0                   // SD card major block device
+#define CONMAJOR    1                   // Console device
+
 #define FSSIZE      102400
 
 #define NINODES     1024

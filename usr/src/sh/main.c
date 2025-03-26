@@ -54,7 +54,7 @@ struct backcmd {
     struct cmd *cmd;
 };
 
-char *envp[] = { "PATH=/bin", "TZ=JST_9", 0 };
+char *envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", "TZ=JST_9", 0 };
 
 int fork1(void);  // Fork but panics on failure.
 void panic(char *);

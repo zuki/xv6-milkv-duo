@@ -1,0 +1,6 @@
+chmod 04755 /bin/passwd
+chmod 04755 /bin/su
+#ln -s /lib/libc.so /lib/ld-musl-aarch64.so.1
+#ln -s /usr/bin/gawk /usr/bin/awk
+#mount /dev/sdc3 /mnt ext2
+/bin/getty

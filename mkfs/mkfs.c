@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,12 @@
 #include <time.h>
 
 #include "mkfs.h"
+#include "files.h"
+
+typedef uint8_t uchar;
+typedef uint16_t ushort;
+typedef uint32_t uint;
+typedef uint64_t ulong;
 
 #ifndef static_assert
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
@@ -83,7 +90,10 @@ int
 main(int argc, char *argv[])
 {
     int i;
-    uint rootino, off;
+    uint off;
+    uint rootino, devino, binino, etcino, libino, homeino, mntino;
+    uint zukiino, suino, usrino, usrbinino;
+    uint localino, localbinino, locallibino, localincludeino, localshareino, localsharemiscino;
     char buf[BSIZE];
     struct dinode din;
 
@@ -98,8 +108,10 @@ main(int argc, char *argv[])
     assert((BSIZE % sizeof(struct dirent)) == 0);
 
     fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, 0666);
-    if (fsfd < 0)
-        die(argv[1]);
+    if (fsfd < 0) {
+        perror(argv[1]);
+        exit(1);
+    }
 
     // 1 fs block = 2 disk sector
     nmeta = 1 + 1 + nlog + ninodeblocks + nbitmap;  // 1 + 1 = root + superblock
@@ -135,52 +147,76 @@ main(int argc, char *argv[])
     make_dirent(rootino, T_DIR, rootino, ".");
     make_dirent(rootino, T_DIR, rootino, "..");
 
-    copy_file(2, argc, argv, rootino, 0, 0, (S_IFREG | 0755));
-#if 0
-    bzero(&de, sizeof(de));
-    de.inum = xshort(rootino);
-    strcpy(de.name, ".");
-    iappend(rootino, &de, sizeof(de));
+    //copy_file(2, argc, argv, rootino, 0, 0, (S_IFREG | 0755));
 
-    bzero(&de, sizeof(de));
-    de.inum = xshort(rootino);
-    strcpy(de.name, "..");
-    iappend(rootino, &de, sizeof(de));
+    // Create /bin
+    binino = make_dir(rootino, "bin", 0, 0, S_IFDIR|0775);
 
+    // Create /dev
+    devino = make_dir(rootino, "dev", 0, 0, S_IFDIR|0775);
+    // Create /dev/sdc1
+    make_dev(devino, "sdc1", SDMAJOR, 0, 0, 0, S_IFBLK|0666);
+    // Create /dev/sdc2
+    make_dev(devino, "sdc2", SDMAJOR, 1, 0, 0, S_IFBLK|0666);
+    // Create /dev/sdc3
+    make_dev(devino, "sdc3", SDMAJOR, 2, 0, 0, S_IFBLK|0666);
 
-    for (i = 2; i < argc; i++) {
-        // get rid of "user/"
-        char *shortname;
-        if (strncmp(argv[i], "obj/usr/bin/", 12) == 0)
-            shortname = argv[i] + 12;
-        else
-            shortname = argv[i];
+    // Create /dev/tty
+    make_dev(devino, "tty", CONMAJOR, 0, 0, 0, S_IFCHR|0666);
 
-        assert(index(shortname, '/') == 0);
+    // Create /etc
+    etcino = make_dir(rootino, "etc", 0, 0, S_IFDIR|0775);
 
-        if((fd = open(argv[i], 0)) < 0)
-            die(argv[i]);
+    // create /lib
+    libino = make_dir(rootino, "lib", 0, 0, S_IFDIR|0777);
 
-        // Skip leading _ in name when writing to file system.
-        // The binaries are named _rm, _cat, etc. to keep the
-        // build operating system from trying to execute them
-        // in place of system binaries like rm and cat.
-        if (shortname[0] == '_')
-            shortname += 1;
+    // Create /mnt
+    mntino = make_dir(rootino, "mnt", 0, 0, S_IFDIR|0775);
 
-        inum = ialloc(T_FILE);
+    // Create /home
+    homeino = make_dir(rootino, "home", 0, 0, S_IFDIR|0775);
+    // Create /home/zuki
+    zukiino = make_dir(homeino, "zuki", 1000, 1000, S_IFDIR|0775);
+    // Create /home/root
+    suino = make_dir(homeino, "root", 0, 0, S_IFDIR|0775);
 
-        bzero(&de, sizeof(de));
-        de.inum = xshort(inum);
-        strncpy(de.name, shortname, DIRSIZ);
-        iappend(rootino, &de, sizeof(de));
+    // create /usr
+    usrino = make_dir(rootino, "usr", 0, 0, S_IFDIR|0775);
+    // create /usr/bin
+    usrbinino = make_dir(usrino, "bin", 0, 0, S_IFDIR|0775);
+    // create /usr/local
+    localino = make_dir(usrino, "local", 0, 0, S_IFDIR|0775);
+    // create /usr/local/bin
+    localbinino = make_dir(localino, "bin", 0, 0, S_IFDIR|0775);
+    // create /usr/local/lib
+    locallibino = make_dir(localino, "lib", 0, 0, S_IFDIR|0775);
+    // create /usr/local/include
+    localincludeino = make_dir(localino, "include", 0, 0, S_IFDIR|0775);
+    // create /usr/local/share
+    localshareino = make_dir(localino, "share", 0, 0, S_IFDIR|0775);
+    // create /usr/local/share/misc
+    localsharemiscino = make_dir(localshareino, "misc", 0, 0, S_IFDIR|0775);
 
-        while((cc = read(fd, buf, sizeof(buf))) > 0)
-            iappend(inum, buf, cc);
+    // mkfsに渡されたargvのargv[2]以降のファイル
+    copy_file(2, argc, argv, binino, 0, 0, S_IFREG|0755);
 
-        close(fd);
-    }
-#endif
+    // /usr/test.txt
+    copy_file(0, nelms(text_files), text_files, rootino, 0, 0, S_IFREG|0755);
+
+    // /usr/bin  (coreutils)
+    copy_file(0, nelms(usrbins), usrbins, usrbinino, 0, 0, S_IFREG|0755);
+
+    // /etc/passwd, group, inittab
+    copy_file(0, nelms(etc_files), etc_files, etcino, 0, 0, S_IFREG|0644);
+
+    // /lib  (musl)
+    copy_file(0, nelms(lib_files), lib_files, libino, 0, 0, S_IFREG|0755);
+
+    // /usr/local/bin/file
+    copy_file(0, nelms(local_bin_files), local_bin_files, localbinino, 0, 0, S_IFREG|0755);
+
+    // /usr/local/share/misc/magic.mgc
+    copy_file(0, nelms(local_share_misc_files), local_share_misc_files, localsharemiscino, 0, 0, S_IFREG|0755);
 
     // fix size of root inode dir
     rinode(rootino, &din);
@@ -246,32 +282,30 @@ uint make_file(uint parent, char *name, uid_t uid, gid_t gid, mode_t mode)
 }
 
 // 複数ファイルの作成
-void copy_file(int start, int argc, char *argv[], uint parent, uid_t uid, gid_t gid, mode_t mode)
+void copy_file(int start, int argc, char *files[], uint parent, uid_t uid, gid_t gid, mode_t mode)
 {
     int fd, cc;
     uint inum;
     char buf[BSIZE];
 
     for (int i = start; i < argc; i++) {
-        char *shortname;
-        if (strncmp(argv[i], "obj/usr/bin/", 12) == 0)
-            shortname = argv[i] + 12;
-        else
-            shortname = argv[i];
+        char *path = files[i];
+        int j = 0;
+        for (; *files[i]; files[i]++) {
+            if (*files[i] == '/') j = -1;
+            j++;
+        }
+        files[i] -= j;
+        printf("input: '%s' -> '%s'\n", path, files[i]);
 
-        assert(index(shortname, '/') == 0);
+        assert(index(files[i], '/') == 0);
 
-        if((fd = open(argv[i], 0)) < 0)
-            die(argv[i]);
+        if ((fd = open(path, 0)) < 0) {
+            perror(files[i]);
+            exit(1);
+        }
 
-        // Skip leading _ in name when writing to file system.
-        // The binaries are named _rm, _cat, etc. to keep the
-        // build operating system from trying to execute them
-        // in place of system binaries like rm and cat.
-        if (shortname[0] == '_')
-            shortname += 1;
-
-        inum = make_file(parent, shortname, uid, gid, mode);
+        inum = make_file(parent, files[i], uid, gid, mode);
         while ((cc = read(fd, buf, sizeof(buf))) > 0)
             iappend(inum, buf, cc);
         close(fd);

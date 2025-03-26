@@ -13,18 +13,18 @@
 #define CONSOLE     1
 
 char *argv[] = { "sh", NULL };
-//char *envp[] = { "TZ=JST-9", NULL };
+//char *envp[] = { "PATH=/", "TZ=JST-9", NULL };
 
 int main(int argc, char **argv)
 {
     int pid, wpid, status;
     int fd0, fd1, fd2;
 
-    if (open("/console", O_RDWR) < 0) {
-        if (mknod("/console", (S_IFCHR | 0777), makedev(CONSOLE, 0)) < 0) {
+    if (open("/dev/tty", O_RDWR) < 0) {
+        if (mknod("/dev/tty", (S_IFCHR | 0777), makedev(CONSOLE, 0)) < 0) {
             exit(1);
         }
-        fd0 = open("/console", O_RDWR);
+        fd0 = open("/dev/tty", O_RDWR);
     }
     fd1 = dup(0);  // stdout
     fd2 = dup(0);  // stderr
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
             exit(1);
         }
         if (pid == 0) {
-            execv("sh", argv);
+            execv("/bin/sh", argv);
             printf("init: exec sh failed\n");
             exit(1);
         }

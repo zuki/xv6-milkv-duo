@@ -18,7 +18,7 @@ exit:
 
 # char init[] = "/init\0"; 0x2f696e697400
 init:
-  .string "/init"
+  .string "/bin/init"
 
 # char tz[] = "TZ=JST-9\0"; 0x545a3d4a53542d3900
 #tz:

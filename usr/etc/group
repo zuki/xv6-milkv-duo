@@ -1,0 +1,15 @@
+root::0:
+daemon:x:1:
+bin:x:2:
+sys:x:3:
+adm:x:4:
+tty:x:5:zuki
+shadow:x:42:
+utmp:x:43:
+staff:x:50:zuki
+nogroup:x:65534:
+crontab:x:105:
+syslog:x:106:
+ssh:x:111:
+admin:x:113:zuki
+zuki:x:1000:
