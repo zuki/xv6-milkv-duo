@@ -164,6 +164,7 @@ extern long sys_fstat(void);
 extern long sys_fstatat(void);
 extern long sys_chdir(void);
 extern long sys_dup(void);
+extern long sys_dup3(void);
 extern long sys_getpid(void);
 extern long sys_getppid(void);
 extern long sys_gettid(void);
@@ -290,6 +291,7 @@ long sys_debug(void) {
 static func syscalls[] = {
     [SYS_getcwd]    = (func)sys_getcwd,         //  17
     [SYS_dup]       = sys_dup,                  //  23
+    [SYS_dup3]      = sys_dup3,                 // 24
     [SYS_fcntl]     = sys_fcntl,                //  25
     [SYS_ioctl]     = sys_ioctl,                //  29
     [SYS_mknodat]   = sys_mknodat,              //  33

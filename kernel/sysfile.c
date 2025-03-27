@@ -87,6 +87,33 @@ long sys_dup(void)
 #endif
 }
 
+long sys_dup3()
+{
+    struct file *f;
+    int fd1, fd2, flags;
+    struct proc *p = myproc();
+
+     if (argint(0, &fd1) < 0 || argint(1, &fd2) < 0 || argint(2, &flags) < 0)
+        return -EINVAL;
+
+    trace("fd1=%d, fd2=%d, flags=%x", fd1, fd2, flags);
+
+    if (flags & ~O_CLOEXEC) return -EINVAL;
+    if (fd1 == fd2) return -EINVAL;
+    if (fd1 < 0 || fd1 >= NOFILE) return -EBADF;
+    if (fd2 < 0 || fd2 >= NOFILE) return -EBADF;
+
+    f = p->ofile[fd1];
+    if (p->ofile[fd2])
+        fileclose(p->ofile[fd2]);
+    filedup(f);
+    if (flags & O_CLOEXEC)
+        bit_add(p->fdflag, fd2);
+    p->ofile[fd2] = f;
+    return fd2;
+}
+
+
 // ssize_t read(int fd, void *buf, size_t count);
 long sys_read(void)
 {
