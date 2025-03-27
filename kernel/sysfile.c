@@ -133,19 +133,23 @@ long sys_read(void)
 long sys_write(void)
 {
     struct file *f;
-    int n, fd;
+    int n;
     uint64_t p;
+    // int fd;
 
     if (argu64(1, &p) < 0 || argint(2, &n) < 0)
         return -EINVAL;
-    if (argfd(0, &fd, &f) < 0)
+    //if (argfd(0, &fd, &f) < 0)
+    if (argfd(0, 0, &f) < 0)
         return -EBADF;
+#if 0
     if (fd == 1 || fd == 2) {
         char buf[n+1];
         copyin(myproc()->pagetable, buf, p, n);
         buf[n] = 0;
         debug("s = '%s'", buf);
     }
+#endif
     trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
     return filewrite(f, p, n, 1);
 }
