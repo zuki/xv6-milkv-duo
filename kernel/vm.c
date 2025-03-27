@@ -593,18 +593,23 @@ void uvmdump(pagetable_t pagetable, pid_t pid, char *name)
         pte_t *pte_2 = &pagetable[i];
         if (*pte_2 & PTE_V) {
             pagetable_t pg1 = (pagetable_t)PTE2PA(*pte_2);
+            uint64_t pa2 = PTE2PA(*pte_2);
+            uint64_t va2 = (uint64_t)i << 30;
+            printf("  [% 3d]   va: 0x%010lx, pa: 0x%010lx, pte: 0x%lx\n", i, va2, pa2, *pte_2);
             for (int j = 0; j < 512; j++) {
                 pte_t *pte_1 = &pg1[j];
                 if (*pte_1 & PTE_V) {
                     pagetable_t pg0 = (pagetable_t)PTE2PA(*pte_1);
-                    uint64_t pa = PTE2PA(*pte_1);
-                    uint64_t va = (uint64_t)i << 30 | (uint64_t)j << 21;
-                    printf("  [% 3d][% 3d]   va: 0x%010lx, pa: 0x%010lx\n", i, j, va, pa);
+                    uint64_t pa1 = PTE2PA(*pte_1);
+                    uint64_t va1 = (uint64_t)i << 30 | (uint64_t)j << 21;
+                    printf("  [% 3d][% 3d]   va: 0x%010lx, pa: 0x%010lx, pte: 0x%lx\n", i, j, va1, pa1, *pte_1);
                     for (int k = 0; k < 512; k++) {
                         pte_t *pte_0 = &pg0[k];
                         if (*pte_0 & PTE_V) {
-                            uint64_t va = (uint64_t)i << 30 | (uint64_t)j << 21 | (uint64_t)k << 12;
-                            printf("            [% 3d] [0x%010lx - 0x%010lx) : DAGU_XWRV = %08b\n", k, va, va + PGSIZE, *pte_0 & 0xff);
+                            uint64_t pa0 = PTE2PA(*pte_0);
+                            uint64_t va0 = (uint64_t)i << 30 | (uint64_t)j << 21 | (uint64_t)k << 12;
+                            //printf("            [% 3d] [0x%010lx - 0x%010lx) : DAGU_XWRV = %08b, pa: 0x%lx\n", k, va0, va0 + PGSIZE, (char)(*pte_0 & 0xff), pa0);
+                            printf("            [% 3d] [0x%010lx - 0x%010lx), pa: 0x%lx, pte: 0x%lx\n", k, va0, va0 + PGSIZE, pa0, *pte_0);
                         }
                     }
                 }
