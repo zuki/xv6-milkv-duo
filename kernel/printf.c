@@ -65,9 +65,10 @@ static int unsigned_num_print(unsigned long int unum, unsigned int radix,
             num_buf[i] = 'a' + (rem - 0xa);
         i++;
         if (radix == 2) {
-            if (bc % 4 == 0 && bc++ != 0) {
+            if (bc % 4 == 0 && bc != 0) {
                 num_buf[i] = '_';
                 i++;
+                bc++;
             }
         }
         unum /= radix;

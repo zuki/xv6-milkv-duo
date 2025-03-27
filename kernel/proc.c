@@ -199,8 +199,10 @@ freeproc(struct proc *p)
     p->trapframe = 0;
     free_mmap_list(p);
     p->regions = NULL;
-    if (p->pagetable)
+    if (p->pagetable) {
+        trace("free pagetable: pid=%d", p->pid);
         proc_freepagetable(p->pagetable, p->sz);
+    }
     p->pagetable = 0;
     p->sz = 0;
     p->pid = 0;

@@ -302,24 +302,36 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     p->trapframe->epc = elf.entry;  // initial program counter = _start
     p->trapframe->sp = sp; // initial stack pointer
     trace("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
+#if 0
+    debug("free old pagetable: pid=%d", p->pid);
+    if (p->pid == 4) {
+        uvmdump(pagetable, p->pid, "new");
+        uvmdump(oldpagetable, p->pid, "old");
+    }
+    print_mmap_list(p, "old proc");
+#endif
+
     proc_freepagetable(oldpagetable, oldsz);
 
 #if 0
-    uvmdump(p->pagetable, p->pid, p->name);
-
-    printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
-    for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
-        uint64_t val;
-        copyin(pagetable, (char *)&val, e, 8);
-        printf("%08lx: %016lx\n", e, val);
+    if (p->pid == 3) {
+        uvmdump(p->pagetable, p->pid, p->name);
+        printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
+        for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
+            uint64_t val;
+            copyin(pagetable, (char *)&val, e, 8);
+            printf("%08lx: %016lx\n", e, val);
+        }
+        printf("== Stack END : 0x%08lx ==\n\n", sp);
     }
-    printf("== Stack END : 0x%08lx ==\n\n", sp);
 #endif
     return argc; // this ends up in a0, the first argument to main(argc, argv)
 
 bad:
-    if (pagetable)
+    if (pagetable) {
+        debug("free pagetable for bad");
         proc_freepagetable(pagetable, sz);
+    }
     if (ip) {
         iunlockput(ip);
         end_op();

@@ -190,6 +190,8 @@ uvmunmap(pagetable_t pagetable, uint64_t va, uint64_t npages, int do_free)
     uint64_t a;
     pte_t *pte;
 
+    trace("papetable: 0x%lx, va: 0x%lx, np: %ld, free: %d", pagetable, va, npages, do_free);
+
     if ((va % PGSIZE) != 0)
         panic("uvmunmap: not aligned");
 
@@ -308,7 +310,7 @@ freewalk(pagetable_t pagetable)
             freewalk((pagetable_t)child);
             pagetable[i] = 0;
         } else if (pte & PTE_V) {
-            error("leaf for pa: 0x%lx is not removed", PTE2PA(pte));
+            error("pagetable (%p) [%d] pte: 0x%lx, pa: 0x%lx is not removed", pagetable, i, pte, PTE2PA(pte));
             panic("Invalid leaf PTE");
         }
     }

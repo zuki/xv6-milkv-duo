@@ -125,8 +125,8 @@ long sys_read(void)
         return -EINVAL;
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    if (fd == 0)
-        trace("ip: %d, p: 0x%lx, n: %d", f->ip->inum, p, n);
+    //if (fd == 0)
+    //    debug("ip: %d, p: 0x%lx, n: %d", f->ip->inum, p, n);
     return fileread(f, p, n, 1);
 }
 
@@ -140,6 +140,12 @@ long sys_write(void)
         return -EINVAL;
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
+    if (fd == 1 || fd == 2) {
+        char buf[n+1];
+        copyin(myproc()->pagetable, buf, p, n);
+        buf[n] = 0;
+        debug("s = '%s'", buf);
+    }
     trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
     return filewrite(f, p, n, 1);
 }
@@ -152,17 +158,25 @@ struct iovec {
 long sys_readv(void)
 {
     struct file *f;
-    int iovcnt;
-    struct iovec *iov, *pp;
+    int iovcnt, bytes;
+    struct iovec iov, *pp;
+    ssize_t tot = 0;
 
-    if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
+    if (argptr(1, (char *)&iov, sizeof(struct iovec)) < 0)
+        return -EINVAL;
+    if (argint(2, &iovcnt) < 0)
         return -EINVAL;
     if (argfd(0, 0, &f) < 0)
         return -EBADF;
 
-    ssize_t tot = 0;
-    for (pp = iov; pp < iov + iovcnt; pp++) {
-        tot += fileread(f, (uint64_t)pp->iov_base, pp->iov_len, 1);
+    for (pp = &iov; pp < &iov + iovcnt; pp++) {
+        trace("base: %p, len: 0x%lx", pp->iov_base, pp->iov_len);
+        bytes = fileread(f, (uint64_t)pp->iov_base, pp->iov_len, 1);
+        if (bytes < 0)
+            return bytes;
+        tot += bytes;
+        if (bytes == 0)
+            break;
     }
     return tot;
 }
@@ -174,8 +188,11 @@ ssize_t sys_writev(void)
     int fd, iovcnt;
     struct iovec *iov, *pp, iov_k;
     struct proc *p = myproc();
-    //char buf[32];
-    // uint64_t blen;
+#if 0
+    char buf[32];
+    uint64_t blen;
+    int i = 0;
+#endif
 
     if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
         return -EINVAL;
@@ -187,19 +204,22 @@ ssize_t sys_writev(void)
         return -EBADF;
     trace("fd: %d, ip: %d, iov: %p, iovcnt: %d", fd, f->ip->inum, iov, iovcnt);
     ssize_t tot = 0;
-    //int i = 0;
+
     for (pp = iov; pp < iov + iovcnt; pp++) {
         if (copyin(p->pagetable, (char *)&iov_k, (uint64_t)pp, sizeof(struct iovec)) != 0)
             return -EIO;
 #if 0
-        blen = iov_k.iov_len > 32 ? 32 : iov_k.iov_len;
-        copyin(p->pagetable, buf, (uint64_t)iov_k.iov_base, blen);
-        debug("iov[%d] blen: %ld", i, blen)
-        for (int j=0; j < blen; j++)
-            printf(" %02x", buf[j]);
-        printf("\n");
+        if (fd == 1 || fd ==2) {
+            blen = iov_k.iov_len > 32 ? 32 : iov_k.iov_len;
+            copyin(p->pagetable, buf, (uint64_t)iov_k.iov_base, blen);
+            debug("iov[%d] blen: %ld", i, blen)
+            for (int j=0; j < blen; j++)
+                printf(" %02x", buf[j]);
+            printf("\n");
+        }
 #endif
         tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len, 1);
+
         trace("[%d]: base: %p, len: 0x%lx, tot: 0x%lx", i++, iov_k.iov_base, iov_k.iov_len, tot);
     }
     return tot;
@@ -281,10 +301,12 @@ long sys_fstatat(void)
         warn("dirfd unimplemented");
         return -EINVAL;
     }
+#if 0
     if (flags != 0) {
         warn("flags unimplemented: flags=%d", flags);
         return -EINVAL;
     }
+#endif
 
     begin_op();
     if ((ip = namei(path)) == 0) {
@@ -564,14 +586,13 @@ long sys_execve(void)
             }
 
 #if 0
-            if (p->pid) {
+            //if (p->pid) {
                 debug("argv[%d] (0x%lx) = %s", argc, arg_p, argv[argc]);
-
                 for (int j=0; j < strlen(argv[argc]); j++) {
                     printf("%02x ", argv[argc][j]);
                 }
                 printf("\n");
-            }
+            //}
 #endif
         }
     } else {
@@ -586,7 +607,7 @@ long sys_execve(void)
                 error = -E2BIG;
                 goto bad;
             }
-            // TODO: arg@trで書き換え
+            // TODO: argdtrで書き換え
             if (fetchaddr(envpp + sizeof(uint64_t) * envc, (uint64_t*)&env_p) < 0) {
                 error("fetchaddr error: uenv[%d]", envc);
                 error = -EFAULT;
@@ -611,13 +632,13 @@ long sys_execve(void)
             }
 
 #if 0
-            if (p->pid == 3) {
+            //if (p->pid == 3) {
                 debug("envp[%d] (0x%lx) = %s", envc, env_p, envp[envc]);
                 for (int j=0; j < strlen(envp[envc]); j++) {
                     printf("%02x ", envp[envc][j]);
                 }
                 printf("\n");
-            }
+            //}
 #endif
         }
     } else {

@@ -2,12 +2,13 @@
 #include <common/param.h>
 #include <common/memlayout.h>
 #include <common/riscv.h>
+#include <defs.h>
 #include <spinlock.h>
 #include <proc.h>
-#include <linux/syscall.h>
-#include <defs.h>
 #include <printf.h>
 #include <errno.h>
+#include <linux/syscall.h>
+#include <linux/utsname.h>
 #include <linux/time.h>
 
 // 指定されたアドレスがカレントプロセスのユーザアドレス範囲にあるかチェックする
@@ -49,9 +50,10 @@ int fetchstr(uint64_t addr, char *buf, int max)
 {
     struct proc *p = myproc();
     if (copyinstr(p->pagetable, buf, addr, max) < 0) {
-        debug("error in copyinstr()");
+        error("failed");
         return -1;
     }
+    trace("buf: %s", buf);
     return strlen(buf);
 }
 
@@ -573,7 +575,7 @@ void syscall(void)
         // and store its return value in p->trapframe->a0
 #if 0
         //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
-        if (p->pid == 4) {
+        if (p->pid == 3) {
             switch(syscall_params[num]) {
             case 5:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],
