@@ -32,7 +32,7 @@ static int in_user(uint64_t addr, size_t n)
 int fetchaddr(uint64_t addr, uint64_t *ip)
 {
     struct proc *p = myproc();
-    if (addr >= p->sz || addr + sizeof(uint64_t) > p->sz) {
+    if ((addr >= p->sz || addr + sizeof(uint64_t) > p->sz) && is_mmap_region(p, (void *)addr, sizeof(uint64_t)) == 0) {
         debug("addr; 0x%lx, p->sz: 0x%lx", addr, p->sz);
         return -1;
     }
