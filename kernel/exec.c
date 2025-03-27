@@ -293,6 +293,9 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     safestrcpy(p->name, last, sizeof(p->name));
 
     // Commit to the user image.
+    // mmap領域を解放
+    free_mmap_list(p);
+
     oldpagetable = p->pagetable;
     p->pagetable = pagetable;
     p->sz = sz;
