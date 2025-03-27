@@ -63,6 +63,7 @@ void            fileinit(void);
 int             fileread(struct file *f, uint64_t addr, int n, int user);
 int             filestat(struct file*, uint64_t addr);
 int             filewrite(struct file *f, uint64_t addr, int n, int user);
+long            sendfile(struct file *out_f, struct file *in_f, off_t offsetp, size_t count);
 int             writeback(struct file *f, off_t off, uint64_t addr);
 int             fileioctl(struct file*, unsigned long, void *argp);
 long            filelseek(struct file *f, off_t offset, int whence);

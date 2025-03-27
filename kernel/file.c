@@ -210,6 +210,47 @@ filewrite(struct file *f, uint64_t addr, int n, int user)
     return ret;
 }
 
+long sendfile(struct file *out_f, struct file *in_f, off_t offsetp, size_t count)
+{
+    off_t offset;
+    size_t n, bytes = 0;
+    struct proc *p = myproc();
+    long ret = 0;
+
+    char *buf = kalloc();
+    if (buf == NULL)
+        return -ENOMEM;
+
+    if (offsetp) {
+        offset = in_f->off;
+        copyin(p->pagetable, (char *)&in_f->off, offsetp, sizeof(off_t));
+    }
+    while(1) {
+        n = count > PGSIZE ? PGSIZE : count;
+        if (fileread(in_f, (uint64_t)buf, n, 0) != n) {
+            ret = -EIO;
+            goto out;
+        }
+        if (filewrite(out_f, (uint64_t)buf, n, 0) != n) {
+            ret = -EIO;
+            goto out;
+        }
+        count -= n;
+        bytes += n;
+        if (count <= 0)
+            break;
+    }
+    if (offsetp) {
+        copyout(p->pagetable, offsetp, (char *)&in_f->off, sizeof(off_t));
+        in_f->off = offset;
+    }
+
+out:
+    kfree(buf);
+
+    return ret < 0 ? ret : bytes;
+}
+
 // 書き込みのあったMAP_SHAREのmmap領域の1ページをファイルに書き戻す
 // 書き戻しはファイルのサイズ内部分のみ行う。サイズ外の変更は無視する。
 

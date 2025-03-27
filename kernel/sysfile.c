@@ -812,3 +812,20 @@ bad:
     return NULL;
 }
 
+long sys_sendfile(void)
+{
+    struct file *out_f, *in_f;
+    uint64_t offset;
+    size_t count;
+
+    if (argfd(0, 0, &out_f) < 0 || argfd(1, 0, &in_f) < 0)
+        return -EBADF;
+
+    if (argu64(2, &offset) < 0)
+        return -EFAULT;
+
+    if (argu64(3, &count) < 0)
+        return -EINVAL;
+
+    return sendfile(out_f, in_f, offset, count);
+}
