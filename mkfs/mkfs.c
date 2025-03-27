@@ -218,6 +218,11 @@ main(int argc, char *argv[])
     // /usr/local/share/misc/magic.mgc
     copy_file(0, nelms(local_share_misc_files), local_share_misc_files, localsharemiscino, 0, 0, S_IFREG|0755);
 
+    // /home/zuki/.dashrc
+    copy_file(0, nelms(home_zuki_files), home_zuki_files, zukiino, 1000, 1000, S_IFREG|0755);
+    // /home/root/.dashrc
+    copy_file(0, nelms(home_root_files), home_root_files, suino, 0, 0, S_IFREG|0755);
+
     // fix size of root inode dir
     rinode(rootino, &din);
     off = xint(din.size);

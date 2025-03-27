@@ -133,7 +133,11 @@ UPROGS=\
 	$U/mmaptest3 \
 	$U/forktest \
 	$U/busybox \
-	$U/dash
+	$U/dash \
+	$U/login \
+	$U/passwd \
+	$U/getty \
+	$U/su
 
 fs.img: mkfs/mkfs test2.txt $(UPROGS)
 	mkfs/mkfs fs.img test2.txt $(UPROGS)

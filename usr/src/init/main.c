@@ -12,13 +12,14 @@
 
 #define CONSOLE     1
 
-char *argv[] = { "sh", NULL };
-//char *envp[] = { "PATH=/", "TZ=JST-9", NULL };
+char *argv[] = { "sh", "/etc/inittab", NULL };
+char *envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", "TZ=JST-9", NULL };
 
 int main(int argc, char **argv)
 {
     int pid, wpid, status;
     int fd0, fd1, fd2;
+    static int init = 1;
 
     if (open("/dev/tty", O_RDWR) < 0) {
         if (mknod("/dev/tty", (S_IFCHR | 0777), makedev(CONSOLE, 0)) < 0) {
@@ -39,7 +40,11 @@ int main(int argc, char **argv)
             exit(1);
         }
         if (pid == 0) {
-            execv("/bin/dash", argv);
+            //execv("/bin/dash", argv);
+            if (init)
+                execve("/bin/dash", argv, envp);
+            else
+                execve("bin/getty", 0, 0);
             printf("init: exec sh failed\n");
             exit(1);
         }
@@ -59,6 +64,7 @@ int main(int argc, char **argv)
                 // it was a parentless process; do nothing.
             }
         }
+        init = 0;
     }
 
     return 0;
