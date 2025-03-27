@@ -220,7 +220,7 @@ long sys_lseek()
         return -EINVAL;
 
     trace("[%d] fd=%d, f.type=%d, offset=%lld, whence=%d",
-        thisproc()->pid, fd, f->type, offset, whence);
+        myproc()->pid, fd, f->type, offset, whence);
 
     if (f->type == FD_PIPE)
         return 0;
