@@ -39,7 +39,7 @@ int main(int argc, char **argv)
             exit(1);
         }
         if (pid == 0) {
-            execv("/bin/sh", argv);
+            execv("/bin/dash", argv);
             printf("init: exec sh failed\n");
             exit(1);
         }

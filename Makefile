@@ -131,7 +131,9 @@ UPROGS=\
 	$U/bigtest \
 	$U/mmaptest \
 	$U/mmaptest3 \
-	$U/forktest
+	$U/forktest \
+	$U/busybox \
+	$U/dash
 
 fs.img: mkfs/mkfs test2.txt $(UPROGS)
 	mkfs/mkfs fs.img test2.txt $(UPROGS)
