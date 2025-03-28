@@ -682,3 +682,81 @@ bad:
     end_op();
     return -EACCES;
 }
+
+long filechmod(char *path, mode_t mode)
+{
+    struct inode *ip;
+
+    begin_op();
+    if ((ip = namei(path)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+
+    ilock(ip);
+    ip->mode = (ip->mode & S_IFMT) | mode;
+    iupdate(ip);
+    iunlockput(ip);
+    end_op();
+
+    return 0;
+}
+
+long filechown(struct file *f, char *path, uid_t owner, gid_t group)
+{
+    struct inode *ip;
+    struct proc *p = myproc();
+    long error = -EPERM;
+    //int i;
+
+    begin_op();
+    if (f != NULL) {
+        ip = f->ip;
+    } else {
+        if ((ip = namei(path)) == 0) {
+            end_op();
+            return -ENOENT;
+        }
+    }
+
+    ilock(ip);
+
+    if (owner != (uid_t)-1) {
+        if (!capable(CAP_CHOWN)) {
+            debug("uid %d cant chown", owner);
+            goto bad;
+        }
+        ip->uid = owner;
+    }
+
+    if (group != (gid_t)-1) {
+        if (capable(CAP_CHOWN)) {
+            ip->gid = group;
+        } else if (ip->uid == p->euid) {
+            //for (i = 0; i < p->ngroups; i++) {
+            //    if (p->groups[i] == group) {
+                    ip->gid = group;
+            //        break;
+            //    }
+            //}
+            //if (i == p->ngroups) {
+            //    debug("uid %d and gid %d cant chown", owner, group);
+            //    goto bad;
+            //}
+        } else {
+            debug("gid %d cant chown", group);
+            goto bad;
+        }
+    }
+
+    if (ip->mode & S_IXUGO && !capable(CAP_CHOWN)) {
+        ip->mode &= ~(S_ISUID|S_ISGID);
+    }
+    iupdate(ip);
+    error = 0;
+
+bad:
+    iunlockput(ip);
+    end_op();
+    return error;
+}

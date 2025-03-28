@@ -165,6 +165,9 @@ extern long sys_execve(void);
 extern long sys_fstat(void);
 extern long sys_fstatat(void);
 extern long sys_chdir(void);
+extern long sys_fchmodat(void);
+extern long sys_fchownat(void);
+extern long sys_fchown(void);
 extern long sys_dup(void);
 extern long sys_dup3(void);
 extern long sys_getpid(void);
@@ -303,6 +306,9 @@ static func syscalls[] = {
     [SYS_symlinkat] = sys_symlinkat,            //  36
     [SYS_linkat]    = sys_linkat,               //  37
     [SYS_chdir]     = sys_chdir,                //  49
+    [SYS_fchmodat]  = sys_fchmodat,             //  53
+    [SYS_fchownat]  = sys_fchownat,             //  54
+    [SYS_fchown]    = sys_fchown,               //  55
     [SYS_openat]    = sys_openat,               //  56
     [SYS_close]     = sys_close,                //  57
     [SYS_pipe2]     = sys_pipe2,                //  59
@@ -314,6 +320,7 @@ static func syscalls[] = {
     [SYS_writev]    = sys_writev,               //  66
     [SYS_sendfile]  = sys_sendfile,             //  71
     [SYS_ppoll]     = sys_ppoll,                //  73
+    [SYS_readlinkat] = (func)sys_readlinkat,    //  78
     [SYS_newfstatat] = sys_fstatat,             //  79
     [SYS_fstat]     = sys_fstat,                //  80
     [SYS_exit]      = sys_exit,                 //  93

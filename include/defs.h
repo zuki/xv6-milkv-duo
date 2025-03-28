@@ -72,6 +72,8 @@ long            filesymlink(char *old, char *new);
 long            fileunlink(char *path, int flags);
 struct inode *  create(char *path, short type, short major, short minor, mode_t mode);
 long            fileopen(char *path, int flags, mode_t mode);
+long            filechmod(char *path, mode_t mode);
+long            filechown(struct file *f, char *path, uid_t owner, gid_t group);
 
 // fs.c
 void            fsinit(int);
