@@ -815,7 +815,7 @@ long sys_getdents64(void)
 {
     int fd;
     uint64_t dirp;
-    uint64_t size;
+    uint64_t count;
     struct file *f;
 
     if (argfd(0, &fd, &f) < 0) {
@@ -825,14 +825,18 @@ long sys_getdents64(void)
             return -EINVAL;
     }
 
-    if (argu64(1, &dirp) < 0 || argu64(2, &size) <0)
+    if (argu64(1, &dirp) < 0 || argu64(2, &count) <0)
         return -EINVAL;
 
-    trace("fd: %d, dirp: 0x%lx, count: %ld", fd, dirp, size);
-    if (f->ip->type != T_DIR)
+    if (f->ip->type == T_DEVICE) {
+        trace("fd: %d, type: %d", fd, f->ip->type);
+        return -EBADF;
+    } else if (f->ip->type != T_DIR) {
+        trace("fd: %d, type: %d", fd, f->ip->type);
         return -ENOTDIR;
+    }
 
-    return getdents(f, dirp, size);
+    return getdents64(f, dirp, count);
 }
 
 /* カレントワーキングディレクトリ名の取得 */

@@ -841,7 +841,7 @@ int unlink(struct inode *dp, uint32_t off)
     return 0;
 }
 
-int getdents(struct file *f, uint64_t data, size_t size)
+int getdents64(struct file *f, uint64_t data, size_t size)
 {
     ssize_t n;
     int namelen, reclen, tlen = 0, off = 0;

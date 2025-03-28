@@ -97,7 +97,7 @@ void            stati(struct inode*, struct stat*);
 int             writei(struct inode *ip, int user_src, uint64_t src, uint32_t off, uint32_t n);
 void            itrunc(struct inode*);
 int             unlink(struct inode *dp, uint32_t off);
-int             getdents(struct file *f, uint64_t data, size_t size);
+int             getdents64(struct file *f, uint64_t data, size_t size);
 int             permission(struct inode *ip, int mask);
 
 // ramdisk.c
