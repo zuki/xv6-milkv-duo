@@ -200,6 +200,7 @@ extern long sys_mknodat(void);
 extern long sys_unlinkat(void);
 extern long sys_linkat(void);
 extern long sys_symlinkat(void);
+extern ssize_t sys_readlinkat(void);
 extern long sys_mkdirat(void);
 extern long sys_close(void);
 extern long sys_ioctl(void);

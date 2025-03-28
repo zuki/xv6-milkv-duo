@@ -432,6 +432,43 @@ long filesymlink(char *old, char *new)
     return 0;
 }
 
+ssize_t filereadlink(char *path, char *buf, size_t bufsize)
+{
+    struct inode *ip, *dp;
+    ssize_t n;
+    char name[DIRSIZ];
+
+    begin_op();
+    if ((dp = nameiparent(path, name)) == 0) {
+        end_op();
+        return -ENOTDIR;
+    } else {
+        iput(dp);
+    }
+
+    if ((ip = namei(path)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+
+    ilock(ip);
+    if (ip->type != T_SYMLINK) {
+        iunlockput(ip);
+        end_op();
+        return -EINVAL;
+    }
+
+    if ((n = readi(ip, 1, (uint64_t)buf, 0, bufsize)) <= 0) {
+        iunlockput(ip);
+        end_op();
+        return -EIO;
+    }
+
+    iunlockput(ip);
+    end_op();
+    return n;
+}
+
 long fileunlink(char *path, int flags)
 {
     trace("path: %s, flags: %d", path, flags);

@@ -389,6 +389,40 @@ long sys_unlinkat(void)
     return fileunlink(path, flags);
 }
 
+ssize_t sys_readlinkat()
+{
+    char path[MAXPATH];
+    char *buf = 0;
+    int dirfd;
+    size_t bufsiz;
+    int ret;
+
+    if (argint(0, &dirfd) < 0 || argstr(1, path, MAXPATH) < 0
+     || argu64(3, &bufsiz) < 0)
+        return -EINVAL;
+
+    if ((ret = argptr(2, buf, bufsiz)) < 0)
+        return -EFAULT;
+
+    if ((ssize_t)bufsiz <= 0)
+        return -EINVAL;
+
+    // TODO: AT_FDCWD以外の実装
+    if (dirfd != AT_FDCWD) return -EINVAL;
+
+    debug("dirfd=0x%x, path=%s, buf=%p, bufsiz=%lld", dirfd, path, buf, bufsiz);
+
+    if (!strncmp(path, "/proc/self/fd/", 14)) {   // TODO: ttyをちゃんと実装
+        int fd = path[14] - '0';                  // /proc/self/fd/n -> /dev/tty/n, /dev/pts/n
+        if (fd < 3) {
+            copyout(myproc()->pagetable, (uint64_t)buf, "/dev/tty", strlen("/dev/tty"));
+            return 9;
+        }
+    }
+
+    return filereadlink(path, buf, bufsiz);
+}
+
 long sys_openat(void)
 {
     char path[MAXPATH];
