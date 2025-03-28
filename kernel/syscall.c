@@ -208,6 +208,7 @@ extern long sys_mmap(void);
 extern long sys_munmap(void);
 //extern long sys_mremap(void);
 extern long sys_msync(void);
+extern long sys_fadvise64(void);
 extern long sys_rt_sigsuspend(void);
 extern long sys_rt_sigaction(void);
 extern long sys_rt_sigprocmask(void);
@@ -366,6 +367,7 @@ static func syscalls[] = {
     [SYS_clone]     = sys_clone,                // 220
     [SYS_execve]    = sys_execve,               // 221
     [SYS_mmap]      = sys_mmap,                 // 222
+    [SYS_fadvise64] = sys_fadvise64,            // 223
     [SYS_msync]     = sys_msync,                // 227
     [SYS_wait4]     = sys_wait4,                // 260
     [SYS_debug]     = sys_debug,                // 999
