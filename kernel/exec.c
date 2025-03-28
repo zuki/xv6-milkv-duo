@@ -10,6 +10,7 @@
 #include <printf.h>
 #include <errno.h>
 #include <linux/auxvec.h>
+#include <linux/capability.h>
 
 static int loadseg(pde_t *, uint64_t, struct inode *, uint32_t, uint32_t);
 
@@ -291,6 +292,19 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         if (*s == '/')
             last = s+1;
     safestrcpy(p->name, last, sizeof(p->name));
+
+    // capabiltyの再設定
+    cap_clear(p->cap_inheritable);
+    cap_clear(p->cap_permitted);
+    cap_clear(p->cap_effective);
+
+    if (p->uid == 0 || p->euid == 0) {
+        cap_set_full(p->cap_inheritable);
+        cap_set_full(p->cap_permitted);
+    }
+
+    if (p->euid == 0 || p->fsuid == 0)
+        cap_set_full(p->cap_effective);
 
     // Commit to the user image.
     // mmap領域を解放

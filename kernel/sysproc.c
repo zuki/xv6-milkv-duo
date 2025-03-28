@@ -12,6 +12,7 @@
 #include <linux/ppoll.h>
 #include <linux/signal.h>
 #include <common/file.h>
+#include <linux/capability.h>
 
 long sys_exit(void)
 {
@@ -381,6 +382,24 @@ long sys_ppoll(void) {
     return ppoll(fds, nfds, &timeout_ts, &sigmask);
 }
 
+static inline void
+cap_emulate_setxuid(int old_ruid, int old_euid, int old_suid)
+{
+    struct proc *p = myproc();
+
+    if ((old_ruid == 0 || old_euid == 0 || old_suid == 0) &&
+        (p->uid != 0 && p->euid != 0 && p->suid != 0)) {
+        cap_clear(p->cap_permitted);
+        cap_clear(p->cap_effective);
+    }
+    if (old_euid == 0 && p->euid != 0) {
+        cap_clear(p->cap_effective);
+    }
+    if (old_euid != 0 && p->euid == 0) {
+        p->cap_effective = p->cap_permitted;
+    }
+}
+
 long sys_getpgid(void) {
     pid_t pid;
 
@@ -469,13 +488,12 @@ long sys_setuid()
     old_ruid = new_ruid = p->uid;
     new_suid = old_suid = p->suid;
 
-    debug("uid: %d, old: euid=%d ruid=%d suid=%d, new: ruid=%d suid=%d",
+    trace("uid: %d, old: euid=%d ruid=%d suid=%d, new: ruid=%d suid=%d",
         uid, old_euid, old_ruid, old_suid, new_ruid, new_suid);
-    //debug("p[%d] cap_effective=%d", p->pid, p->cap_effective);
+    trace("p[%d] cap_effective=%d", p->pid, p->cap_effective);
 
 
-    //if (capable(CAP_SETUID)) {
-    if (p->uid == 0) {
+    if (capable(CAP_SETUID)) {
         if (uid != old_ruid) {
             p->uid = uid;
             new_suid = uid;
@@ -491,7 +509,7 @@ long sys_setuid()
     p->fsuid = p->euid = uid;
     p->suid = new_suid;
 
-    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
 }
@@ -500,24 +518,24 @@ long sys_setuid()
 long sys_setreuid()
 {
     struct proc *p = myproc();
-    uid_t ruid, euid, old_ruid, old_euid /*, old_suid */, new_ruid, new_euid;
+    uid_t ruid, euid, old_ruid, old_euid , old_suid, new_ruid, new_euid;
 
     if (argint(0, (int *)&ruid) < 0 || argint(1, (int *)&euid) < 0)
         return -EINVAL;
 
     new_ruid = old_ruid = p->uid;
     new_euid = old_euid = p->euid;
-    //old_suid = p->suid;
+    old_suid = p->suid;
 
     if (ruid != (uid_t)-1) {
         new_ruid = ruid;
-        if ((old_ruid != ruid) && (p->euid != ruid) && p->uid != 0 /* !capable(CAP_SETUID) */)
+        if ((old_ruid != ruid) && (p->euid != ruid) && !capable(CAP_SETUID))
             return -EPERM;
     }
 
     if (euid != (uid_t)-1) {
         new_euid = euid;
-        if ((old_euid != euid) && (p->suid != euid) && p->uid != 0 /* !capable(CAP_SETUID) */)
+        if ((old_euid != euid) && (p->suid != euid) && !capable(CAP_SETUID))
             return -EPERM;
     }
 
@@ -534,7 +552,7 @@ long sys_setreuid()
         p->suid = p->euid;
     p->fsuid = p->euid;
 
-    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
 }
@@ -544,13 +562,13 @@ long sys_setresuid()
 {
     struct proc *p = myproc();
     uid_t ruid, euid, suid;
-    // uid_t old_ruid = p->uid, old_euid = p->euid, old_suid = p->suid;
+    uid_t old_ruid = p->uid, old_euid = p->euid, old_suid = p->suid;
 
     if (argint(0, (int *)&ruid) < 0 || argint(1, (int *)&euid) < 0
      || argint(2, (int *)&suid) < 0)
         return -EINVAL;
 
-    if (p->pid != 0 /*!capable(CAP_SETUID) */) {
+    if (!capable(CAP_SETUID)) {
         if ((ruid != (uid_t)-1) && (ruid != p->uid) &&
             (ruid != p->euid) && (ruid != p->suid))
             return -EPERM;
@@ -576,7 +594,7 @@ long sys_setresuid()
     if (suid != (uid_t)-1)
         p->suid = suid;
 
-    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
 }
@@ -592,7 +610,7 @@ long sys_setfsuid()
         return -EINVAL;
 
     if (fsuid == p->uid || fsuid == p->euid || fsuid == p->suid
-     || fsuid == p->fsuid || p->uid == 0 /* capable(CAP_SETUID) */) {
+     || fsuid == p->fsuid || capable(CAP_SETUID)) {
         if (fsuid != old_fsuid) {
             fence_i();
             fence_rw();
@@ -600,12 +618,10 @@ long sys_setfsuid()
         p->fsuid = fsuid;
     }
 
-#if 0
     if (old_fsuid == 0 && p->fsuid != 0)
         cap_t(p->cap_effective) &= ~CAP_FS_MASK;
     if (old_fsuid != 0 && p->fsuid == 0)
         cap_t(p->cap_effective) |= (cap_t(p->cap_permitted) & CAP_FS_MASK);
-#endif
 
     return old_fsuid;
 }
@@ -619,8 +635,7 @@ long sys_setgid()
     if (argint(0, (int *)&gid) < 0)
         return -EINVAL;
 
-    //if (capable(CAP_SETGID)) {
-    if (p->gid == 0) {
+    if (capable(CAP_SETGID)) {
         if (old_egid != gid) {
             fence_i();
             fence_rw();
@@ -654,14 +669,14 @@ long sys_setregid()
     new_egid = old_egid;
 
     if (rgid != (gid_t)-1) {
-        if (old_rgid == rgid || p->egid == rgid || p->gid == 0 /* capable(CAP_SETGID) */)
+        if (old_rgid == rgid || p->egid == rgid || capable(CAP_SETGID))
             new_rgid = rgid;
         else
             return -EPERM;
     }
     if (egid != (gid_t)-1) {
         if (old_rgid == egid || p->egid == egid || p->sgid == egid
-          || p->gid == 0 /* capable(CAP_SETGID) */)
+          || capable(CAP_SETGID))
             new_egid = egid;
         else
             return -EPERM;
@@ -690,7 +705,7 @@ long sys_setresgid()
      || argint(2, (int *)&sgid) < 0)
         return -EINVAL;
 
-    if (p->gid != 0 /* !capable(CAP_SETGID) */) {
+    if (!capable(CAP_SETGID)) {
         if ((rgid != (gid_t)-1) && (rgid != p->gid) &&
             (rgid != p->egid) && (rgid != p->sgid))
             return -EPERM;
@@ -729,7 +744,7 @@ long sys_setfsgid()
         return -EINVAL;
 
     if (fsgid == p->gid || fsgid == p->egid || fsgid == p->sgid
-     || fsgid == p->fsgid || p->gid == 0 /* capable(CAP_SETGID) */) {
+     || fsgid == p->fsgid || capable(CAP_SETGID)) {
         if (fsgid != old_fsgid) {
             fence_i();
             fence_rw();

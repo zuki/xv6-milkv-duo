@@ -11,6 +11,7 @@
 #include <linux/wait.h>
 #include <linux/ppoll.h>
 #include <linux/time.h>
+#include <linux/capability.h>
 
 struct cpu cpus[NCPU];
 
@@ -210,6 +211,7 @@ freeproc(struct proc *p)
     p->sid = 0;
     p->uid = p->euid = p->suid = p->fsuid = -1;
     p->gid = p->egid = p->sgid = p->fsgid = -1;
+    p->cap_effective = p->cap_inheritable = p->cap_permitted = 0;
     p->fdflag = 0;
     p->parent = 0;
     p->name[0] = 0;
@@ -321,6 +323,8 @@ userinit(void)
     p->uid = p->euid = p->suid = p->fsuid = 0;
     p->gid = p->egid = p->sgid = p->fsgid = 0;
 
+    p->cap_effective = p->cap_inheritable = p->cap_permitted = CAP_INIT_EFF_SET;
+
     p->state = RUNNABLE;
 
     release(&p->lock);
@@ -391,6 +395,9 @@ int fork(void)
     np->egid = p->egid;
     np->sgid = p->sgid;
     np->fsgid = p->fsgid;
+    np->cap_effective = p->cap_effective;
+    np->cap_inheritable = p->cap_inheritable;
+    np->cap_permitted = p->cap_permitted;
 
     // copy saved user registers.
     *(np->trapframe) = *(p->trapframe);

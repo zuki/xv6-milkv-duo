@@ -12,6 +12,10 @@
 #define BSIZE       4096    // ブロックサイズ
 #define BLKSECT     (BSIZE / SECTOR_SIZE)
 
+#define MAY_EXEC    1
+#define MAY_WRITE   2
+#define MAY_READ    4
+
 // Disk layout:
 // [ boot block | super block | log | inode blocks |
 //                                          free bit map | data blocks]

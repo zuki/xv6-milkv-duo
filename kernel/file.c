@@ -13,6 +13,7 @@
 #include <linux/fcntl.h>
 #include <linux/stat.h>
 #include <linux/time.h>
+#include <linux/capability.h>
 #include <proc.h>
 #include <errno.h>
 #include <printf.h>
@@ -522,6 +523,11 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
 
     ilock(dp);
 
+    if (permission(dp, MAY_EXEC) < 0) {
+        iunlockput(dp);
+        return (void *)-EACCES;
+    }
+
     if ((ip = dirlookup(dp, name, 0)) != 0){
         iunlockput(dp);
         ilock(ip);
@@ -631,17 +637,16 @@ loop:
             iunlockput(ip);
             goto loop;
         }
-
     }
 
     int readable = FILE_READABLE((int)flags);
     int writable = FILE_WRITABLE((int)flags);
-/*
-    if (readable && ((error = ip->iops->permission(ip, MAY_READ)) < 0))
+
+    if (readable && (permission(ip, MAY_READ) < 0))
         goto bad;
-    if (writable && ((error = ip->iops->permission(ip, MAY_WRITE)) < 0))
+    if (writable && (permission(ip, MAY_WRITE) < 0))
         goto bad;
-*/
+
     if ((f = filealloc()) == 0 || (fd = fdalloc(f, 0)) < 0) {
         iunlock(ip);
         end_op();
@@ -671,10 +676,9 @@ loop:
     end_op();
 
     return fd;
-/*
+
 bad:
     iunlockput(ip);
     end_op();
     return -EACCES;
-*/
 }

@@ -23,6 +23,7 @@
 #include <printf.h>
 #include <errno.h>
 #include <linux/time.h>
+#include <linux/capability.h>
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
@@ -648,6 +649,28 @@ writei(struct inode *ip, int user_src, uint64_t src, uint32_t off, uint32_t n)
     iupdate(ip);
 
     return tot;
+}
+
+int permission(struct inode *ip, int mask)
+{
+    struct proc *p = myproc();
+    mode_t mode = ip->mode;
+
+    if (p->fsuid == 0) return 0;
+
+    if (p->fsuid == ip->uid)
+        mode >>= 6;
+    else if (p->fsgid == ip->gid)
+        mode >>= 3;
+
+    if (((mode & mask & (MAY_READ|MAY_WRITE|MAY_EXEC)) == mask))
+        return 0;
+
+    if ((mask & (MAY_READ|MAY_WRITE)) || (ip->mode & S_IXUGO))
+        if (capable(CAP_DAC_OVERRIDE))
+            return 0;
+
+    return -EACCES;
 }
 
 // Directories

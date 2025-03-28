@@ -129,6 +129,7 @@ struct proc {
     struct proc *parent;            // 親プロセスへのポインタ
 
     // 以下の項目はプロセス私用なので操作の際にp->lockは不要
+    kernel_cap_t   cap_effective, cap_inheritable, cap_permitted;   // capabilities
     uint64_t kstack;                // カーネルスタックの仮想アドレス
     uint64_t sz;                    // プロセスメモリサイズ（バイト単位）
     pagetable_t pagetable;          // ユーザページテーブル
