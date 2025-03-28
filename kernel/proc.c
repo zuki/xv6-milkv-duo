@@ -163,6 +163,7 @@ found:
     p->pgid = p->sid = p->pid;
     p->state = USED;
     p->regions = NULL;
+    p->umask = 0002;
 
     // trapframeページを割り当てる.
     if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -212,6 +213,7 @@ freeproc(struct proc *p)
     p->uid = p->euid = p->suid = p->fsuid = -1;
     p->gid = p->egid = p->sgid = p->fsgid = -1;
     p->cap_effective = p->cap_inheritable = p->cap_permitted = 0;
+    p->umask = 0;
     p->fdflag = 0;
     p->parent = 0;
     p->name[0] = 0;

@@ -135,6 +135,7 @@ struct proc {
     pagetable_t pagetable;          // ユーザページテーブル
     struct trapframe *trapframe;    // trampoline.S用のデータページへのポインタ
     struct context context;         // プロセスを実行するにはここにswtch()
+    mode_t umask;                   // umask
     int fdflag;                     // fdフラグ（1ビット/ファイル）
     struct file *ofile[NOFILE];     // オープンしているフィル
     struct inode *cwd;              // カレントワーキングディレクトリ

@@ -213,6 +213,7 @@ extern long sys_sysinfo(void);
 extern long sys_set_tid_address(void);
 extern long sys_setpgid(void);
 extern long sys_getpgid(void);
+extern mode_t sys_umask(void);
 
 long sys_clock_gettime()
 {
@@ -340,6 +341,7 @@ static func syscalls[] = {
     [SYS_setpgid]   = sys_setpgid,              // 154
     [SYS_getpgid]   = sys_getpgid,              // 155
     [SYS_uname]     = sys_uname,                // 160
+    [SYS_umask]     = (func)sys_umask,          // 166
     [SYS_getpid]    = sys_getpid,               // 172
     [SYS_getppid]   = sys_getppid,              // 173
     [SYS_setuid]    = sys_setuid,               // 146

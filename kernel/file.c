@@ -548,7 +548,7 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
     ip->major = major;
     ip->minor = minor;
     ip->nlink = 1;
-    ip->mode  = mode;
+    ip->mode  = mode & ~(myproc()->umask);
     ip->type  = type;
     rtc_gettime(&ts);
     ip->atime = ip->mtime = ip->ctime = ts;

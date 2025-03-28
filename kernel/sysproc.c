@@ -12,6 +12,7 @@
 #include <linux/ppoll.h>
 #include <linux/signal.h>
 #include <common/file.h>
+#include <linux/stat.h>
 #include <linux/capability.h>
 
 long sys_exit(void)
@@ -753,4 +754,17 @@ long sys_setfsgid()
     }
 
     return old_fsgid;
+}
+
+mode_t sys_umask()
+{
+    mode_t umask;
+    mode_t oumask = myproc()->umask;
+
+    if ((argint(0, (int *)&umask)) < 0) {
+        return -EINVAL;
+    }
+
+    myproc()->umask = umask & S_IRWXUGO;
+    return oumask;
 }
