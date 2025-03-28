@@ -106,7 +106,7 @@ char *usrbins[] = {
     "usr/bin/who",
     "usr/bin/whoami",
     "usr/bin/yes",
-    "usr/bin/[   ",
+    "usr/bin/[",
     NULL
 };
 

@@ -12,7 +12,7 @@
 
 #define CONSOLE     1
 
-char *argv[] = { "sh", "/etc/inittab", NULL };
+char *argv[] = { "dash", "/etc/inittab", NULL };
 char *envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", "TZ=JST-9", NULL };
 
 int main(int argc, char **argv)
