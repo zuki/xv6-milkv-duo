@@ -29,13 +29,12 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 {
     char *s, *last;
     int i, off, errno = 0;
-    uint64_t sz = 0, sp, ustack[MAXARG], estack[MAXARG], stackbase;
+    uint64_t sz = 0, sp = USERTOP /* len */, ustack[MAXARG], estack[MAXARG];
     struct elfhdr elf;
     struct inode *ip;
     struct proghdr ph;
     pagetable_t pagetable = 0, oldpagetable;
     struct proc *p = myproc();
-    uint64_t sp_top;
 
     begin_op();
 
@@ -174,36 +173,18 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
 #endif
 
-    //p = myproc();
-    uint64_t oldsz = p->sz;
-
-    // 次のページ境界に2ページ割り当てる。
-    // 1ページ目をスタックガードとしてアクセス不能にする。
-    // 2ページ目をユーザスタックとして使用する。
-    sz = PGROUNDUP(sz);
-    uint64_t sz1;
-    if ((sz1 = uvmalloc(pagetable, sz, sz + 3*PGSIZE, PTE_W)) == 0) {
-        warn("uvmalloc for page boundary error");
+    // スタックを割り当てる; STACKBASEからSTACKTOPまでのページを割り当てる
+    if ((sp = uvmalloc(pagetable, STACKBASE, STACKTOP, PTE_W)) == 0) {
+        warn("uvmalloc for stack is failed");
         errno = ENOMEM;
         goto bad;
     }
 
-    sp = sp_top = sz = sz1;
-
-    // 1ページ目をガードページとしてユーザアクセス禁止とする
-    uvmclear(pagetable, sz - 3 * PGSIZE);
-    stackbase = sp - PGSIZE;
-    trace("sp: 0x%lx, stackbase: 0x%lx, guard: 0x%lx - 0x%lx", sp, stackbase, sz - 3*PGSIZE, sz - PGSIZE);
 
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
     for (i = 0; i < argc; i++) {
         sp -= strlen(argv[i]) + 1;
         sp -= sp % 16; // riscv sp must be 16-byte aligned
-        if (sp < stackbase) {
-            warn("sp: 0x%lx exeed stackbase for arg[%d]: 0x%lx", sp, i, stackbase);
-            errno = EFAULT;
-            goto bad;
-        }
         if (copyout(pagetable, sp, argv[i], strlen(argv[i]) + 1) < 0) {
             warn("copyout error: argv[%d]", i);
             errno = EIO;
@@ -222,11 +203,6 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     for (i = 0; i < envc; i++) {
         sp -= strlen(envp[i]) + 1;
         sp -= sp % 16; // riscv sp must be 16-byte aligned
-        if (sp < stackbase) {
-            warn("sp: 0x%lx exeed stackbase for envp[%d]: 0x%lx", sp, i, stackbase);
-            errno = EFAULT;
-            goto bad;
-        }
         if (copyout(pagetable, sp, envp[i], strlen(envp[i]) + 1) < 0) {
             warn("copyout error: envp[%d]", i);
             errno = EIO;
@@ -248,11 +224,6 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     uint64_t u64cnt = envc + 1 + argc + 1 + 1;
     sp -= u64cnt * sizeof(uint64_t) + auxv_size;
     sp -= sp % 16;
-    if (sp < stackbase) {
-        warn("[2] sp: 0x%lx exeed stackbase for env: 0x%lx", sp, stackbase);
-        errno = EFAULT;
-        goto bad;
-    }
 
     // spは16バイトアラインされているので、argcから逆順につめる
     uint64_t u64_argc = argc;
@@ -310,12 +281,14 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // mmap領域を解放
     free_mmap_list(p);
 
+    uint64_t oldsz = p->sz;
     oldpagetable = p->pagetable;
     p->pagetable = pagetable;
     p->sz = sz;
     p->trapframe->epc = elf.entry;  // initial program counter = _start
     p->trapframe->sp = sp; // initial stack pointer
     trace("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
+
 #if 0
     debug("free old pagetable: pid=%d", p->pid);
     if (p->pid == 4) {

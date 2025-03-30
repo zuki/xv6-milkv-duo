@@ -147,15 +147,17 @@
  *  0x3F_FFFF_E000 -> --------------------------- TRAPFRAME
  *                          ガードページ
  *  0x3F_FFFF_D000 -> --------------------------- USERTOP (STACKTOP/MMAPTOP)
- *
+ *                        スタック (4 * 4KB)
+ *                                                <- sp
+ *                    --------------------------- STACKBASE
  *
  *                         mmap領域
  *  0x20_0000_0000 -> --------------------------- MMAPBASE (128GB)
  *
+ *                         libc.so
+ *  0x00_8000_0000 -> --------------------------- ELF_ET_DYN_BASE (2GB)
+ *
  *                         ヒープ領域
- *                    --------------------------- p->sz = stack_top
- *                        スタック (4KB)
- *                    --------------------------- p->sp
  *                       ガードページ (4KB)
  *                    ---------------------------
  *                         コード領域
@@ -166,6 +168,7 @@
 
 #define USERTOP     (TRAPFRAME - PGSIZE) /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
 #define STACKTOP    USERTOP             /* スタックはUSERTOPから */
+#define STACKBASE   (STACKTOP - 4 * PGSIZE) /* スタックは4ページ */
 #define MMAPBASE    UL(0x2000000000)    /* mmapアドレスの基底アドレス */
 #define MMAPTOP     USERTOP             /* ARGV, ENVPなどはstack_topからmmapするため */
 

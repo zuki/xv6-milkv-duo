@@ -21,9 +21,11 @@ static int in_user(uint64_t addr, size_t n)
         return 1;
 
     // 2. addr + n が mmap_region内にある
-    if (is_mmap_region(p, (void *)addr, n)) {
+    if (is_mmap_region(p, (void *)addr, n))
         return 1;
-    }
+
+    if (addr >= STACKBASE && addr < STACKTOP)
+        return 1;
 
     return 0;
 }
@@ -33,7 +35,9 @@ static int in_user(uint64_t addr, size_t n)
 int fetchaddr(uint64_t addr, uint64_t *ip)
 {
     struct proc *p = myproc();
-    if ((addr >= p->sz || addr + sizeof(uint64_t) > p->sz) && is_mmap_region(p, (void *)addr, sizeof(uint64_t)) == 0) {
+    if ((addr >= p->sz || addr + sizeof(uint64_t) > p->sz)          // コード領域外
+    && (is_mmap_region(p, (void *)addr, sizeof(uint64_t)) == 0      // mmap領域外
+    && (addr < STACKBASE || addr >= STACKTOP))) {                   // スタック領域外
         debug("addr; 0x%lx, p->sz: 0x%lx", addr, p->sz);
         return -1;
     }
