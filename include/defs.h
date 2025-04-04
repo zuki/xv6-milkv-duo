@@ -107,8 +107,12 @@ void            ramdiskrw(struct buf*, int write);
 
 // kalloc.c
 void*           kalloc(void);
-void            kfree(void *);
+void            kfree(void *pa);
 void            kinit(void);
+
+// kmalloc.c
+void            kmfree(void *ap);
+void *          kmalloc(size_t nbytes);
 
 // log.c
 void            initlog(int, struct superblock*);
