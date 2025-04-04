@@ -78,7 +78,7 @@ long            filechown(struct file *f, char *path, uid_t owner, gid_t group);
 
 // fs.c
 void            fsinit(int);
-int             dirlink(struct inode *dp, char *name, uint32_t inum);
+int             dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type);
 struct inode*   dirlookup(struct inode *dp, char *name, uint32_t *poff);
 int             direntlookup(struct inode *dp, int inum, struct dirent *dep, size_t *ofp);
 struct inode*   ialloc(uint32_t, short);

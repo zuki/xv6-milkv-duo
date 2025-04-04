@@ -313,17 +313,37 @@ long sys_fstatat(void)
 #endif
 
     begin_op();
+loop:
     if ((ip = namei(path)) == 0) {
         end_op();
         return -ENOENT;
     }
     ilock(ip);
+
+    if ((flags & AT_SYMLINK_NOFOLLOW) == 0) {
+        if (ip->type == T_SYMLINK) {
+            int n;
+            if ((n = readi(ip, 0, (uint64_t)path, 0, sizeof(MAXPATH) - 1)) <= 0) {
+                warn("couldn't read sysmlink target");
+                iunlockput(ip);
+                end_op();
+                return -ENOENT;
+            }
+            path[n] = 0;
+            iunlockput(ip);
+            goto loop;
+        }
+    }
+
     stati(ip, &st);
     iunlockput(ip);
     end_op();
 
-    if (copyout(myproc()->pagetable, staddr, (char *)&st, sizeof(st)) < 0)
+    if (copyout(myproc()->pagetable, staddr, (char *)&st, sizeof(st)) < 0) {
+        error("failed copyout");
         return -EFAULT;
+    }
+
     return 0;
 }
 
@@ -332,6 +352,7 @@ long sys_linkat(void)
 {
     char newpath[MAXPATH], oldpath[MAXPATH];
     int oldfd, newfd, flags;
+    struct inode *ip;
 
     if (argint(0, &oldfd) < 0 || argint(2, &newfd) < 0
      || argint(4, &flags) < 0
@@ -341,12 +362,32 @@ long sys_linkat(void)
 
     trace("oldfd: %d, oldpath: %s, newfd: %d, newpath: %s, flags: %d", oldfd, oldpath, newfd, newpath, flags);
 
-    // TODO: AT_FDCWD以外の実装
+    // TODO: oldfd/newfdの実装
     if (oldfd != AT_FDCWD || newfd != AT_FDCWD)
         return -EINVAL;
-    // TODO: AT_SYMLINK_FOLLOW は実装する
-    if (flags)
+
+    if (flags & AT_SYMLINK_FOLLOW) {
+        begin_op();
+        if ((ip = namei(oldpath)) == 0) {
+            end_op();
+            return -ENOENT;
+        }
+        ilock(ip);
+        if (ip->type == T_SYMLINK) {
+            int n;
+            if ((n = readi(ip, 0, (uint64_t)oldpath, 0, sizeof(MAXPATH) - 1)) <= 0) {
+                warn("couldn't follow symlink");
+                iunlockput(ip);
+                end_op();
+                return -ENOENT;
+            }
+            oldpath[n] = 0;
+        }
+        iunlockput(ip);
+        end_op();
+    } else if (flags != 0) {
         return -EINVAL;
+    }
 
     return filelink(oldpath, newpath);
 }
@@ -509,10 +550,9 @@ long sys_mknodat(void)
         type = T_FILE;
     else if (S_ISCHR(mode) || S_ISBLK(mode))
         type = T_DEVICE;
-/*
     else if (S_ISLNK(mode))
         type = T_SYMLINK;
-*/
+
     else {
         warn("%d is not supported yet", mode & S_IFMT);
         return -EINVAL;

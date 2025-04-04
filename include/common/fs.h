@@ -69,10 +69,11 @@ struct dinode {
 #define BBLOCK(b, sb)   ((b) / BPB + sb.bmapstart)
 
 // ディレクトリ名の最大長()
-#define DIRSIZ          14
+#define DIRSIZ          58
 
 struct dirent {
-  ushort inum;
+  uint32_t inum;
+  uint16_t type;
   char name[DIRSIZ];
 };
 

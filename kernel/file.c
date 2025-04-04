@@ -366,7 +366,7 @@ long filelink(char *old, char *new)
         goto bad;
     }
 
-    if ((error = dirlink(dp, name, ip->inum)) != 0) {
+    if ((error = dirlink(dp, name, ip->inum, ip->type)) != 0) {
         iunlockput(dp);
         goto bad;
     }
@@ -415,7 +415,7 @@ long filesymlink(char *old, char *new)
     ip->atime = ip->mtime = ip->ctime = ts;
     iupdate(ip);
 
-    if ((error = dirlink(dp, name, ip->inum)) != 0) {
+    if ((error = dirlink(dp, name, ip->inum, ip->type)) != 0) {
         iunlockput(dp);
         iunlockput(ip);
         end_op();
@@ -424,7 +424,7 @@ long filesymlink(char *old, char *new)
 
     iupdate(dp);
     iunlockput(dp);
-
+    trace("old: %s, len: %d", old, strlen(old));
     writei(ip, 0, (uint64_t)old, 0, strlen(old));
     iupdate(ip);
     iunlockput(ip);
@@ -595,11 +595,11 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
 
     if (type == T_DIR) {  // Create . and .. entries.
         // No ip->nlink++ for ".": avoid cyclic ref count.
-        if (dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
+        if (dirlink(ip, ".", ip->inum, ip->type) < 0 || dirlink(ip, "..", dp->inum, dp->type) < 0)
         goto fail;
     }
 
-    if (dirlink(dp, name, ip->inum) < 0)
+    if (dirlink(dp, name, ip->inum, ip->type) < 0)
         goto fail;
 
     if (type == T_DIR){

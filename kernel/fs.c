@@ -712,7 +712,7 @@ dirlookup(struct inode *dp, char *name, uint32_t *poff)
 // Write a new directory entry (name, inum) into the directory dp.
 // Returns 0 on success, -1 on failure (e.g. out of disk blocks).
 int
-dirlink(struct inode *dp, char *name, uint32_t inum)
+dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
 {
     int off;
     struct dirent de;
@@ -721,6 +721,7 @@ dirlink(struct inode *dp, char *name, uint32_t inum)
     // Check that name is not present.
     if ((ip = dirlookup(dp, name, 0)) != 0) {
         iput(ip);
+        debug("name: %s not found",name);
         return -1;
     }
 
@@ -734,8 +735,13 @@ dirlink(struct inode *dp, char *name, uint32_t inum)
 
     strncpy(de.name, name, DIRSIZ);
     de.inum = inum;
-    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
+    de.type = type;
+    int ret;
+    if ((ret = writei(dp, 0, (uint64_t)&de, off, sizeof(de))) != sizeof(de)) {
+        debug("write error: inum: %d, type: %d, name: %s, want: %d, ret: %d",
+            inum, type, name, sizeof(de), ret);
         return -1;
+    }
 
     return 0;
 }
@@ -895,6 +901,10 @@ int getdents64(struct file *f, uint64_t data, size_t size)
             else // if (f->major == 1) // CONSOLE
                 de64.d_type = IFTODT(S_IFCHR);
         } else if (dirip->type == T_DIR) {
+            de64.d_type = IFTODT(S_IFDIR);
+        } else if (dirip->type == T_SYMLINK) {
+            de64.d_type = IFTODT(S_IFLNK);
+        } else if (dirip->type == T_MOUNT) {
             de64.d_type = IFTODT(S_IFDIR);
         } else { // if (dirip->type == T_FILE)
             de64.d_type = IFTODT(S_IFREG);

@@ -7,10 +7,11 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#define DIRSIZ 14
+#define DIRSIZ 58
 
 struct v6_dirent {
-  uint16_t inum;
+  uint32_t inum;
+  uint16_t type;
   char name[DIRSIZ];
 };
 
@@ -75,9 +76,9 @@ char * fmtmode(mode_t mode)
 char *fmtuser(uid_t uid, gid_t gid)
 {
     if (uid == 0 && gid == 0)
-        return "root wheel";
+        return "root root ";
     else if (uid == 1000 && gid == 1000)
-        return "zuki staff";
+        return "zuki zuki ";
     else
         return "anon anon ";
 }
@@ -95,7 +96,7 @@ void ls(char *path)
     }
 
     if (fstat(fd, &st) < 0) {
-        fprintf(stderr, "ls: cannot stat %s\n", path);
+        fprintf(stderr, "ls: cannot fstat %s\n", path);
         close(fd);
         return;
     }
@@ -106,7 +107,7 @@ void ls(char *path)
                fmtuser(0, 0), st.st_size, fmtname(path));
         //fflush(stdout);
 #endif
-     if (S_ISDIR(st.st_mode)) {
+    if (S_ISDIR(st.st_mode)) {
         if (strlen(path) + 1 + DIRSIZ + 1 > sizeof(buf)) {
             fprintf(stderr, "ls: path too long\n");
         } else {
@@ -118,8 +119,8 @@ void ls(char *path)
                     continue;
                 memmove(p, de.name, DIRSIZ);
                 p[DIRSIZ] = 0;
-                if (stat(buf, &st) < 0) {
-                    fprintf(stderr, "ls: cannot stat %s\n", buf);
+                if (lstat(buf, &st) < 0) {
+                    fprintf(stderr, "ls: cannot lstat %s\n", buf);
                     continue;
                 }
                 printf("%-10s %4ld %-10s %8ld %11s %s\n", fmtmode(st.st_mode),
