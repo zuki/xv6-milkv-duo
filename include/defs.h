@@ -75,6 +75,7 @@ struct inode *  create(char *path, short type, short major, short minor, mode_t 
 long            fileopen(char *path, int flags, mode_t mode);
 long            filechmod(char *path, mode_t mode);
 long            filechown(struct file *f, char *path, uid_t owner, gid_t group);
+struct file *   fileget(char *path);
 
 // fs.c
 void            fsinit(int);
@@ -124,8 +125,8 @@ void            end_op(void);
 long            mmap(void *addr, size_t length, int prot, int flags, struct file*, off_t offset);
 long            munmap(void *addr, size_t len);
 void           *mremap(void *old_addr, size_t old_length, size_t new_length, int flags, void *new_addr);
+long            mprotect(void *addr, size_t length, int prot);
 long            msync(void *addr, size_t length, int flags);
-
 uint64_t        get_perm(int prot, int flags);
 long            mmap_load_pages(void *addr, size_t length, int prot, int flags, struct file *f, off_t offset);
 void            print_mmap_list(struct proc *p, const char *title);
@@ -199,6 +200,7 @@ void            send_signal(struct proc *p, int sig);
 long            ppoll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout_ts, sigset_t *sigmask);
 pid_t           getpgid(pid_t pid);
 long            setpgid(pid_t pid, pid_t pgid);
+void            flush_signal_handlers(struct proc *p);
 
 // rtc.c
 void            rtc_init(void);

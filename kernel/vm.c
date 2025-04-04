@@ -531,8 +531,11 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
 
 int alloc_cow_page(pagetable_t pagetable, uint64_t va)
 {
-    if (va >= MAXVA)
+    if (va >= MAXVA) {
+        error("va: 0x%lx over MAXVA", va);
         return -1;
+    }
+
 
     pte_t *pte = walk(pagetable, va, 0);
     // COW領域でない

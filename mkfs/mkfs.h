@@ -13,7 +13,7 @@
 #define NINDIRECT   (BSIZE / sizeof(uint))
 #define NINDIRECT2  (NINDIRECT * NINDIRECT)
 #define MAXFILE     (NDIRECT + NINDIRECT + NINDIRECT2)
-#define DIRSIZ      14
+#define DIRSIZ      58
 #define FSMAGIC     0x10203040
 #define ROOTINO     1
 #define IPB         (BSIZE / sizeof(struct dinode))
@@ -53,7 +53,8 @@ struct dinode {
 };
 
 struct dirent {
-    ushort inum;
+    uint32_t inum;
+    uint16_t type;
     char name[DIRSIZ];
 };
 

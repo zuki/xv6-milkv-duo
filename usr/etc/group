@@ -2,7 +2,7 @@ root::0:
 daemon:x:1:
 bin:x:2:
 sys:x:3:
-adm:x:4:
+adm:x:4:zuki
 tty:x:5:zuki
 shadow:x:42:
 utmp:x:43:

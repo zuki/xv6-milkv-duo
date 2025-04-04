@@ -242,7 +242,7 @@ void make_dirent(uint inum, ushort type, uint parent, char *name)
 
     bzero(&de, sizeof(de));
     de.inum = xint(inum);
-    //de.type = xshort(type);
+    de.type = xshort(type);
     strncpy(de.name, name, DIRSIZ);
     //printf("DIRENT: inum=%d, name='%s' to PARNET[%d]\n", de.inum, de.name, parent);
     iappend(parent, &de, sizeof(de));

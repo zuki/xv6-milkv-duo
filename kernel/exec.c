@@ -2,6 +2,7 @@
 #include <common/param.h>
 #include <common/memlayout.h>
 #include <common/riscv.h>
+#include <exec.h>
 #include <common/file.h>
 #include <spinlock.h>
 #include <proc.h>
@@ -9,29 +10,230 @@
 #include <elf.h>
 #include <printf.h>
 #include <errno.h>
+#include <linux/mman.h>
 #include <linux/auxvec.h>
+#include <linux/stat.h>
 #include <linux/capability.h>
 
 static int loadseg(pde_t *, uint64_t, struct inode *, uint32_t, uint32_t);
 
-int flags2perm(int flags)
+static void flush_parent_data(struct proc *p)
+{
+    // (1) signalを開放
+    flush_signal_handlers(p);
+    // (2) close_on_execのfileをclose
+    for (int i = 0; i < NOFILE; i++) {
+        if (p->ofile[i] && bit_test(p->fdflag, i)) {
+            fileclose(p->ofile[i]);
+            p->ofile[i] = 0;
+            bit_remove(p->fdflag, i);
+        }
+    }
+    // (3) capabilityを再設定
+    cap_clear(p->cap_inheritable);
+    cap_clear(p->cap_permitted);
+    cap_clear(p->cap_effective);
+
+    if (p->uid == 0 || p->euid == 0) {
+        cap_set_full(p->cap_inheritable);
+        cap_set_full(p->cap_permitted);
+    }
+
+    if (p->euid == 0 || p->fsuid == 0)
+        cap_set_full(p->cap_effective);
+
+    // (4) mmap領域を解放
+    free_mmap_list(p);
+}
+
+static int flags2perm(int flags)
 {
     int perm = 0;
-    if (flags & 0x1)
+    if (flags & PF_X)
       perm = PTE_X;
-    if (flags & 0x2)
+    if (flags & PF_W)
       perm |= PTE_W;
+    if (flags & PF_R)
+      perm |= PTE_R;
     return perm;
 }
 
-int
-execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
+// elf_bssからページ境界までゼロクリアする
+// |----elf_bss_0000000000000000|
+static void padzero(uint64_t elf_bss)
 {
-    char *s, *last;
-    int i, off, errno = 0;
-    uint64_t sz = 0, sp = USERTOP /* len */, ustack[MAXARG], estack[MAXARG];
+    uint64_t nbyte;
+    char *buf;
+
+    nbyte = ELF_PAGEOFFSET(elf_bss);
+    trace("elf_bss=0x%llx, nbyte=0x%llx", elf_bss, nbyte ? (ELF_MIN_ALIGN - nbyte) : 0);
+    if (nbyte) {
+        nbyte = ELF_MIN_ALIGN - nbyte;
+        buf = kmalloc(nbyte);
+        memset(buf, 0, nbyte);
+        copyout(myproc()->pagetable, elf_bss, buf, nbyte);
+        kmfree(buf);
+    }
+}
+
+static char *mapping_bss(uint64_t start, uint64_t end)
+{
+    char  *old_start = (char *)start;
+    //char  *old_end   = (char *)end;
+
+    trace("start: 0x%lx, end: 0x%lx", start, end);
+    start = ELF_PAGEALIGN(start);   // roundup
+    end = ELF_PAGEALIGN(end);       // roundup
+    // 既存のマッピング内に収まれば何もしない（0詰め済み）
+    if (end <= start) {
+        padzero((uint64_t)old_start);
+        return old_start;
+    }
+
+    trace("mmap start: 0x%lx (%p), end: 0x%lx (%p), length: 0x%lx", start, old_start, end, old_end, end - start);
+    // mappingを行う
+    return (char *)mmap((void *)start, end - start, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, NULL, 0);
+}
+
+static uint64_t load_interpreter(char *path, uint64_t *base)
+{
+    struct file *f;
+    int i, off, addr_fix = 0;
     struct elfhdr elf;
+    struct proghdr ph;
+    uint64_t load_addr = 0, bss_start = 0, bss_end = 0;
+    char *mapped;
+    long errno = 0;
+
+    trace("interp: %s", path);
+
+    // 1. インタプリタファイルを取得
+    f = fileget(path);
+    if (IS_ERR(f))
+        return (uint64_t)f;
+
+    // 2. ELFヘッダーのチェック
+    if (readi(f->ip, 0, (uint64_t)&elf, 0, sizeof(elf)) != sizeof(elf)) {
+        warn("readi elf error: inum=%d", f->ip->inum);
+        errno = -EIO;
+        goto out;
+    }
+    errno = -ENOEXEC;
+    if (elf.type != ET_DYN && elf.type != ET_EXEC)
+        goto out;
+    if (!ELF_CHECK_ARCH(&elf))
+        goto out;
+    if (elf.phentsize != sizeof(struct proghdr))
+        goto out;
+    if (elf.phnum > ELF_MIN_ALIGN / sizeof(struct proghdr))
+        goto out;
+
+    // 3. プログラムヘッダを処理
+    for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)) {
+        int flags = 0;
+        int prot  = 0;
+        uint64_t vaddr = 0;
+        uint64_t k;
+
+        // 3.1 ヘッダを読み込む
+        if (readi(f->ip, 0, (uint64_t)&ph, off, sizeof(ph)) != sizeof(ph)) {
+            warn("read prog header[%d], off: 0x%08x", i, off);
+            errno = -EIO;
+            goto out;
+        }
+
+        // PT_LOAD以外は処理不要
+        if (ph.type != PT_LOAD)
+            continue;
+
+        // 3.2 ヘッダの妥当性をチェック
+        errno = -ENOEXEC;
+        if (ph.memsz < ph.filesz) {
+            warn("size error: memsz 0x%lx < filesz 0x%lx", ph.memsz, ph.filesz);
+            goto out;
+        }
+
+        if (ph.vaddr + ph.memsz < ph.vaddr) {
+            warn("addr error: vaddr 0x%lx + memsz 0x%lx < vaddr 0x%lx", ph.vaddr, ph.memsz, ph.vaddr);
+            goto out;
+        }
+
+        // 3.3 mmap用のprot変数をセット
+        if (ph.flags & PF_R) prot |= PROT_READ;
+        if (ph.flags & PF_W) prot |= PROT_WRITE;
+        if (ph.flags & PF_X) prot |= PROT_EXEC;
+
+        // 3.3 mmap用のflags変数をセット
+        //   テキスト領域はMAP_SHARED、データ領域はMAP_PRIVATE
+        if (prot & PROT_WRITE)
+            flags = MAP_PRIVATE;
+        else
+            flags = MAP_SHARED;
+
+        vaddr = ph.vaddr;
+
+        // ET_EXECまたは2番目以降のプログラムヘッダはアドレス固定
+        if (elf.type == ET_EXEC || addr_fix)
+            flags |= MAP_FIXED;
+        // それ以外は固定ではないがload_addrの初期値を与える
+        else
+            load_addr = ELF_PAGESTART(ELF_ET_DYN_BASE + vaddr);
+
+        // 3.4 データをmappingする
+        trace("start: 0x%lx  = load_addr: 0x%lx + vaddr: 0x%lx, ", ELF_PAGESTART(load_addr + vaddr), load_addr, vaddr);
+        mapped = (char *)mmap(
+            (void *)ELF_PAGESTART(load_addr + vaddr),
+            ph.filesz  + ELF_PAGEOFFSET(vaddr),
+            prot, flags, f,
+            ph.off - ELF_PAGEOFFSET(vaddr));
+        if (IS_ERR(mapped)) {
+            errno = (long)mapped;
+            goto out;
+        }
+        trace("mapped: 0x%lx", mapped);
+
+        // 3.5 ロードアドレスを調整する
+        if (addr_fix == 0 && elf.type == ET_DYN) {
+            load_addr = (uint64_t)mapped - ELF_PAGESTART(vaddr);
+            addr_fix = 1;
+        }
+
+        // 3.6 bss領域をセットする
+        k = load_addr + vaddr + ph.filesz;
+        if (k > bss_start) bss_start = k;
+        k = load_addr + vaddr + ph.memsz;
+        if (k > bss_end) bss_end = k;
+        trace("bss_start: 0x%lx, bss_end: %lx", bss_start, bss_end);
+    }
+
+    // 4. 必要があればbss領域を0クリアしてmappingする
+    padzero(bss_start);
+    bss_start = ELF_PAGESTART(bss_start + ELF_MIN_ALIGN - 1);
+    if (bss_end > bss_start) {
+        mapped = mapping_bss(bss_start, bss_end);
+        if (IS_ERR(mapped)) {
+            errno = (long)mapped;
+            goto out;
+        }
+    }
+    *base = load_addr;
+    errno = ((uint64_t)elf.entry) + load_addr;
+
+out:
+    fileclose(f);
+    return (uint64_t)errno;
+}
+
+int execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
+{
+    char *s, *last, *interp = 0;
+    int has_interp = 0;             // インタプリタを持つか(dynamicか)
+    uint64_t interp_entry = 0;      // インタプリタのエントリポイント
+    uint64_t interp_base = 0;       // インタプリタのベースアドレス
+    int i, off, errno = 0;
+    uint64_t sp = USERTOP, len, ustack[MAXARG], estack[MAXARG];
     struct inode *ip;
+    struct elfhdr elf;
     struct proghdr ph;
     pagetable_t pagetable = 0, oldpagetable;
     struct proc *p = myproc();
@@ -49,43 +251,90 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // Check ELF header
     if (readi(ip, 0, (uint64_t)&elf, 0, sizeof(elf)) != sizeof(elf)) {
         warn("readi elf error: inum=%d", ip->inum);
-        errno = EIO;
+        errno = -EIO;
         goto bad;
     }
 
     if (elf.magic != ELF_MAGIC) {
         warn("bad magic: 0x%08x", elf.magic);
-        errno = ENOEXEC;
+        errno = -ENOEXEC;
         goto bad;
     }
 
     // trampoline/p->trapframeをマッピングしたユーザページテーブルを作成する
     if ((pagetable = proc_pagetable(p)) == 0) {
         warn("couldn't make pagetable: pid=%d", p->pid);
-        errno = ENOMEM;
+        errno = -ENOMEM;
         goto bad;
     }
 
-    int nph = 0;
+    // ファイルのSet-uidをセットする: stickyビットの対応
+    if (ip->mode & S_ISUID && p->uid != 0)
+        p->fsuid = ip->uid;
+    else
+        p->fsuid = p->uid;
+    // ファイルのSet-gidをセットする: stickyビットの対応
+    if (((ip->mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP)) && p->gid != 0)
+        p->fsgid = ip->gid;
+    else
+        p->fsgid = p->gid;
 
+    // 親プロセスから受け継いだ情報を破棄する
+    flush_parent_data(p);
+
+    // pagetableを設定する
+    oldpagetable = p->pagetable;
+    p->pagetable = pagetable;
+
+    int nph = 0;
+    uint64_t sz = 0;
     // プログラムをメモリにロードする.
     for (i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)) {
         if (readi(ip, 0, (uint64_t)&ph, off, sizeof(ph)) != sizeof(ph)) {
             warn("read prog header[%d], off: 0x%08x", i, off);
+            errno = -EIO;
             goto bad;
         }
-
-        if (ph.type != ELF_PROG_LOAD)
+        // PT_INTERPを処理: interpreterの文字列取得
+        if (ph.type == PT_INTERP) {
+            if (has_interp) {
+                warn("there are multi interpretors");
+                errno = -EINVAL;
+                goto bad;
+            }
+            if (ph.filesz > PGSIZE) {      // インタプリタ名が長すぎる
+                warn("interpreter name is too long: 0x%lx", ph.filesz);
+                errno = -ENAMETOOLONG;
+                goto bad;
+            }
+            interp = (char *)kmalloc(ph.filesz);
+            if (!interp) {
+                warn("no memory for interpreter name");
+                errno = -ENOMEM;
+                goto bad;
+            }
+            // fileszにはNULLを含む
+            int bytes;
+            if ((bytes = readi(ip, 0, (uint64_t)interp, ph.off, ph.filesz)) != ph.filesz) {
+                warn("read interpreter name: off: 0x%08x, fsize: 0x%lx, bytes: 0x%x", ph.off, ph.filesz, bytes);
+                errno = -EIO;
+                goto bad;
+            }
+            has_interp = 1;
             continue;
+        }
+        // PT_LOAD以外は処理不要
+        if (ph.type != PT_LOAD)
+            continue;
+
+        errno = -ENOEXEC;
         if (ph.memsz < ph.filesz) {
             warn("size error: memsz 0x%lx < filesz 0x%lx", ph.memsz, ph.filesz);
-            errno = ENOEXEC;
             goto bad;
         }
 
         if (ph.vaddr + ph.memsz < ph.vaddr) {
             warn("addr error: vaddr 0x%lx + memsz 0x%lx < vaddr 0x%lx", ph.vaddr, ph.memsz, ph.vaddr);
-            errno = ENOEXEC;
             goto bad;
         }
 
@@ -94,7 +343,6 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             sz = ph.vaddr;
             if (sz % PGSIZE != 0) {
                 warn("first section should be page aligned: 0x%lx", sz);
-                errno = ENOEXEC;
                 goto bad;
             }
         }
@@ -104,7 +352,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         uint64_t sz1;
         if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0) {
             warn("uvmalloc error: sz1 = 0x%lx", sz1);
-            errno = ENOMEM;
+            errno = -ENOMEM;
             goto bad;
         }
         trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
@@ -112,29 +360,9 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
 
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
-            errno = EIO;
+            errno = -EIO;
             goto bad;
         }
-
-#if 0
-        if (nph == 2) {
-            char buf[336];
-            readi(ip, 0, (uint64_t)buf, ph.off, 336);
-            debug_bytes("data section", buf, 336);
-        }
-#endif
-#if 0
-        pte_t *pte = walk(pagetable, ph.vaddr, 0);
-        debug("ph.va: 0x%lx, pte: %p, *pte: 0x%lx", ph.vaddr, pte, *pte);
-        if (nph == 2) {
-            char var[8];
-            pte_t *pte = walk(pagetable, 0x18648UL, 0);
-            debug("memsz: 0x18648, pte: %p, *pte: 0x%lx", pte, *pte);
-            copyin(pagetable, var, 0x18648, 8);
-            debug("*0x18648: 0x%02x %02x %02x %02x %02x %02x %02x %02x",
-                var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
-        }
-#endif
         sz = sz1;
         fence_i();
     }
@@ -145,41 +373,34 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     // Synchronize the instruction and data streams.
     fence_i();
 
-#if 0
-    char buf[336];
-    copyin(pagetable, buf, 0x184f8, 336);
-    //copyin(pagetable, buf, 0x10112, 168);
-    debug_bytes("main", buf, 336);
-#endif
-
-#if 0
-    char var[8];
-    pte_t *pte = walk(pagetable, 0x184f8UL, 0);
-    debug(".init_array va: 0x184f8, pa: 0x%lx", PTE2PA(*pte));
-    copyin(pagetable, var, 0x184f8, 8);
-    debug("*0x184f8: 0x %02x %02x %02x %02x %02x %02x %02x %02x",
-        var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
-
-    pte = walk(pagetable, 0x10112UL, 0);
-    debug("main() va: 0x10112, pa: 0x%lx", PTE2PA(*pte));
-    copyin(pagetable, var, 0x10112, 8);
-    debug("*0x10112: 0x %02x %02x %02x %02x %02x %02x %02x %02x",
-        var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
-
-    pte = walk(pagetable, 0x18510UL, 0);
-    debug("data va: 0x18510, pa: 0x%lx", PTE2PA(*pte));
-    copyin(pagetable, var, 0x18510, 8);
-    debug("*0x18510: 0x %02x %02x %02x %02x %02x %02x %02x %02x",
-        var[0], var[1], var[2], var[3], var[4], var[5], var[6], var[7]);
-#endif
+    // インタプリタをロードする
+    if (has_interp) {
+        interp_entry = load_interpreter(interp, &interp_base);
+        if (IS_ERR((void *)interp_entry)) {
+            error("interpreter load error: %ld", interp_entry);
+            goto bad;
+        }
+        trace("interp_base: 0x%lx, interp_entry: 0x%lx", interp_base, interp_entry);
+    }
 
     // スタックを割り当てる; STACKBASEからSTACKTOPまでのページを割り当てる
     if ((sp = uvmalloc(pagetable, STACKBASE, STACKTOP, PTE_W)) == 0) {
         warn("uvmalloc for stack is failed");
-        errno = ENOMEM;
+        errno = -ENOMEM;
         goto bad;
     }
 
+    uint64_t platform = 0;
+    if (has_interp) {
+        len = strlen(ELF_PLATFORM) + 1;
+        sp -= len;
+        sp -= sp % 16;
+        platform = (uint64_t)sp;
+        if (copyout(pagetable, sp, ELF_PLATFORM, len) < 0) {
+            warn("copyout error: platform");
+            goto bad;
+        }
+    }
 
     // 引数文字列をプッシュし、残りのスタックをustackに準備する
     for (i = 0; i < argc; i++) {
@@ -187,7 +408,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         sp -= sp % 16; // riscv sp must be 16-byte aligned
         if (copyout(pagetable, sp, argv[i], strlen(argv[i]) + 1) < 0) {
             warn("copyout error: argv[%d]", i);
-            errno = EIO;
+            errno = -EIO;
             goto bad;
         }
         ustack[i] = sp;
@@ -205,7 +426,7 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
         sp -= sp % 16; // riscv sp must be 16-byte aligned
         if (copyout(pagetable, sp, envp[i], strlen(envp[i]) + 1) < 0) {
             warn("copyout error: envp[%d]", i);
-            errno = EIO;
+            errno = -EIO;
             goto bad;
         }
         estack[i] = sp;
@@ -216,8 +437,31 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     if (p->pid == 3)
         trace("estack[%d]: 0x%016lx", i, estack[i]);
 
+    uint64_t auxv_size;
+    uint64_t auxv_dyn[][2] = {
+        { AT_PHDR,    elf.phoff },
+        { AT_PHENT,   sizeof(struct proghdr) },
+        { AT_PHNUM,   elf.phnum },
+        { AT_PAGESZ,  PGSIZE },
+        { AT_BASE,    interp_base },            // インタプリタのbaseアドレス
+        { AT_FLAGS,   0 },
+        { AT_ENTRY,   elf.entry },              // プログラムのエントリポイント
+        { AT_UID,     (uint64_t) p->uid },
+        { AT_EUID,    (uint64_t) p->euid },
+        { AT_GID,     (uint64_t) p->gid },
+        { AT_EGID,    (uint64_t) p->egid },
+        { AT_PLATFORM, platform },
+        { AT_HWCAP,   ELF_HWCAP },
+        { AT_CLKTCK,  100 },
+        { AT_NULL,    0 }
+    };
     uint64_t auxv_sta[][2] = { { AT_PAGESZ, PGSIZE }, { AT_NULL,    0 } };
-    uint64_t auxv_size = sizeof(auxv_sta);
+
+    if (has_interp) {
+        auxv_size = sizeof(auxv_dyn);
+    } else {
+        auxv_size = sizeof(auxv_sta);
+    }
 
     // auxv, estack, ustack, argc を詰めてセット
     // estack, ustackはNULL終端の配列
@@ -229,25 +473,25 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
     uint64_t u64_argc = argc;
     if (copyout(pagetable, sp, (char *)&u64_argc, sizeof(uint64_t)) < 0) {
         warn("copyout argc error: %p", &u64_argc);
-        errno = EIO;
+        errno = -EIO;
         goto bad;
     }
 
     if (copyout(pagetable, sp + sizeof(uint64_t), (char *)ustack, (argc+1)*sizeof(uint64_t)) < 0) {
         warn("copyout ustack error: %p", (char *)ustack);
-        errno = EIO;
+        errno = -EIO;
         goto bad;
     }
 
     if (copyout(pagetable, sp + ((argc+2) * sizeof(uint64_t)), (char *)estack, (envc+1)*sizeof(uint64_t)) < 0) {
         warn("copyout error: estack: %p", (char *)estack);
-        errno = EIO;
+        errno = -EIO;
         goto bad;
     }
 
-    if (copyout(pagetable, sp + ((envc + argc + 3) * sizeof(uint64_t)), (char *)auxv_sta, auxv_size) < 0) {
-        warn("copyout auxv error: %p", auxv_sta);
-        errno = EIO;
+    if (copyout(pagetable, sp + ((envc + argc + 3) * sizeof(uint64_t)), has_interp ? (char *)auxv_dyn : (char *)auxv_sta, auxv_size) < 0) {
+        warn("copyout auxv error: %p", has_interp ? auxv_dyn : auxv_sta);
+        errno = -EIO;
         goto bad;
     }
 
@@ -264,66 +508,59 @@ execve(char *path, char *const argv[], char *const envp[], int argc, int envc)
             last = s+1;
     safestrcpy(p->name, last, sizeof(p->name));
 
-    // capabiltyの再設定
-    cap_clear(p->cap_inheritable);
-    cap_clear(p->cap_permitted);
-    cap_clear(p->cap_effective);
-
-    if (p->uid == 0 || p->euid == 0) {
-        cap_set_full(p->cap_inheritable);
-        cap_set_full(p->cap_permitted);
-    }
-
-    if (p->euid == 0 || p->fsuid == 0)
-        cap_set_full(p->cap_effective);
-
-    // Commit to the user image.
-    // mmap領域を解放
-    free_mmap_list(p);
-
     uint64_t oldsz = p->sz;
-    oldpagetable = p->pagetable;
-    p->pagetable = pagetable;
+    //oldpagetable = p->pagetable;
+    //p->pagetable = pagetable;
     p->sz = sz;
-    p->trapframe->epc = elf.entry;  // initial program counter = _start
-    p->trapframe->sp = sp; // initial stack pointer
-    trace("pid[%d] sz: 0x%lx, sp: 0x%lx", p->pid, p->sz, p->trapframe->sp);
+    // 実行するプログラムカウンタは動的リンクの場合はインタプリタの、
+    // 静的リンクの場合はプログラムのエントリポインタ
+    if (has_interp)
+        p->trapframe->epc = interp_entry;
+    else
+        p->trapframe->epc = elf.entry;
+    // スタックポインタ
+    p->trapframe->sp = sp;
+    trace("pid[%d] sz: 0x%lx, sp: 0x%lx, interp: %d, epc: 0x%lx", p->pid, p->sz, p->trapframe->sp, has_interp, p->trapframe->epc);
 
 #if 0
     debug("free old pagetable: pid=%d", p->pid);
-    if (p->pid == 4) {
+    if (p->pid == 8) {
         uvmdump(pagetable, p->pid, "new");
         uvmdump(oldpagetable, p->pid, "old");
     }
-    print_mmap_list(p, "old proc");
+    print_mmap_list(p, "new proc");
 #endif
 
     proc_freepagetable(oldpagetable, oldsz);
 
-#if 0
-    if (p->pid == 3) {
+    #if 0
+    if (p->pid == 7) {
         uvmdump(p->pagetable, p->pid, p->name);
-        printf("\n== Stack TOP : 0x%08lx ==\n", sp_top);
-        for (uint64_t e = sp_top - 8; e >= sp; e -= 8) {
+        printf("\n== Stack TOP : 0x%08lx ==\n", STACKTOP);
+        for (uint64_t e = STACKTOP - 8; e >= sp; e -= 8) {
             uint64_t val;
             copyin(pagetable, (char *)&val, e, 8);
             printf("%08lx: %016lx\n", e, val);
         }
         printf("== Stack END : 0x%08lx ==\n\n", sp);
+        print_mmap_list(p, "new proc");
     }
 #endif
     return argc; // this ends up in a0, the first argument to main(argc, argv)
 
 bad:
+    if (interp)
+        kmfree(interp);
     if (pagetable) {
-        debug("free pagetable for bad");
+        trace("free pagetable for bad");
         proc_freepagetable(pagetable, sz);
     }
     if (ip) {
         iunlockput(ip);
         end_op();
     }
-    return -errno;
+
+    return errno;
 }
 
 // プログラムセグメントを仮想アドレスvaのpagetableにロードする。

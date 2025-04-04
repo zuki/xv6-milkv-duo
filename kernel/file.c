@@ -797,3 +797,67 @@ bad:
     end_op();
     return error;
 }
+
+struct file *fileget(char *path)
+{
+    struct inode *ip;
+    struct file *f;
+    char buf[512];
+    int n;
+    long error;
+    trace("path: %s", path);
+    begin_op();
+loop:
+    if ((ip = namei(path)) == 0) {
+        end_op();
+        return (void *)-ENOENT;
+    }
+    ilock(ip);
+
+    if (ip->type == T_SYMLINK) {
+        if ((n = readi(ip, 0, (uint64_t)buf, 0, sizeof(buf) - 1)) <= 0) {
+            warn("couldn't read sysmlink target");
+            error = -ENOENT;
+            goto bad;
+        }
+        buf[n] = 0;
+        path = buf;
+        iunlockput(ip);
+        goto loop;
+    }
+
+    if (ip->type != T_FILE) {
+        error("inum: %d, type: %d", ip->inum, ip->type);
+        error = -EINVAL;
+        goto bad;
+    }
+
+    if ((f = filealloc()) == 0) {
+        error = -ENOSPC;
+        goto bad;
+    }
+
+    if ((error = (long)permission(ip, MAY_READ)) < 0) {
+        error("permission error: %d", error);
+        goto bad;
+    }
+
+    f->type     = FD_INODE;
+    f->ref      = 1;
+    f->ip       = ip;
+    f->off      = 0;
+    f->flags    = O_RDONLY;
+    f->readable = 1;
+    f->writable = 0;
+
+    iunlock(ip);            // ここでputするとv6/ext2_inode部分がクリアされる
+    end_op();               // putはfをcloseする際に行われる
+
+    trace("ok: inum: %d, path: %s", ip->inum, path);
+    return f;
+
+bad:
+    iunlockput(ip);
+    end_op();
+    return (void *)error;
+}

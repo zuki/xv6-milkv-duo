@@ -119,7 +119,8 @@ char *etc_files[] = {
 };
 
 char *lib_files[] = {
-//    "usr/lib/libc.so",
+    "usr/lib/libc.so",
+//    "usr/lib/ld-musl-riscv64xthead.so.1",
     NULL
 };
 

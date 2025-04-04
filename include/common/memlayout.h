@@ -170,6 +170,7 @@
 #define STACKTOP    USERTOP             /* スタックはUSERTOPから */
 #define STACKBASE   (STACKTOP - 4 * PGSIZE) /* スタックは4ページ */
 #define MMAPBASE    UL(0x2000000000)    /* mmapアドレスの基底アドレス */
+#define ELF_ET_DYN_BASE     UL(0x100000000)     // dynamic lib を置くアドレス: 4GB
 #define MMAPTOP     USERTOP             /* ARGV, ENVPなどはstack_topからmmapするため */
 
 #endif

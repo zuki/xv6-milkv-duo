@@ -159,7 +159,7 @@
 #define MAX_ERRNO       4095
 
 
-#define IS_ERR_VALUE(x) ((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
+#define IS_ERR_VALUE(x) ((x) >= (unsigned long)-MAX_ERRNO)
 
 static inline int IS_ERR(const void *ptr)
 {

@@ -1,2 +1,2 @@
 ENV=".dashrc"; export ENV
-export PATH=/usr/bin:/bin
+PATH=/usr/bin:/bin; export PATH

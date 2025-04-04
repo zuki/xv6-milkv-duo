@@ -52,6 +52,7 @@ proc_mapstacks(pagetable_t kpgtbl)
             panic("kalloc");
         // 2ページを割り当て
         uint64_t va = KSTACK((int) (p - proc));
+        trace("va: 0x%lx", va);
         // 1ページ分だけマッピングする
         kvmmap(kpgtbl, va, (uint64_t)pa, PGSIZE, PTE_NORMAL);
     }
@@ -1222,4 +1223,23 @@ pid_t getpgid(pid_t pid)
         }
         return -ESRCH;
     }
+}
+
+/*
+ * 親から引き継いだsignalを調整する
+ */
+void flush_signal_handlers(struct proc *p)
+{
+    struct sigaction *ka;
+
+    for (int i = 0; i < NSIG; i++) {
+        ka = &p->signal.actions[i];
+        if (ka->sa_handler != SIG_IGN)
+            ka->sa_handler = SIG_DFL;
+        ka->sa_flags = 0;
+        sigemptyset(&ka->sa_mask);
+    }
+    acquire(&p->lock);
+    p->paused = 0;
+    release(&p->lock);
 }

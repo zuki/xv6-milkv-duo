@@ -120,8 +120,8 @@ static int is_usable(void *addr, size_t length)
 {
     struct proc *p = myproc();
 
-    // MMAPBASE未満のアドレスは使用不可
-    if (addr <= (void *)MMAPBASE)
+    // ELF_ET_DYN_BASE未満のアドレスは使用不可
+    if (addr < (void *)ELF_ET_DYN_BASE || addr > (void *)USERTOP)
         return 0;
 
     struct mmap_region *cursor = p->regions;
@@ -166,13 +166,14 @@ static long map_file_pages(struct proc *p, void *addr, uint64_t length, uint64_t
         }
         memset(mem, 0, PGSIZE);
         if ((ret = fileread(f, (uint64_t)mem, len, 0)) < 0) {
-            trace("fileread failed");
+            error("fileread failed");
             kfree(mem);
             goto err;
         }
 
         // メモリをユーザプロセスにマッピング
-        trace("pid[%d] mapping: addr=%p, mem=%p, offset: 0x%x, len: 0x%x", p->pid, addr+cur, mem, offset, len);
+        if (p->pid == 7)
+            trace("pid[%d] mapping: addr=%p, mem=%p, offset: 0x%x, len: 0x%x", p->pid, addr+cur, mem, offset, len);
         if ((ret = mappages(p->pagetable, (uint64_t)addr + cur, (uint64_t)len, (uint64_t)mem, perm)) < 0) {
             kfree(mem);
             return ret;
@@ -206,7 +207,8 @@ static long map_anon_pages(struct proc *p, void *addr, uint64_t length, uint64_t
             goto err;
         }
         memset(page, 0, PGSIZE);
-        trace("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr+cur, page, perm);
+        if (p->pid == 7)
+            trace("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr+cur, page, perm);
         if (mappages(p->pagetable, (uint64_t)addr + cur, PGSIZE, (uint64_t)page, perm) < 0) {
             kfree(page);
             ret = -EINVAL;
@@ -366,6 +368,10 @@ long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t 
     struct mmap_region *node;
     long error = -EINVAL;
 
+    if (p->pid == 7)
+        trace("addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, off: 0x%lx",
+        addr, length, prot, flags, f ? f->ip->inum : 0, offset);
+
     // MAP_FIXEDの指定アドレスはページ境界にあり、割り当て領域がMMAPエリア内に入ること
     // 1. addrを確定する
     // 1.1. アドレスが指定されている場合
@@ -374,21 +380,21 @@ long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t 
         // upper_addr: addr + sizeがMMAPTOPを超えないかチェックするための変数
         uint64_t upper_addr = PGROUNDUP(PGROUNDUP((uint64_t)addr) + length);
         if (upper_addr > USERTOP) {
-            trace("addr: %p + length: 0x%lx overs USERTOP", addr, length);
+            error("addr: %p + length: 0x%lx overs USERTOP", addr, length);
             return -EINVAL;
         }
         // 1.1.2 MAP_FIXEDが指定されている場合
         if (flags & MAP_FIXED) {
             // 1.1.2.1 アドレスはページ境界にあること
             if (NOT_PAGEALIGN(addr)) {
-                trace("fixed address should be page align: %p", addr);
+                error("fixed address should be page align: %p", addr);
                 return -EINVAL;
             }
             if (prot == PROT_NONE) {
                 for (int i = 0; i < PGROUNDUP(length) / PGSIZE; i++) {
                     uint64_t *pte = walk(p->pagetable, (uint64_t)addr + i * PGSIZE, 1);
                     if (pte == NULL) {
-                        trace("PROT_NONE invalid addr");
+                        error("PROT_NONE invalid addr");
                         return -EINVAL;
                     }
                     // ユーザアクセスを禁止にする
@@ -398,7 +404,7 @@ long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t 
             } else {
                 // 1.1.2.2 指定されたアドレスが使用可能なこと
                 if (!is_usable(addr, length)) {
-                    trace("addr is not available");
+                    error("addr %p is not available", addr);
                     return -EINVAL;
                 }
             }
@@ -496,7 +502,7 @@ load_pages:
     region->addr = addr;
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
-
+    trace("return addr: %p, length: 0x%lx", region->addr, region->length);
     return (long)region->addr;
 
 out:
@@ -619,6 +625,111 @@ void *mremap(void *old_addr, size_t old_length, size_t new_length, int flags, vo
     //uvm_switch(myproc()->pagetable);
     //print_mmap_list(myproc(), "mremap");
     return mapped_addr;
+}
+
+long mprotect(void *addr, size_t length, int prot)
+{
+    struct proc *p = myproc();
+    struct mmap_region *region;
+    char *addr1, *addr2, *addr3;
+    uint64_t length1, length2, length3;
+    uint64_t offset1, offset2, offset3;
+    int old_prot;
+    long error;
+
+    uint64_t addrp = (uint64_t)addr;
+    if (addrp <= p->sz) {
+        for (; addrp < (uint64_t)addr + length; addrp += PGSIZE) {
+            pte_t *pte = walk(p->pagetable, addrp, 0);
+            if (pte == NULL) {
+                error("addr: 0x%lx is not mapping", addrp);
+                return -ENOMEM;
+            }
+
+            if ((*pte & PTE_RO) && (prot == PROT_WRITE)) {
+                error("wrong prot: prot: 0x%x, *pte: 0x%x", prot, *pte & 0xff);
+                return -EACCES;
+            }
+
+            if (prot == PROT_NONE) {
+                *pte &= ~PTE_U;
+            } else {
+                if (prot == PROT_READ)
+                    *pte |= PTE_R;
+                if (prot == PROT_WRITE)
+                    *pte |= PTE_W;
+                if (prot == PROT_EXEC)
+                    *pte |= PTE_X;
+                *pte |= PTE_U;
+            }
+        }
+
+        return 0;
+    }
+
+    if (!is_mmap_region(p, addr, PGROUNDUP(length))) {
+        error("invalid region: addr: %p, length: 0x%lx", addr, length);
+        return -ENOMEM;
+    }
+
+    region = find_mmap_region(p, addr);
+
+    if ((region->prot & (PROT_READ | PROT_WRITE)) == PROT_READ && (prot & PROT_WRITE)) {
+        error("wrong prot: prot: 0x%x, regon->prot: 0x%x", prot, region->prot);
+        return -EACCES;
+    }
+
+    length = PGROUNDUP(length);
+    if (region->addr == addr && region->length == length && region->prot == prot)
+        return 0;
+
+    old_prot = region->prot;
+
+    if (region->addr == addr && region->length == length) {
+        region->prot = prot;
+    } else if (region->addr == addr) {
+        addr1 = region->addr;
+        length1 = length;
+        offset1 = region->offset;
+        addr2 = addr1 + length1;
+        length2 = region->length - length1;
+        offset2 = region->f ? offset1 + length1 : 0;
+        if ((error = munmap(region->addr, region->length)) < 0)
+            return error;
+        mmap(addr1, length1, prot, (region->flags | MAP_FIXED), region->f,  offset1);
+        mmap(addr2, length2, old_prot, (region->flags | MAP_FIXED), region->f,  offset2);
+    } else if ((addr + length) == (region->addr + region->length)) {
+        addr1 = region->addr;
+        length1 = region->length - length;
+        offset1 = region->offset;
+        addr2 = addr;
+        length2 = length;
+        offset2 = region->f ? offset1 + length1 : 0;
+        if ((error = munmap(region->addr, region->length)) < 0)
+            return error;
+        mmap(addr1, length1, old_prot, (region->flags | MAP_FIXED), region->f,  offset1);
+        mmap(addr2, length2, prot, (region->flags | MAP_FIXED), region->f,  offset2);
+    } else {
+        addr1 = region->addr;
+        length1 = (uint64_t)(addr) - (uint64_t)addr1;
+        offset1 = region->offset;
+        addr2 = addr;
+        length2 = length;
+        offset2 = region->f ? offset1 + length1 : 0;
+        addr3 = addr + length;
+        length3 = region->length - length1 - length2;
+        offset3 = region->f ? offset2 + length2 : 0;
+        if ((error = munmap(region->addr, region->length)) < 0)
+            return error;
+        mmap(addr1, length1, old_prot, (region->flags | MAP_FIXED), region->f,  offset1);
+        mmap(addr2, length2, prot, (region->flags | MAP_FIXED), region->f,  offset2);
+        mmap(addr3, length3, old_prot, (region->flags | MAP_FIXED), region->f,  offset3);
+    }
+
+    if (p->pid == 7)
+        print_mmap_list(p, "mprotect");
+
+    return 0;
 }
 
 long msync(void *addr, size_t length, int flags)

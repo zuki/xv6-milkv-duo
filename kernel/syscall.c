@@ -10,6 +10,7 @@
 #include <linux/syscall.h>
 #include <linux/utsname.h>
 #include <linux/time.h>
+#include <debug.h>
 
 // 指定されたアドレスがカレントプロセスのユーザアドレス範囲にあるかチェックする
 static int in_user(uint64_t addr, size_t n)
@@ -211,6 +212,7 @@ extern long sys_ioctl(void);
 extern long sys_mmap(void);
 extern long sys_munmap(void);
 //extern long sys_mremap(void);
+extern long sys_mprotect(void);
 extern long sys_msync(void);
 extern long sys_fadvise64(void);
 extern long sys_rt_sigsuspend(void);
@@ -290,11 +292,42 @@ long sys_uname(void) {
 }
 
 long sys_debug(void) {
-    int num;
+    char name[MAXPATH];
     uint64_t val;
-    if (argint(0, &num) < 0 || argu64(1, &val) < 0)
+
+    if (argstr(0, name, MAXPATH) < 0 || argu64(1, &val) < 0)
         return -EINVAL;
-    debug("val[%d] = 0x%lx", num, val);
+    debug("%s: 0x%lx", name, val);
+    return 0;
+}
+
+long sys_dso(void) {
+    char name[MAXPATH];
+    uint64_t dsop;
+    struct dso dso;
+
+    if (argstr(0, name, MAXPATH) < 0 || argu64(1, &dsop) < 0)
+        return -EINVAL;
+
+    copyin(myproc()->pagetable, (char *)&dso, dsop, sizeof(struct dso));
+
+    debug_bytes(name, (char *)&dso, sizeof(struct dso));
+    return 0;
+}
+
+long sys_libc(void) {
+    int stage;
+    uint64_t libcp;
+    struct __libc libc;
+
+    if (argint(0, &stage) < 0 || argu64(1, &libcp) < 0)
+        return -EINVAL;
+
+    copyin(myproc()->pagetable, (char *)&libc, libcp, sizeof(struct __libc));
+    debug("LIBC [%d] (0x%lx): %x-%x-%x-%x-%x, auxv: %p, head: %p, size: 0x%lx, align: 0x%lx, cnt: 0x%lx, page: 0x%lx, locale: %p",
+        stage, libcp, libc.can_do_threads, libc.threaded, libc.secure, libc.need_locks,
+        libc.threads_minus_1, libc.auxv, libc.tls_head, libc.tls_size,
+        libc.tls_align, libc.tls_cnt, libc.page_size, libc.global_locale);
     return 0;
 }
 
@@ -372,8 +405,11 @@ static func syscalls[] = {
     [SYS_execve]    = sys_execve,               // 221
     [SYS_mmap]      = sys_mmap,                 // 222
     [SYS_fadvise64] = sys_fadvise64,            // 223
+    [SYS_mprotect]  = sys_mprotect,             // 226
     [SYS_msync]     = sys_msync,                // 227
     [SYS_wait4]     = sys_wait4,                // 260
+    [SYS_dso]       = sys_dso,                  // 997
+    [SYS_libc]      = sys_libc,                 // 998
     [SYS_debug]     = sys_debug,                // 999
 };
 
@@ -472,6 +508,8 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_renameat2] = "sys_renameat2",            // 276
     [SYS_getrandom] = "sys_getrandom",            // 278
     [SYS_faccessat2] = "sys_faccessat2",          // 439
+    [SYS_dso]       = "sys_dso",                  // 997
+    [SYS_libc]      = "sys_libc",                 // 998
     [SYS_debug]     = "sys_debug",                // 999
 };
 
@@ -571,6 +609,8 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_renameat2] = 5,                        // 276
     [SYS_getrandom] = 3,                        // 278
     [SYS_faccessat2] = 4,                       // 439
+    [SYS_dso] = 2,                              // 997
+    [SYS_libc] = 2,                             // 998
     [SYS_debug]     = 2,                        // 999
 };
 

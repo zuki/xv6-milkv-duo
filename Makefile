@@ -1,5 +1,6 @@
 K=kernel
 U=obj/usr/bin
+D=obj/dyn/bin
 I=include
 
 OBJS = \
@@ -41,7 +42,8 @@ OBJS = \
   $K/rtc.o \
   $K/signal.o \
   $K/clock.o \
-  $K/mmap.o
+  $K/mmap.o \
+  $K/kmalloc.o
 
 $K/ramdisk_data.o: fs.img
 
@@ -138,9 +140,14 @@ UPROGS=\
 	$U/passwd \
 	$U/getty \
 	$U/su
+DPROGS= \
+	$D/hello_dyn
 
-fs.img: mkfs/mkfs test2.txt $(UPROGS)
-	mkfs/mkfs fs.img test2.txt $(UPROGS)
+$(DPROGS):
+	(cd dyn; make)
+
+fs.img: mkfs/mkfs test2.txt $(UPROGS) $(DPROGS)
+	mkfs/mkfs fs.img test2.txt $(UPROGS) $(DPROGS)
 
 -include kernel/*.d
 

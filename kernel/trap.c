@@ -81,19 +81,17 @@ usertrap(void)
         trace("epc: 0x%lx, sp: 0x%lx, tp: 0x%lx, a0: 0x%lx", p->trapframe->epc, p->trapframe->sp, p->trapframe->tp, p->trapframe->a0);
     // 13: ページアクセス例外 (load)
     } else if (scause == SCAUSE_PAGE_LOAD) {
-        trace("pid[%d] LOAD: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
         if (alloc_mmap_page(p, stval, scause) < 0) {
-            error("pid[%d] LOAD: alloc page failed", p->pid);
+            error("pid[%d] LOAD failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
             setkilled(p);
         }
     // 15: ページアクセス例外 (store)
     } else if (scause == SCAUSE_PAGE_STORE) {
-        trace("pid[%d] STORE: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
         if ((ret = alloc_cow_page(p->pagetable, stval)) < 0) {
-            error("pid[%d] COW: alloc page failed", p->pid);
+            error("pid[%d] STORE COW failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
             setkilled(p);
         } else if (ret == 1 && alloc_mmap_page(p, stval, scause) < 0) {
-            error("pid[%d] STORE: alloc page failed", p->pid);
+            error("pid[%d] STORE failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
             setkilled(p);
         }
     } else if ((which_dev = devintr()) != 0) {

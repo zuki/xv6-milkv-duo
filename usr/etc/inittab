@@ -1,3 +1,3 @@
 /usr/bin/chmod 04755 /bin/passwd
 /usr/bin/chmod 04755 /bin/su
-/bin/getty
+/usr/bin/ln -s /lib/libc.so /lib/ld-musl-riscv64xthead.so.1

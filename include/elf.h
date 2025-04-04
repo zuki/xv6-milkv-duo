@@ -5,6 +5,27 @@
 
 #define ELF_MAGIC 0x464C457FU  // "\x7FELF" in little endian
 
+#define ELFCLASSNONE    0               /* EI_CLASS */
+#define ELFCLASS32      1
+#define ELFCLASS64      2
+#define ELFCLASSNUM     3
+
+#define ELFDATANONE     0               /* e_ident[EI_DATA] */
+#define ELFDATA2LSB     1
+#define ELFDATA2MSB     2
+
+#define ET_NONE         0
+#define ET_REL          1
+#define ET_EXEC         2
+#define ET_DYN          3
+#define ET_CORE         4
+#define ET_NUM          5
+#define ET_LOOS         0xfe00
+#define ET_HIOS         0xfeff
+#define ET_LOPROC       0xff00
+#define ET_HIPROC       0xffff
+
+
 // File header 20 + 4 + 24 + 4 + 12 = 64
 struct elfhdr {
     uint32_t magic;  // must equal ELF_MAGIC
@@ -36,12 +57,41 @@ struct proghdr {
     uint64_t align;
 };
 
-// Values for Proghdr type
-#define ELF_PROG_LOAD           1
+typedef struct {
+    uint32_t	st_name;        // 4
+    unsigned char	st_info;    // 1
+    unsigned char st_other;     // 1
+    uint16_t	st_shndx;       // 2
+    uint64_t	st_value;       // 8
+    uint64_t	st_size;        // 8
+} Sym;                    // 24
 
-// Flag bits for Proghdr flags
-#define ELF_PROG_FLAG_EXEC      1
-#define ELF_PROG_FLAG_WRITE     2
-#define ELF_PROG_FLAG_READ      4
+#define PT_NULL         0
+#define PT_LOAD         1
+#define PT_DYNAMIC      2
+#define PT_INTERP       3
+#define PT_NOTE         4
+#define PT_SHLIB        5
+#define PT_PHDR         6
+#define PT_TLS          7
+#define PT_NUM          8
+#define PT_LOOS         0x60000000
+#define PT_GNU_EH_FRAME 0x6474e550
+#define PT_GNU_STACK    0x6474e551
+#define PT_GNU_RELRO    0x6474e552
+#define PT_GNU_PROPERTY 0x6474e553
+#define PT_LOSUNW       0x6ffffffa
+#define PT_SUNWBSS      0x6ffffffa
+#define PT_SUNWSTACK    0x6ffffffb
+#define PT_HISUNW       0x6fffffff
+#define PT_HIOS         0x6fffffff
+#define PT_LOPROC       0x70000000
+#define PT_HIPROC       0x7fffffff
+
+#define PF_X            0x1
+#define PF_W            0x2
+#define PF_R            0x4
+#define PF_MASKOS       0x0ff00000
+#define PF_MASKPROC     0xf0000000
 
 #endif

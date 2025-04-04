@@ -188,6 +188,28 @@ long sys_munmap(void)
     return munmap(addr, len);
 }
 
+// int mprotect(void *addr, size_t len, int prot);
+long sys_mprotect(void)
+{
+    void *addr;
+    size_t len;
+    int prot;
+
+    if (argu64(0, (uint64_t *)&addr) < 0 || argu64(1, &len) < 0
+     || argint(2, &prot) < 0)
+        return -EINVAL;
+
+    if ((uint64_t)addr & (PGSIZE-1))
+        return -EINVAL;
+
+    if ((prot & PROT_NONE) != 0 && (prot & (PROT_READ | PROT_WRITE | PROT_EXEC)) == 0 )
+        return -EINVAL;
+
+    trace("addr: %p, len: 0x%lx, prot: 0x%x", addr, len, prot);
+
+    return mprotect(addr, len, prot);
+}
+
 long sys_msync(void)
 {
     void *addr;
@@ -280,25 +302,25 @@ long sys_rt_sigaction()
     uint64_t oldact;            // struct sigaction *oldact: out
 
     if (argint(0, &sig) < 0 || argu64(2, &oldact) < 0) {
-        warn("invalid argument: sig=%d, oldact=0x%lx", sig, oldact);
+        trace("invalid argument: sig=%d, oldact=0x%lx", sig, oldact);
         return -EINVAL;
     }
     trace("sig=%d, oldact=0x%lx", sig, oldact);
     trace("act: n=1: 0x%lx, act: %p, size: %ld", myproc()->trapframe->a1, act, sizeof(struct k_sigaction));
 
     if (argptr(1, (char *)&act, sizeof(struct k_sigaction)) < 0) {
-        warn("invalid argument: act=%p", &act);
+        trace("invalid argument: act=%p", &act);
         return -EINVAL;
     }
 
     if (sig < 1 || sig >= NSIG || sig == SIGSTOP || sig == SIGKILL) {
-        warn("invalid sig %d", sig);
+        trace("invalid sig %d", sig);
         return -EINVAL;
     }
 
 
     if (act.flags & SA_SIGINFO) {
-        warn("not support siginfo");
+        trace("not support siginfo");
         return -EINVAL;
     }
 
