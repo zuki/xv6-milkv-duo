@@ -26,3 +26,4 @@ kernel/sdhci_reg.h
 doc/src/err_log_1.txt
 kernel/exec_rpi.c
 mmap.diff
+duo-imgtools/libc.so.dump
