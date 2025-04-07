@@ -630,7 +630,7 @@ long sys_execve(void)
     }
 
     //if (p->pid == 3)
-        trace("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
+        debug("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
 
     memset(argv, 0, sizeof(argv));
     if (argvp != 0 && argvp != -1) {
@@ -1028,4 +1028,35 @@ long sys_fchownat()
     // TODO: flagsの実装
 
     return filechown(0, path, owner, group);
+}
+
+long sys_faccessat2(void)
+{
+    int dirfd, mode, flags;
+    char path[MAXPATH];
+
+    if (argint(0, &dirfd) < 0 || argstr(1, path, MAXPATH) < 0
+     || argint(2, &mode) < 0  || argint(3, &flags) < 0)
+        return -EINVAL;
+
+    // TODO: dirfdは未実装
+    if (dirfd != AT_FDCWD) return -EINVAL;
+    // TODO: AT_SYMLINK_NOFOLLOWの実装
+    if (flags & AT_SYMLINK_NOFOLLOW) return -EINVAL;
+
+    return faccess(path, mode, flags);
+}
+
+long sys_llistxattr(void)
+{
+    char path[MAXPATH];
+    uint64_t listp;
+    size_t size;
+
+    if (argstr(0, path, MAXPATH) < 0 || argu64(1, &listp) < 0
+     || argu64(2, &size) < 0)
+        return -EINVAL;
+
+    // 拡張属性は実装しない
+    return 0;
 }

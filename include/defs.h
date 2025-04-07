@@ -76,6 +76,7 @@ long            fileopen(char *path, int flags, mode_t mode);
 long            filechmod(char *path, mode_t mode);
 long            filechown(struct file *f, char *path, uid_t owner, gid_t group);
 struct file *   fileget(char *path);
+long            faccess(char *path, int mode, int flags);
 
 // fs.c
 void            fsinit(int);

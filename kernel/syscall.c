@@ -156,6 +156,7 @@ int argstr(int n, char *buf, int max)
 typedef long (*func)();
 
 // Prototypes for the functions that handle system calls.
+extern long sys_llistxattr(void);
 extern char *sys_getcwd(void);
 extern long sys_clone(void);
 extern long sys_exit(void);
@@ -225,6 +226,7 @@ extern long sys_set_tid_address(void);
 extern long sys_setpgid(void);
 extern long sys_getpgid(void);
 extern mode_t sys_umask(void);
+extern long sys_faccessat2(void);
 
 long sys_clock_gettime()
 {
@@ -334,6 +336,7 @@ long sys_libc(void) {
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static func syscalls[] = {
+    [SYS_llistxattr] = sys_llistxattr,          //  12
     [SYS_getcwd]    = (func)sys_getcwd,         //  17
     [SYS_dup]       = sys_dup,                  //  23
     [SYS_dup3]      = sys_dup3,                 // 24
@@ -408,12 +411,14 @@ static func syscalls[] = {
     [SYS_mprotect]  = sys_mprotect,             // 226
     [SYS_msync]     = sys_msync,                // 227
     [SYS_wait4]     = sys_wait4,                // 260
+    [SYS_faccessat2] = sys_faccessat2,          // 439
     [SYS_dso]       = sys_dso,                  // 997
     [SYS_libc]      = sys_libc,                 // 998
     [SYS_debug]     = sys_debug,                // 999
 };
 
 __attribute__((unused)) static char *syscall_names[] = {
+    [SYS_llistxattr] = "sys_llistxattr",          // 12
     [SYS_getcwd] = "sys_getcwd",                  // 17
     [SYS_dup] = "sys_dup",                        // 23
     [SYS_dup3] = "sys_dup3",                      // 24
@@ -515,6 +520,7 @@ __attribute__((unused)) static char *syscall_names[] = {
 
 // 引数の個数
 __attribute__((unused)) static int syscall_params[] = {
+    [SYS_llistxattr] = 3,                       // 12
     [SYS_getcwd] = 2,                           // 17
     [SYS_dup] = 1,                              // 23
     [SYS_dup3] = 3,                             // 24

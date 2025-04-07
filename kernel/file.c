@@ -280,9 +280,11 @@ int writeback(struct file *f, off_t off, uint64_t addr)
 int fileioctl(struct file *f, unsigned long request, void *argp)
 {
     // request TCSBRK/TCFLSH はf->type = FD_INODE/FD_DEVICEで発生
-    if (request == TCSBRK || request == TCFLSH) {
-        // FIXME: drain, flushを実装すること
-        return 0;
+    if (f->type == FD_INODE) {
+        if (request == TCSBRK || request == TCFLSH) {
+            // FIXME: drain, flushを実装すること
+            return 0;
+        }
     }
 
     if (f->type != FD_DEVICE) {
@@ -290,6 +292,7 @@ int fileioctl(struct file *f, unsigned long request, void *argp)
         return -EINVAL;
     }
 
+    // TODO: devsw[SDMAJOR] を実装
     if (f->major < 0 || f->major >= NDEV || !devsw[f->major].ioctl) {
         error("inval2");
         return -EINVAL;
@@ -860,4 +863,71 @@ bad:
     iunlockput(ip);
     end_op();
     return (void *)error;
+}
+
+long faccess(char *path, int mode, int flags)
+{
+    struct inode *ip;
+    struct proc *p = myproc();
+    uid_t uid, fuid;
+    gid_t gid, fgid;
+    mode_t fmode;
+
+    if (mode & ~S_IRWXO)    /* where's F_OK, X_OK, W_OK, R_OK? */
+        return -EINVAL;
+
+    begin_op();
+    if ((ip = namei(path)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+    fmode = ip->mode;
+    fuid = ip->uid;
+    fgid = ip->gid;
+    iput(ip);
+    end_op();
+
+    // mode == F_OKの場合はファイルが存在するのでOK
+    if (mode == 0) return 0;
+
+    // 呼び出し元がrootならR_OK, W_OKは常にOK
+    // X_OKはファイルにUGOのいずれかに実行許可があればOK
+    if (p->uid == 0) {
+        if ((mode & X_OK) && !(fmode & S_IXUGO))
+            return -EACCES;
+        else
+            return 0;
+    }
+
+    // root以外は個別に判断
+    if (flags & AT_EACCESS) {       // 実効IDで判断
+        uid = p->euid;
+        gid = p->egid;
+    } else {                        // 実IDで判断
+        uid = p->uid;
+        gid = p->gid;
+    }
+
+    if (mode & R_OK) {
+        if ((fuid == uid && !(fmode & S_IRUSR))
+         && (fgid == gid && !(fmode & S_IRGRP))
+                         && !(fmode & S_IROTH))
+        return -EACCES;
+    }
+
+    if (mode & W_OK) {
+        if ((fuid == uid && !(fmode & S_IWUSR))
+         && (fgid == gid && !(fmode & S_IWGRP))
+                         && !(fmode & S_IWOTH))
+        return -EACCES;
+    }
+
+     if (mode & X_OK) {
+        if ((fuid == uid && !(fmode & S_IXUSR))
+         && (fgid == gid && !(fmode & S_IXOTH))
+                         && !(fmode & S_IXOTH))
+        return -EACCES;
+    }
+
+    return 0;
 }
