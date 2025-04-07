@@ -124,7 +124,7 @@ UPROGS=\
 	$U/ls\
 	$U/mkdir\
 	$U/rm\
-	$U/sh\
+	$U/mysh\
 	$U/wc\
 	$U/zombie \
 	$U/sigtest\
@@ -135,7 +135,7 @@ UPROGS=\
 	$U/mmaptest3 \
 	$U/forktest \
 	$U/busybox \
-	$U/dash \
+	$U/sh \
 	$U/login \
 	$U/passwd \
 	$U/getty \

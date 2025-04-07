@@ -107,6 +107,7 @@ char *usrbins[] = {
     "usr/bin/whoami",
     "usr/bin/yes",
     "usr/bin/[",
+    "usr/bin/dash",
     NULL
 };
 
