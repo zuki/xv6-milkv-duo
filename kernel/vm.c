@@ -536,7 +536,6 @@ int alloc_cow_page(pagetable_t pagetable, uint64_t va)
         return -1;
     }
 
-
     pte_t *pte = walk(pagetable, va, 0);
     // COW領域でない
     if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0) {
@@ -545,7 +544,7 @@ int alloc_cow_page(pagetable_t pagetable, uint64_t va)
 
     // COW領域ではない書き込み不可アドレスの書き込み例外: プロセスをkill
     if (!(*pte & PTE_COW) && !(*pte & PTE_W)) {
-        debug("*pte DAGU_XWRV = %08b", *pte & 0xff);
+        debug("RO addr: 0x%lx, *pte DAGU_XWRV = %08b", va, *pte & 0xff);
         return -1;
     }
 

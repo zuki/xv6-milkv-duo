@@ -193,8 +193,11 @@ static int consoleioctl(int fd, uint64_t req, void *argp)
             p->pgid = (pid_t)(uint64_t)argp;
             break;
         case TIOCGPGRP:
-            if (copyout(p->pagetable, (uint64_t)argp, (char *)&p->pgid, sizeof(pid_t)) < 0)
+            if (copyout(p->pagetable, (uint64_t)argp, (char *)&p->pgid, sizeof(pid_t)) < 0) {
+                error("TIOCGPGRP argp: 0x%lx, pgid: %d, size: %d", argp, p->pgid, sizeof(pid_t));
                 return -EINVAL;
+            }
+
             break;
         default:
             error("unimplemented req: 0x%lx", req);

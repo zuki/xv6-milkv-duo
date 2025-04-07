@@ -630,7 +630,7 @@ long sys_execve(void)
     }
 
     //if (p->pid == 3)
-        debug("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
+        trace("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
 
     memset(argv, 0, sizeof(argv));
     if (argvp != 0 && argvp != -1) {
