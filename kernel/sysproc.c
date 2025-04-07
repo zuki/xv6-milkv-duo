@@ -14,6 +14,7 @@
 #include <common/file.h>
 #include <linux/stat.h>
 #include <linux/capability.h>
+#include <linux/resources.h>
 
 long sys_exit(void)
 {
@@ -789,4 +790,50 @@ mode_t sys_umask()
 
     myproc()->umask = umask & S_IRWXUGO;
     return oumask;
+}
+
+long sys_sched_getaffinity(void) {
+    pid_t pid;
+    size_t cpusetsize;
+    uint64_t maskp;
+    cpu_set_t mask;
+
+    if (argint(0, &pid) < 0 || argu64(1, &cpusetsize) < 0
+     || argu64(2, &maskp) < 0)
+        return -EINVAL;
+
+    trace("pid: %d, size: 0x%lx, maskp: 0x%lx", pid, cpusetsize, maskp);
+
+    mask.__bits[0] = 1UL;
+    if (copyout(myproc()->pagetable, maskp, (char *)&mask, sizeof(cpu_set_t)) < 0)
+            return -EINVAL;
+
+    return 0;
+}
+
+
+long sys_prlimit64(void)
+{
+    pid_t pid;
+    int resource;
+    uint64_t new_limit_p, old_limit_p;
+    struct rlimit old_limit;
+
+    if (argint(0, &pid) < 0 || argint(1, &resource) < 0
+     || argu64(2, &new_limit_p) < 0
+     || argu64(3, &old_limit_p) < 0)
+        return -EINVAL;
+
+    trace("pid=%d, resource=%d, new_limit=0x%llx, old_limit=0x%llx",
+        pid, resource, new_limit_p, old_limit_p);
+
+    if (old_limit_p != 0) {
+        old_limit.rlim_cur = RLIM_SAVED_CUR;
+        old_limit.rlim_max = RLIM_SAVED_MAX;
+        if (copyout(myproc()->pagetable, old_limit_p, (char *)&old_limit, sizeof(struct rlimit)) < 0)
+            return -EINVAL;
+    }
+
+    return 0;
+
 }

@@ -225,7 +225,9 @@ extern long sys_sysinfo(void);
 extern long sys_set_tid_address(void);
 extern long sys_setpgid(void);
 extern long sys_getpgid(void);
+extern long sys_prlimit64(void);
 extern mode_t sys_umask(void);
+extern long sys_sched_getaffinity(void);
 extern long sys_faccessat2(void);
 
 long sys_clock_gettime()
@@ -372,6 +374,7 @@ static func syscalls[] = {
     [SYS_nanosleep] = sys_nanosleep,            // 101
     [SYS_clock_settime] = sys_clock_settime,    // 112
     [SYS_clock_gettime] = sys_clock_gettime,    // 113
+    [SYS_sched_getaffinity] = sys_sched_getaffinity, // 123
     [SYS_kill]      = sys_kill,                 // 129
     [SYS_rt_sigsuspend] = sys_rt_sigsuspend,    // 133
     [SYS_rt_sigaction] = sys_rt_sigaction,      // 134
@@ -411,6 +414,7 @@ static func syscalls[] = {
     [SYS_mprotect]  = sys_mprotect,             // 226
     [SYS_msync]     = sys_msync,                // 227
     [SYS_wait4]     = sys_wait4,                // 260
+    [SYS_prlimit64] = sys_prlimit64,            // 261
     [SYS_faccessat2] = sys_faccessat2,          // 439
     [SYS_dso]       = sys_dso,                  // 997
     [SYS_libc]      = sys_libc,                 // 998
