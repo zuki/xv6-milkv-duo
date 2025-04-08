@@ -201,7 +201,7 @@ main(int argc, char *argv[])
     copy_file(2, argc, argv, binino, 0, 0, S_IFREG|0755);
 
     // /usr/test.txt
-    copy_file(0, nelms(text_files), text_files, rootino, 0, 0, S_IFREG|0755);
+    copy_file(0, nelms(text_files), text_files, rootino, 0, 0, S_IFREG|0664);
 
     // /usr/bin  (coreutils)
     copy_file(0, nelms(usrbins), usrbins, usrbinino, 0, 0, S_IFREG|0755);
@@ -216,12 +216,12 @@ main(int argc, char *argv[])
     copy_file(0, nelms(local_bin_files), local_bin_files, localbinino, 0, 0, S_IFREG|0755);
 
     // /usr/local/share/misc/magic.mgc
-    copy_file(0, nelms(local_share_misc_files), local_share_misc_files, localsharemiscino, 0, 0, S_IFREG|0755);
+    copy_file(0, nelms(local_share_misc_files), local_share_misc_files, localsharemiscino, 0, 0, S_IFREG|0664);
 
     // /home/zuki/.dashrc
-    copy_file(0, nelms(home_zuki_files), home_zuki_files, zukiino, 1000, 1000, S_IFREG|0755);
+    copy_file(0, nelms(home_zuki_files), home_zuki_files, zukiino, 1000, 1000, S_IFREG|0640);
     // /home/root/.dashrc
-    copy_file(0, nelms(home_root_files), home_root_files, suino, 0, 0, S_IFREG|0755);
+    copy_file(0, nelms(home_root_files), home_root_files, suino, 0, 0, S_IFREG|0640);
 
     // fix size of root inode dir
     rinode(rootino, &din);
