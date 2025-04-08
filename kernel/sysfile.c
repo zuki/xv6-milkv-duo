@@ -1060,3 +1060,104 @@ long sys_llistxattr(void)
     // 拡張属性は実装しない
     return 0;
 }
+
+//int utimensat(int dirfd, const char *pathname,
+//              const struct timespec times[2], int flags);
+long sys_utimensat(void)
+{
+    int dirfd, flags;
+    char path[MAXPATH];
+    uint64_t timesp;
+    struct timespec times[2];
+    int pathlen;
+    struct file *f;
+
+    struct inode *ip, *dp;
+    char name[DIRSIZ];
+    uint32_t off;
+    struct timespec ts;
+
+    if (argint(0, &dirfd) < 0 || (pathlen = argstr(1, path, MAXPATH)) < 0
+    || argu64(2, &timesp) < 0 || argint(3, &flags) < 0)
+        return -EINVAL;
+
+    if (timesp != 0) {
+        if (copyin(myproc()->pagetable, (char *)&times, timesp, sizeof(times)) < 0)
+            return -EFAULT;
+    } else {
+        times[0].tv_nsec = UTIME_NOW;
+        times[1].tv_nsec = UTIME_NOW;
+    }
+
+    debug("dirfd: %d, path: %s, times[0]: (0x%lx, 0x%lx), times[1]: (0x%lx, 0x%lx), flags: 0x%x", dirfd, path, times[0].tv_sec, times[0].tv_nsec, times[1].tv_sec, times[1].tv_nsec, flags);
+
+    if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH)) != 0) return -EINVAL;
+
+    // pathが""の場合
+    begin_op();
+    if (pathlen == 0) {
+        if (argfd(0, 0, &f) < 0)
+            return -EINVAL;
+        ip = f->ip;
+    } else {
+        if (dirfd != AT_FDCWD) {
+            end_op();
+            return -EINVAL;
+        }
+        if ((dp = nameiparent(path, name)) == 0) {
+            end_op();
+            return -ENOENT;
+        }
+
+        ilock(dp);
+        if ((ip = dirlookup(dp, name, &off)) == 0) {
+            iunlockput(dp);
+            end_op();
+            return -ENOENT;
+        }
+        iunlockput(dp);
+    }
+
+    ilock(ip);
+    for (int i = 0; i < 2; i++) {
+        if (times[i].tv_nsec == UTIME_NOW) {
+            rtc_gettime(&ts);
+            if (i == 0) ip->atime = ts;
+            else        ip->mtime = ts;
+        } else if (times[i].tv_nsec == UTIME_OMIT) {
+            // noop
+        } else {
+            if (i == 0) ip->atime = times[i];
+            else        ip->mtime = times[i];
+        }
+    }
+    iupdate(ip);
+    iunlockput(ip);
+    end_op();
+
+    return 0;
+}
+
+// int renameat2(int olddirfd, const char *oldpath,
+//               int newdirfd, const char *newpath, unsigned int flags);
+long sys_renameat2(void)
+{
+    int olddirfd, newdirfd;
+    char oldpath[MAXPATH], newpath[MAXPATH];
+    uint32_t flags;
+
+    if (argint(0, &olddirfd) < 0 || argstr(1, oldpath, MAXPATH) < 0
+     || argint(2, &newdirfd) < 0 || argstr(3, newpath, MAXPATH) < 0
+     || argint(4, (int *)&flags) < 0)
+        return -EINVAL;
+
+    // TODO: olddirfd, newdirfd, flagsはRENAME_NOREPLACEだけ実装
+    if (olddirfd != AT_FDCWD || newdirfd != AT_FDCWD) return -EINVAL;
+    // TODO: RENAME_EXCHANGEの実装
+    if (flags & RENAME_EXCHANGE)
+        return -EINVAL;
+
+    if (strncmp(oldpath, newpath, strlen(oldpath)) == 0) return 0;
+
+    return filerename(oldpath, newpath, flags);
+}

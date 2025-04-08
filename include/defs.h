@@ -2,6 +2,7 @@
 #define INC_DEFS_H
 
 #include <common/riscv.h>
+#include <linux/time.h>
 
 struct buf;
 struct context;
@@ -20,7 +21,6 @@ struct slab_cache;
 struct rusage;
 struct k_sigaction;
 struct pollfd;
-struct timespec;
 struct tm;
 struct mmap_region;
 
@@ -77,7 +77,7 @@ long            filechmod(char *path, mode_t mode);
 long            filechown(struct file *f, char *path, uid_t owner, gid_t group);
 struct file *   fileget(char *path);
 long            faccess(char *path, int mode, int flags);
-
+long            filerename(char *path1, char *path2, uint32_t flags);
 // fs.c
 void            fsinit(int);
 int             dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type);

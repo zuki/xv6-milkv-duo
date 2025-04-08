@@ -931,3 +931,153 @@ long faccess(char *path, int mode, int flags)
 
     return 0;
 }
+
+// dp/name1 -> dp/name2 へ改名
+static long rename(struct inode *dp, char *name1, char *name2)
+{
+    struct inode *ip;
+    struct dirent de;
+    uint32_t off;
+
+    ilock(dp);
+    if ((ip = dirlookup(dp, name1, &off)) == 0)
+        return -ENOENT;
+    ilock(ip);
+
+    memset(&de, 0, sizeof(de));
+    de.inum = ip->inum;
+    de.type = ip->type;
+    memmove(de.name, name2, DIRSIZ);
+    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+        warn("writei");
+        return -ENOSPC;
+    }
+    iupdate(dp);
+    rtc_gettime(&ip->ctime);
+    iupdate(ip);
+    iunlockput(ip);
+    iunlockput(dp);
+
+    return 0;
+}
+
+// dp/old_ip -> dp/new_ip へ付け替え
+static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip)
+{
+    struct dirent de;
+    size_t off;
+    struct timespec ts;
+
+    ilock(dp);
+    ilock(old_ip);
+    ilock(new_ip);
+    if (direntlookup(dp, old_ip->inum, &de, &off) < 0)
+        return -ENOENT;
+
+    de.inum = new_ip->inum;
+    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+        warn("writei");
+        return -ENOSPC;
+    }
+    iupdate(dp);
+    rtc_gettime(&ts);
+    old_ip->ctime = new_ip->ctime = ts;
+    iupdate(old_ip);
+    iupdate(new_ip);
+    iunlockput(old_ip);
+    iunlockput(new_ip);
+    iunlockput(dp);
+
+    return 0;
+}
+
+
+
+long filerename(char *path1, char *path2, uint32_t flags)
+{
+    struct inode *ip1, *ip2, *dp1, *dp2;
+    char name1[DIRSIZ], name2[DIRSIZ];
+    long error;
+
+    begin_op();
+    if (flags & RENAME_NOREPLACE) {
+        if ((ip2 = namei(path2)) != 0) {
+            iunlock(ip2);
+            end_op();
+            return -EEXIST;
+        }
+    }
+
+    if ((ip1 = namei(path1)) == 0) {
+        end_op();
+        warn("path1 %s not exits", path1);
+        return -ENOENT;
+    }
+    dp1 = nameiparent(path1, name1);
+
+    ip2 = namei(path2);
+    dp2 = nameiparent(path2, name2);
+    trace("path1: %s, dp1: %d, ip1: %d, name1: %s", path1, dp1->inum, ip1->inum, name1);
+    trace("path2: %s, dp2: %d, ip2: %d, name2: %s", path2, dp2 ? dp2->inum : -1, ip2 ? ip2->inum : -1, name2);
+
+    // 同一ファイルのhard link
+    if (ip1 == ip2) {
+        iput(ip1);
+        iput(ip2);
+        iput(dp1);
+        iput(dp2);
+        return 0;
+    }
+
+    error = -EINVAL;
+    // 親ディレクトリが同じ
+    if (dp1 == dp2) {
+        // name2はなし: 単なる改名(name1はdirectoryでもfileでも可)
+        if (ip2 == 0) {
+            if ((error = rename(dp1, name1, name2)) < 0) {
+                warn("rename failed");
+                goto bad;
+            }
+            iput(ip1);
+            iput(dp2);
+        // name2あり: direentを付け替えて、ip2はunlink
+        } else {
+            if ((error = reinode(dp2, ip2, ip1)) < 0) {
+                warn("reinode failed");
+                goto bad;
+            }
+            iput(dp1);
+            end_op();
+            return fileunlink(path2, ip2->type == T_DIR ? AT_REMOVEDIR : 0);
+        }
+    // 異なるディレクトリへのmove
+    } else {
+        if (ip2 == 0) {
+            if ((error = dirlink(dp2, name2, ip1->inum, ip1->type)) < 0) {
+                warn("dirlink failed 2");
+                goto bad;
+            }
+            flags = ip1->type == T_DIR ? AT_REMOVEDIR : 0;
+            iput(dp1);
+            iput(ip1);
+            end_op();
+            return fileunlink(path1, flags);
+        } else {
+            if ((error = reinode(dp2, ip2, ip1)) < 0) {
+                warn("reinode failed 2");
+                goto bad;
+            }
+            flags = ip2->type == T_DIR ? AT_REMOVEDIR : 0;
+            iput(dp1);
+            iput(ip2);
+            end_op();
+            return fileunlink(path2, flags);
+        }
+    }
+    error = 0;
+
+bad:
+    end_op();
+
+    return error;
+}

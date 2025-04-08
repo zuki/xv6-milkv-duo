@@ -169,6 +169,7 @@ extern long sys_readv(void);
 extern long sys_kill(void);
 extern long sys_execve(void);
 extern long sys_fstat(void);
+extern long sys_utimensat(void);
 extern long sys_fstatat(void);
 extern long sys_chdir(void);
 extern long sys_fchmodat(void);
@@ -226,6 +227,7 @@ extern long sys_set_tid_address(void);
 extern long sys_setpgid(void);
 extern long sys_getpgid(void);
 extern long sys_prlimit64(void);
+extern long sys_renameat2(void);
 extern mode_t sys_umask(void);
 extern long sys_sched_getaffinity(void);
 extern long sys_faccessat2(void);
@@ -367,6 +369,7 @@ static func syscalls[] = {
     [SYS_readlinkat] = (func)sys_readlinkat,    //  78
     [SYS_newfstatat] = sys_fstatat,             //  79
     [SYS_fstat]     = sys_fstat,                //  80
+    [SYS_utimensat] = sys_utimensat,            //  88
     [SYS_exit]      = sys_exit,                 //  93
     [SYS_exit_group] = sys_exit_group,          //  94
     [SYS_set_tid_address] = sys_set_tid_address,    //  96
@@ -415,6 +418,7 @@ static func syscalls[] = {
     [SYS_msync]     = sys_msync,                // 227
     [SYS_wait4]     = sys_wait4,                // 260
     [SYS_prlimit64] = sys_prlimit64,            // 261
+    [SYS_renameat2] = sys_renameat2,            // 276
     [SYS_faccessat2] = sys_faccessat2,          // 439
     [SYS_dso]       = sys_dso,                  // 997
     [SYS_libc]      = sys_libc,                 // 998

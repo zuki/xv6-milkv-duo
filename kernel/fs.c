@@ -721,7 +721,7 @@ dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
     // Check that name is not present.
     if ((ip = dirlookup(dp, name, 0)) != 0) {
         iput(ip);
-        debug("name: %s not found",name);
+        debug("name: %s exits", name);
         return -1;
     }
 

@@ -489,7 +489,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
 
     if (srcva == 0UL) {
         // 空送信
-        //*dst = '\0';
+        *dst = '\0';
         return 0;
     }
 
