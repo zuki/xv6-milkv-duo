@@ -1,6 +1,7 @@
 #include <defs.h>
 #include <common/types.h>
 #include <linux/time.h>
+#include <linux/capability.h>
 #include <proc.h>
 #include <spinlock.h>
 #include <errno.h>
@@ -50,6 +51,10 @@ static inline void update_times(void)
 void clockinit(void)
 {
     initlock(&clocklock, "clock");
+    if (rtc_gettime(&xtime) < 0) {
+        xtime.tv_nsec = 0;
+        xtime.tv_sec = 1744166080;
+    }
     info("clockinit ok");
 }
 
@@ -64,7 +69,7 @@ void clockintr(void)
     release(&clocklock);
 }
 
-int clock_gettime(clockid_t clk_id, uint64_t tp_addr)
+int clock_gettime(int userout, clockid_t clk_id, struct timespec *tp_addr)
 {
     struct timespec tp;
     struct proc *p = myproc();
@@ -87,8 +92,13 @@ int clock_gettime(clockid_t clk_id, uint64_t tp_addr)
             break;
     }
     trace("clk: %d, tv_sec: %lld, tv_nsec: %lld", clk_id, tp.tv_sec, tp.tv_nsec);
-    if (copyout(p->pagetable, tp_addr, (char *)&tp, sizeof(struct timespec)) < 0)
+    if (userout) {
+        if (copyout(p->pagetable, (uint64_t)tp_addr, (char *)&tp, sizeof(struct timespec)) < 0)
         return -EFAULT;
+    } else {
+        memcpy(tp_addr, &tp, sizeof(tp));
+    }
+
     return 0;
 }
 
@@ -98,11 +108,11 @@ int clock_settime(clockid_t clk_id, const struct timespec *tp)
         default:
             return -EINVAL;
         case CLOCK_REALTIME:
-            //if (capable(CAP_SYS_TIME)) {
+            if (capable(CAP_SYS_TIME)) {
                 set_second_clock(tp->tv_sec);
-            //} else {
-            //   return -EPERM;
-            //}
+            } else {
+               return -EPERM;
+            }
             break;
     }
     return 0;

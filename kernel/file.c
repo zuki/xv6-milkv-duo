@@ -150,7 +150,7 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
             //debug("inum: %d, off: %d, read: %d", f->ip->inum, f->off, r);
             f->off += r;
         }
-        rtc_gettime(&f->ip->atime);
+        clock_gettime(0, CLOCK_REALTIME, &f->ip->atime);
         iunlock(f->ip);
     } else {
         panic("fileread");
@@ -192,7 +192,7 @@ filewrite(struct file *f, uint64_t addr, int n, int user)
             ilock(f->ip);
             if ((r = writei(f->ip, user, addr + i, f->off, n1)) > 0)
                 f->off += r;
-            rtc_gettime(&ts);
+            clock_gettime(0, CLOCK_REALTIME, &ts);
             f->ip->mtime = f->ip->atime = ts;
             iunlock(f->ip);
             end_op();
@@ -268,7 +268,7 @@ int writeback(struct file *f, off_t off, uint64_t addr)
     begin_op();
     ilock(f->ip);
     r = writei(f->ip, 1, addr, off, n);
-    rtc_gettime(&ts);
+    clock_gettime(0, CLOCK_REALTIME, &ts);
     f->ip->mtime = f->ip->atime = ts;
     iunlock(f->ip);
     end_op();
@@ -414,7 +414,7 @@ long filesymlink(char *old, char *new)
     ip->nlink = 1;
     ip->mode = S_IFLNK | 0777;
     ip->type = T_SYMLINK;
-    rtc_gettime(&ts);
+    clock_gettime(0, CLOCK_REALTIME, &ts);
     ip->atime = ip->mtime = ip->ctime = ts;
     iupdate(ip);
 
@@ -590,7 +590,7 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
     ip->nlink = 1;
     ip->mode  = mode & ~(myproc()->umask);
     ip->type  = type;
-    rtc_gettime(&ts);
+    clock_gettime(0, CLOCK_REALTIME, &ts);
     ip->atime = ip->mtime = ip->ctime = ts;
     ip->uid = myproc()->uid;
     ip->gid = myproc()->gid;
@@ -953,7 +953,7 @@ static long rename(struct inode *dp, char *name1, char *name2)
         return -ENOSPC;
     }
     iupdate(dp);
-    rtc_gettime(&ip->ctime);
+    clock_gettime(0, CLOCK_REALTIME, &ip->ctime);
     iupdate(ip);
     iunlockput(ip);
     iunlockput(dp);
@@ -980,7 +980,7 @@ static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip
         return -ENOSPC;
     }
     iupdate(dp);
-    rtc_gettime(&ts);
+    clock_gettime(0, CLOCK_REALTIME, &ts);
     old_ip->ctime = new_ip->ctime = ts;
     iupdate(old_ip);
     iupdate(new_ip);

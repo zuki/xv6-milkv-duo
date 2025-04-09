@@ -16,6 +16,7 @@
 #include <sleeplock.h>
 #include <common/file.h>
 #include <linux/fcntl.h>
+#include <linux/time.h>
 #include <printf.h>
 #include <errno.h>
 #include <pipe.h>
@@ -1121,7 +1122,7 @@ long sys_utimensat(void)
     ilock(ip);
     for (int i = 0; i < 2; i++) {
         if (times[i].tv_nsec == UTIME_NOW) {
-            rtc_gettime(&ts);
+            clock_gettime(0, CLOCK_REALTIME, &ts);
             if (i == 0) ip->atime = ts;
             else        ip->mtime = ts;
         } else if (times[i].tv_nsec == UTIME_OMIT) {

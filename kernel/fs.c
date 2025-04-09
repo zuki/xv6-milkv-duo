@@ -221,7 +221,7 @@ struct inode* ialloc(uint32_t dev, short type)
             brelse(bp);
             struct inode *ip = iget(dev, inum);
             struct timespec tp;
-            rtc_gettime(&tp);
+            clock_gettime(0, CLOCK_REALTIME, &tp);
             ip->atime = ip->ctime = ip->mtime = tp;
             return ip;
         }
