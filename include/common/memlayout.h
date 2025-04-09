@@ -147,7 +147,7 @@
  *  0x3F_FFFF_E000 -> --------------------------- TRAPFRAME
  *                          ガードページ
  *  0x3F_FFFF_D000 -> --------------------------- USERTOP (STACKTOP/MMAPTOP)
- *                        スタック (4 * 4KB)
+ *                        スタック (16 * 4KB)
  *                                                <- sp
  *                    --------------------------- STACKBASE
  *
@@ -167,8 +167,9 @@
 #define TRAPFRAME   (TRAMPOLINE - PGSIZE)
 
 #define USERTOP     (TRAPFRAME - PGSIZE) /* ユーザ空間の最上位アドレス (ガードページをはさむ) */
+#define STACKPAGE   16
 #define STACKTOP    USERTOP             /* スタックはUSERTOPから */
-#define STACKBASE   (STACKTOP - 4 * PGSIZE) /* スタックは4ページ */
+#define STACKBASE   (STACKTOP - STACKPAGE * PGSIZE) /* スタックは16ページ */
 #define MMAPBASE    UL(0x2000000000)    /* mmapアドレスの基底アドレス */
 #define ELF_ET_DYN_BASE     UL(0x100000000)     // dynamic lib を置くアドレス: 4GB
 #define MMAPTOP     USERTOP             /* ARGV, ENVPなどはstack_topからmmapするため */
