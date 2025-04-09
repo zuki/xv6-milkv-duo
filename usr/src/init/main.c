@@ -12,8 +12,8 @@
 
 #define CONSOLE     1
 
-char *argv[] = { "sh", "/etc/inittab", NULL };
-char *envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", "TZ=JST-9", NULL };
+char *sh_argv[] = { "sh", "/etc/inittab", NULL };
+char *sh_envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", "TZ=JST-9", NULL };
 
 int main(int argc, char **argv)
 {
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
         if (pid == 0) {
             //execv("/bin/dash", argv);
             if (init)
-                execve("/bin/sh", argv, envp);
+                execve("/bin/sh", sh_argv, sh_envp);
             else
                 execve("/bin/getty", 0, 0);
             printf("init: exec sh failed\n");
