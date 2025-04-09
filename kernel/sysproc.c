@@ -280,7 +280,6 @@ long sys_sysinfo(void)
 // pid_t set_tid_address(int *tidptr);
 long sys_set_tid_address(void)
 {
-
     return myproc()->pid;
 }
 
@@ -299,26 +298,32 @@ long sys_rt_sigsuspend(void)
 long sys_rt_sigaction()
 {
     int sig;
-    struct k_sigaction act;    // act: IN
-    uint64_t oldact;            // struct sigaction *oldact: out
+    struct k_sigaction act;     // act: IN
+    uint64_t actp, oldact;      // struct sigaction *oldact: out
 
-    if (argint(0, &sig) < 0 || argu64(2, &oldact) < 0) {
-        trace("invalid argument: sig=%d, oldact=0x%lx", sig, oldact);
+    if (argint(0, &sig) < 0 || argu64(1, &actp) < 0
+     || argu64(2, &oldact) < 0) {
+        trace("invalid argument: sig=%d, actp=0x%lx, oldact=0x%lx", sig, actp, oldact);
         return -EINVAL;
     }
-    trace("sig=%d, oldact=0x%lx", sig, oldact);
-    trace("act: n=1: 0x%lx, act: %p, size: %ld", myproc()->trapframe->a1, act, sizeof(struct k_sigaction));
 
+#if 0
     if (argptr(1, (char *)&act, sizeof(struct k_sigaction)) < 0) {
         trace("invalid argument: act=%p", &act);
         return -EINVAL;
+    }
+#endif
+
+    if (actp) {
+        if (copyin(myproc()->pagetable, (char *)&act, actp, sizeof(act)) < 0)
+            return -EFAULT;
+        trace("act: handler: 0x%lx, mask[0:1]: 0x%x:0x%x, flags: 0x%x", act.handler, act.mask[0], act.mask[1], act.flags);
     }
 
     if (sig < 1 || sig >= NSIG || sig == SIGSTOP || sig == SIGKILL) {
         trace("invalid sig %d", sig);
         return -EINVAL;
     }
-
 
     if (act.flags & SA_SIGINFO) {
         trace("not support siginfo");

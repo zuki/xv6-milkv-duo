@@ -240,7 +240,7 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
 
     begin_op();
 
-    if ((ip = namei(path)) == 0) {
+    if ((ip = namei(path, AT_FDCWD)) == 0) {
         end_op();
         warn("path: %s couldn't find", path);
         return -ENOENT;
@@ -524,16 +524,16 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
 
 #if 0
     debug("free old pagetable: pid=%d", p->pid);
-    if (p->pid == 8) {
+    //if (p->pid == 8) {
         uvmdump(pagetable, p->pid, "new");
         uvmdump(oldpagetable, p->pid, "old");
-    }
-    print_mmap_list(p, "new proc");
+    //}
+    //print_mmap_list(p, "new proc");
 #endif
 
     proc_freepagetable(oldpagetable, oldsz);
 
-    #if 0
+#if 0
     if (p->pid == 7) {
         uvmdump(p->pagetable, p->pid, p->name);
         printf("\n== Stack TOP : 0x%08lx ==\n", STACKTOP);

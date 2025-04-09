@@ -42,7 +42,7 @@ void            buddy_free(struct page *page);
 // clock.c
 void            clockinit(void);
 void            clockintr(void);
-int             clock_gettime(clockid_t clk_id, uint64_t tp);
+int             clock_gettime(int userout, clockid_t clk_id, struct timespec *tp);
 int             clock_settime(clockid_t clk_id, const struct timespec *tp);
 long            get_uptime(void);
 long            get_ticks(void);
@@ -67,17 +67,18 @@ long            sendfile(struct file *out_f, struct file *in_f, off_t offsetp, s
 int             writeback(struct file *f, off_t off, uint64_t addr);
 int             fileioctl(struct file*, unsigned long, void *argp);
 long            filelseek(struct file *f, off_t offset, int whence);
-long            filelink(char *old, char *new);
-long            filesymlink(char *old, char *new);
-ssize_t         filereadlink(char *path, char *buf, size_t bufsize);
-long            fileunlink(char *path, int flags);
-struct inode *  create(char *path, short type, short major, short minor, mode_t mode);
-long            fileopen(char *path, int flags, mode_t mode);
-long            filechmod(char *path, mode_t mode);
-long            filechown(struct file *f, char *path, uid_t owner, gid_t group);
+long            filelink(char *oldpath, int olddirfd, char *newpath, int newdirfd);
+long            filesymlink(char *target, char *linkpath, int dirfd);
+ssize_t         filereadlink(char *path, int dirfd, char *buf, size_t bufsize);
+long            fileunlink(char *path, int dirfd, int flags);
+struct inode *  create(char *path, int dirfd, short type, short major, short minor, mode_t mode);
+long            fileopen(char *path, int dirfd, int flags, mode_t mode);
+long            filechmod(char *path, int dirfd, mode_t mode);
+long            filechown(struct file *f, char *path, int dirfd, uid_t owner, gid_t group, int flags);
 struct file *   fileget(char *path);
-long            faccess(char *path, int mode, int flags);
-long            filerename(char *path1, char *path2, uint32_t flags);
+long            faccess(char *path, int dirfd, int mode, int flags);
+long            filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32_t flags);
+
 // fs.c
 void            fsinit(int);
 int             dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type);
@@ -92,8 +93,8 @@ void            iunlock(struct inode*);
 void            iunlockput(struct inode*);
 void            iupdate(struct inode*);
 int             namecmp(const char*, const char*);
-struct inode*   namei(char*);
-struct inode*   nameiparent(char*, char*);
+struct inode*   namei(char *path, int dirfd);
+struct inode*   nameiparent(char *path, char *name, int dirfd);
 int             readi(struct inode *ip, int user_dst, uint64_t dst, uint32_t off, uint32_t n);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode *ip, int user_src, uint64_t src, uint32_t off, uint32_t n);

@@ -39,6 +39,19 @@ static int argfd(int n, int *pfd, struct file **pf)
     return 0;
 }
 
+// AT_FDCWDをチェックする
+static int check_fdcwd(const char *path, int dirfd)
+{
+   if (*path != '/' && dirfd != AT_FDCWD) {
+        if (myproc()->ofile[dirfd] == 0)
+            return -EBADF;
+        if (myproc()->ofile[dirfd]->type != T_DIR)
+            return -ENOTDIR;
+    }
+
+    return 0;
+}
+
 // 指定されたファイル用のファイルディスクリプタを割り当てる.
 // 成功時は呼び出し元からファイル参照を引き継ぐ.
 int fdalloc(struct file *f, int from)
@@ -289,33 +302,29 @@ long sys_fstatat(void)
     char path[MAXPATH];
     uint64_t staddr; // user pointer to struct stat
     int dirfd, flags;
-
+    int ret;
     struct inode *ip;
     struct stat st;
 
     if (argint(0, &dirfd) < 0 || argu64(2, &staddr) < 0
      || argint(3, &flags) < 0)
         return -EINVAL;
-    if (argstr(1, path, MAXPATH) < 0)
+    if ((ret = argstr(1, path, MAXPATH)) < 0)
         return -EFAULT;
 
-    trace("dirfd: %d, path: %s, staddr: 0x%lx, flags: %d", dirfd, path, staddr, flags);
+    trace("dirfd: %d, path: %s, staddr: 0x%lx, flags: 0x%x", dirfd, path, staddr, flags);
 
-    /* 当面、無視する */
-    if (dirfd != AT_FDCWD) {
-        warn("dirfd unimplemented");
+    if (flags != 0 && (flags & ~AT_SYMLINK_NOFOLLOW) != 0) {
+        warn("unimplemented flags=0x%x", flags);
         return -EINVAL;
     }
-#if 0
-    if (flags != 0) {
-        warn("flags unimplemented: flags=%d", flags);
-        return -EINVAL;
-    }
-#endif
+
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
     begin_op();
 loop:
-    if ((ip = namei(path)) == 0) {
+    if ((ip = namei(path, dirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -352,24 +361,27 @@ loop:
 long sys_linkat(void)
 {
     char newpath[MAXPATH], oldpath[MAXPATH];
-    int oldfd, newfd, flags;
+    int olddirfd, newdirfd, flags;
     struct inode *ip;
+    int ret;
 
-    if (argint(0, &oldfd) < 0 || argint(2, &newfd) < 0
+    if (argint(0, &olddirfd) < 0 || argint(2, &newdirfd) < 0
      || argint(4, &flags) < 0
      || argstr(1, oldpath, MAXPATH) < 0
      || argstr(3, newpath, MAXPATH) < 0)
         return -EINVAL;
 
-    trace("oldfd: %d, oldpath: %s, newfd: %d, newpath: %s, flags: %d", oldfd, oldpath, newfd, newpath, flags);
+    trace("olddirfd: %d, oldpath: %s, newdirfd: %d, newpath: %s, flags: %d", olddirfd, oldpath, newdirfd, newpath, flags);
 
-    // TODO: oldfd/newfdの実装
-    if (oldfd != AT_FDCWD || newfd != AT_FDCWD)
-        return -EINVAL;
+    if ((ret = check_fdcwd(oldpath, olddirfd)) < 0)
+        return ret;
+
+    if ((ret = check_fdcwd(newpath, newdirfd)) < 0)
+        return ret;
 
     if (flags & AT_SYMLINK_FOLLOW) {
         begin_op();
-        if ((ip = namei(oldpath)) == 0) {
+        if ((ip = namei(oldpath, olddirfd)) == 0) {
             end_op();
             return -ENOENT;
         }
@@ -390,45 +402,46 @@ long sys_linkat(void)
         return -EINVAL;
     }
 
-    return filelink(oldpath, newpath);
+    return filelink(oldpath, olddirfd, newpath, newdirfd);
 }
 
-long sys_symlinkat()
+long sys_symlinkat(void)
 {
     char target[MAXPATH], linkpath[MAXPATH];
-    int fd;
+    int dirfd, ret;
 
-    if (argstr(0, target, MAXPATH) < 0 || argint(1, &fd) < 0 || argstr(2, linkpath, MAXPATH) < 0)
+    if (argstr(0, target, MAXPATH) < 0 || argint(1, &dirfd) < 0 || argstr(2, linkpath, MAXPATH) < 0)
         return -EINVAL;
 
-    trace("fd: %d, target: %s, path: %s", fd, target, linkpath);
-
-    // TODO: AT_FDCWD以外の実装
-    if (fd != AT_FDCWD) return -EINVAL;
+    trace("dirfd: %d, target: %s, path: %s", dirfd, target, linkpath);
 
     if (strncmp(target, "", 1) == 0 || strncmp(linkpath, "", 1) == 0)
         return -ENOENT;
 
-    return filesymlink(target, linkpath);
+    if ((ret = check_fdcwd(linkpath, dirfd)) < 0)
+        return ret;
+
+    return filesymlink(target, linkpath, dirfd);
 }
 
 long sys_unlinkat(void)
 {
     char path[MAXPATH];
-    int dirfd, flags;
+    int dirfd, flags, ret;
 
     if (argint(0, &dirfd) < 0 || argint(2, &flags) < 0
      || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
     trace("pid[%d] path: %s, fd: %d, flags: %d", myproc()->pid, path, dirfd, flags);
-    if (dirfd != AT_FDCWD)
-        return -EINVAL;
+
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
     if (flags & ~AT_REMOVEDIR)
         return -EINVAL;
 
-    return fileunlink(path, flags);
+    return fileunlink(path, dirfd, flags);
 }
 
 ssize_t sys_readlinkat()
@@ -449,10 +462,10 @@ ssize_t sys_readlinkat()
     if ((ssize_t)bufsiz <= 0)
         return -EINVAL;
 
-    // TODO: AT_FDCWD以外の実装
-    if (dirfd != AT_FDCWD) return -EINVAL;
+    trace("dirfd=%d, path=%s, buf=%p, bufsiz=%lld", dirfd, path, buf, bufsiz);
 
-    debug("dirfd=0x%x, path=%s, buf=%p, bufsiz=%lld", dirfd, path, buf, bufsiz);
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
     if (!strncmp(path, "/proc/self/fd/", 14)) {   // TODO: ttyをちゃんと実装
         int fd = path[14] - '0';                  // /proc/self/fd/n -> /dev/tty/n, /dev/pts/n
@@ -462,13 +475,13 @@ ssize_t sys_readlinkat()
         }
     }
 
-    return filereadlink(path, buf, bufsiz);
+    return filereadlink(path, dirfd, buf, bufsiz);
 }
 
 long sys_openat(void)
 {
     char path[MAXPATH];
-    int dirfd, flags;
+    int dirfd, flags, ret;
     mode_t mode;
 
     if (argint(0, &dirfd) < 0 || argint(2, &flags) < 0
@@ -481,25 +494,23 @@ long sys_openat(void)
         return -EINVAL;
     }
     trace("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
-#if 0
-    char *c = path;
-    while (*c != 0) {
-        printf("%02x", *c++);
-    }
-    printf("\n");
-#endif
+
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
+
 /*
     if ((flags & O_LARGEFILE) == 0) {
         error("expect O_LARGEFILE in open flags");
         return -EINVAL;
     }
 */
-    return fileopen(path, flags, mode);
+
+    return fileopen(path, dirfd, flags, mode);
 }
 
 long sys_mkdirat(void)
 {
-    int dirfd;
+    int dirfd, ret;
     char path[MAXPATH];
     mode_t mode;
     struct inode *ip;
@@ -510,14 +521,11 @@ long sys_mkdirat(void)
 
     trace("dirfd %d, path '%s', mode 0x%x", dirfd, path, mode);
 
-    if (dirfd != AT_FDCWD) {
-        warn("dirfd unimplemented");
-        return -EINVAL;
-    }
-
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
     begin_op();
-    if ((long)(ip = create(path, T_DIR, 0, 0, mode | S_IFDIR)) == 0) {
+    if ((long)(ip = create(path, dirfd, T_DIR, 0, 0, mode | S_IFDIR)) == 0) {
         end_op();
         return (long)ip;
     }
@@ -530,7 +538,7 @@ long sys_mknodat(void)
 {
     struct inode *ip;
     char path[MAXPATH];
-    int dirfd;
+    int dirfd, ret;
     mode_t mode;
     dev_t  dev;
     uint16_t major=0, minor=0, type;
@@ -539,10 +547,8 @@ long sys_mknodat(void)
      || argu64(3, &dev) < 0 || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
-    if (dirfd != AT_FDCWD) {
-        warn("dirfd unimplemented");
-        return -EINVAL;
-    }
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
     begin_op();
     if (S_ISDIR(mode))
@@ -567,7 +573,7 @@ long sys_mknodat(void)
 
     trace("path: %s, mode: 0x%x, dev: 0x%lx, type: %d, major: %d, minor: %d", path, mode, dev, type, major, minor);
 
-    if ((long)(ip = create(path, type, major, minor, mode)) < 0) {
+    if ((long)(ip = create(path, dirfd, type, major, minor, mode)) < 0) {
         end_op();
         error("error: 0x%lx", (long)ip);
         return (long)ip;
@@ -590,7 +596,7 @@ long sys_chdir(void)
     }
 
     begin_op();
-    if ((ip = namei(path)) == 0) {
+    if ((ip = namei(path, AT_FDCWD)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -630,7 +636,7 @@ long sys_execve(void)
         return -EINVAL;
     }
 
-    //if (p->pid == 3)
+    //if (p->pid <= 2)
         trace("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
 
     memset(argv, 0, sizeof(argv));
@@ -665,12 +671,12 @@ long sys_execve(void)
             }
 
 #if 0
-            //if (p->pid) {
+            //if (p->pid <= 2) {
                 debug("argv[%d] (0x%lx) = %s", argc, arg_p, argv[argc]);
-                for (int j=0; j < strlen(argv[argc]); j++) {
-                    printf("%02x ", argv[argc][j]);
-                }
-                printf("\n");
+                //for (int j=0; j < strlen(argv[argc]); j++) {
+                //    printf("%02x ", argv[argc][j]);
+                //}
+                //printf("\n");
             //}
 #endif
         }
@@ -982,7 +988,7 @@ long sys_fadvise64()
 
 long sys_fchmodat()
 {
-    int dirfd, flags;
+    int dirfd, flags, ret;
     char path[MAXPATH];
     mode_t mode;
 
@@ -990,10 +996,10 @@ long sys_fchmodat()
      || argint(2, (int *)&mode) < 0 || argint(3, &flags) < 0)
         return -EINVAL;
 
-    // TODO: AT_FDCWD以外の実装
-    if (dirfd != AT_FDCWD) return -EINVAL;
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
-    return filechmod(path, mode);
+    return filechmod(path, dirfd, mode);
 }
 
 long sys_fchown()
@@ -1007,12 +1013,12 @@ long sys_fchown()
      || argint(2, (int *)&group) < 0)
         return -EINVAL;
 
-    return filechown(f, 0, owner, group);
+    return filechown(f, 0, AT_FDCWD, owner, group, 0);
 }
 
 long sys_fchownat()
 {
-    int dirfd, flags;
+    int dirfd, flags, ret;
     char path[MAXPATH];
     uid_t owner;
     gid_t group;
@@ -1024,28 +1030,25 @@ long sys_fchownat()
 
     trace("dirfd=%d, path=%s, uid=%d, gid=%d, flags=%d\n", dirfd, path, owner, group, flags);
 
-    // TODO: AT_FDCWD以外の実装
-    if (dirfd != AT_FDCWD) return -EINVAL;
-    // TODO: flagsの実装
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
-    return filechown(0, path, owner, group);
+    return filechown(0, path, dirfd, owner, group, flags);
 }
 
 long sys_faccessat2(void)
 {
-    int dirfd, mode, flags;
+    int dirfd, mode, flags, ret;
     char path[MAXPATH];
 
     if (argint(0, &dirfd) < 0 || argstr(1, path, MAXPATH) < 0
      || argint(2, &mode) < 0  || argint(3, &flags) < 0)
         return -EINVAL;
 
-    // TODO: dirfdは未実装
-    if (dirfd != AT_FDCWD) return -EINVAL;
-    // TODO: AT_SYMLINK_NOFOLLOWの実装
-    if (flags & AT_SYMLINK_NOFOLLOW) return -EINVAL;
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
 
-    return faccess(path, mode, flags);
+    return faccess(path, dirfd, mode, flags);
 }
 
 long sys_llistxattr(void)
@@ -1070,7 +1073,7 @@ long sys_utimensat(void)
     char path[MAXPATH];
     uint64_t timesp;
     struct timespec times[2];
-    int pathlen;
+    int pathlen, ret;
     struct file *f;
 
     struct inode *ip, *dp;
@@ -1090,7 +1093,7 @@ long sys_utimensat(void)
         times[1].tv_nsec = UTIME_NOW;
     }
 
-    debug("dirfd: %d, path: %s, times[0]: (0x%lx, 0x%lx), times[1]: (0x%lx, 0x%lx), flags: 0x%x", dirfd, path, times[0].tv_sec, times[0].tv_nsec, times[1].tv_sec, times[1].tv_nsec, flags);
+    trace("dirfd: %d, path: %s, times[0]: (0x%lx, 0x%lx), times[1]: (0x%lx, 0x%lx), flags: 0x%x", dirfd, path, times[0].tv_sec, times[0].tv_nsec, times[1].tv_sec, times[1].tv_nsec, flags);
 
     if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH)) != 0) return -EINVAL;
 
@@ -1101,11 +1104,9 @@ long sys_utimensat(void)
             return -EINVAL;
         ip = f->ip;
     } else {
-        if (dirfd != AT_FDCWD) {
-            end_op();
-            return -EINVAL;
-        }
-        if ((dp = nameiparent(path, name)) == 0) {
+        if ((ret = check_fdcwd(path, dirfd)) < 0)
+            return ret;
+        if ((dp = nameiparent(path, name, dirfd)) == 0) {
             end_op();
             return -ENOENT;
         }
@@ -1143,7 +1144,7 @@ long sys_utimensat(void)
 //               int newdirfd, const char *newpath, unsigned int flags);
 long sys_renameat2(void)
 {
-    int olddirfd, newdirfd;
+    int olddirfd, newdirfd, ret;
     char oldpath[MAXPATH], newpath[MAXPATH];
     uint32_t flags;
 
@@ -1152,13 +1153,16 @@ long sys_renameat2(void)
      || argint(4, (int *)&flags) < 0)
         return -EINVAL;
 
-    // TODO: olddirfd, newdirfd, flagsはRENAME_NOREPLACEだけ実装
-    if (olddirfd != AT_FDCWD || newdirfd != AT_FDCWD) return -EINVAL;
+    if ((ret = check_fdcwd(oldpath, olddirfd)) < 0)
+        return ret;
+    if ((ret = check_fdcwd(newpath, newdirfd)) < 0)
+        return ret;
+
     // TODO: RENAME_EXCHANGEの実装
     if (flags & RENAME_EXCHANGE)
         return -EINVAL;
 
     if (strncmp(oldpath, newpath, strlen(oldpath)) == 0) return 0;
 
-    return filerename(oldpath, newpath, flags);
+    return filerename(oldpath, olddirfd, newpath, newdirfd, flags);
 }

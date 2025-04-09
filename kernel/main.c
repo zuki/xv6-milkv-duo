@@ -34,6 +34,7 @@ main()
         __sync_synchronize();
         procinit();         // process table
         trapinit();         // trap vectors
+        rtc_init();
         clockinit();        // clock system
         trapinithart();     // install kernel trap vector
         plicinit();         // set up interrupt controller
@@ -43,7 +44,6 @@ main()
         fileinit();         // file table
         //virtio_disk_init(); // emulated hard disk
         //ramdiskinit();
-        rtc_init();
         sd_init();
         userinit();      // first user process
         __sync_synchronize();

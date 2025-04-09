@@ -10,11 +10,11 @@
 //
 
 #include <stdarg.h>
-
 #include <common/types.h>
 #include <common/param.h>
 #include <spinlock.h>
 #include <sleeplock.h>
+#include <linux/stat.h>
 #include <common/fs.h>
 #include <common/file.h>
 #include <common/memlayout.h>

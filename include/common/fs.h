@@ -2,8 +2,11 @@
 #define INC_COMMON_FS_H
 
 #include <common/types.h>
-#include <sd.h>
 #include <linux/time.h>
+#include <linux/fcntl.h>
+#include <sd.h>
+
+
 
 // ディスク上のファイルシステムフォーマット.
 // カーネル/ユーザプログラムの両者がこのヘッダーファイルを使用する.

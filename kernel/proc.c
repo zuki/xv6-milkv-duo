@@ -323,7 +323,7 @@ userinit(void)
     //p->trapframe->tp = p->trapframe->kernel_hartid
 
     safestrcpy(p->name, "initcode", sizeof(p->name));
-    p->cwd = namei("/");
+    p->cwd = namei("/", AT_FDCWD);
     p->uid = p->euid = p->suid = p->fsuid = 0;
     p->gid = p->egid = p->sgid = p->fsgid = 0;
 
@@ -446,7 +446,7 @@ static void reparent(struct proc *p)
 
     for (pp = proc; pp < &proc[NPROC]; pp++) {
         if (pp->parent == p) {
-            debug("pid[%d] reparent", pp->pid);
+            trace("pid[%d] reparent", pp->pid);
             pp->parent = initproc;
             wakeup(initproc);
         }
@@ -1040,6 +1040,7 @@ long sigaction(int sig, struct k_sigaction *act,  uint64_t oldact)
         kaction.handler = action->sa_handler;
         kaction.flags = (unsigned long)action->sa_flags;
         memmove((void *)&kaction.mask, &action->sa_mask, 8);
+        trace("oldact: handler: 0x%lx, mask[0:1]: 0x%x:0x%x, flags: 0x%x", kaction.handler, kaction.mask[0], kaction.mask[1], kaction.flags);
         if (copyout(myproc()->pagetable, oldact, (char *)&kaction, sizeof(struct k_sigaction)) < 0)
             return -EFAULT;
     }

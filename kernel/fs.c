@@ -785,19 +785,21 @@ skipelem(char *path, char *name)
     return path;
 }
 
-// Look up and return the inode for a path name.
-// If parent != 0, return the inode for the parent and copy the final
-// path element into name, which must have room for DIRSIZ bytes.
-// Must be called inside a transaction since it calls iput().
+// パス名のinodeを探して返す。parent != 0 の場合は、
+// 親のinodeを返し、最後のパス要素（ファイル名）をnameにコピーする。
+// nameはDIRSZバイトの容量がなければならない。iput()を呼ぶので
+// トランザクションの中から呼び出されなければならない。
 static struct inode*
-namex(char *path, int nameiparent, char *name)
+namex(char *path, int nameiparent, char *name, int dirfd)
 {
     struct inode *ip, *next;
 
     if (*path == '/')
         ip = iget(ROOTDEV, ROOTINO);
-    else
+    else if (dirfd == AT_FDCWD)
         ip = idup(myproc()->cwd);
+    else
+        ip = idup(myproc()->ofile[dirfd]->ip);
 
     while ((path = skipelem(path, name)) != 0) {
         ilock(ip);
@@ -825,16 +827,16 @@ namex(char *path, int nameiparent, char *name)
 }
 
 struct inode*
-namei(char *path)
+namei(char *path, int dirfd)
 {
     char name[DIRSIZ];
-    return namex(path, 0, name);
+    return namex(path, 0, name, dirfd);
 }
 
 struct inode*
-nameiparent(char *path, char *name)
+nameiparent(char *path, char *name, int dirfd)
 {
-    return namex(path, 1, name);
+    return namex(path, 1, name, dirfd);
 }
 
 int unlink(struct inode *dp, uint32_t off)
@@ -879,11 +881,14 @@ int getdents64(struct file *f, uint64_t data, size_t size)
         reclen = (size_t)(&((struct dirent64*)0)->d_name);
         reclen = reclen + namelen;
         reclen = (reclen + 7) & ~0x7;
+
+        trace("inum: %d, type: %d, namelen: %d, reclen: %d", de.inum, f->ip->type, namelen, reclen);
+
+        // sizeまで詰めたらreturn
         if ((tlen + reclen) > size) {
-            error("break; tlen: %d, reclen: %d, size: %d", tlen, reclen, size);
+            trace("break; tlen: %d, reclen: %d, size: %d", tlen, reclen, size);
             break;
         }
-        trace("inum: %d, type: %d, namelen: %d, reclen: %d", de.inum, f->ip->type, namelen, reclen);
 
         //de64 = (struct dirent64 *)buf;
         //memset(de64, 0, sizeof(struct dirent64));

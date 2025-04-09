@@ -242,7 +242,7 @@ long sys_clock_gettime()
 
     trace("clk_id: %d, tp: 0x%p\n", clk_id, tp);
 
-    return clock_gettime(clk_id, tp);
+    return clock_gettime(1, clk_id, (struct timespec *)tp);
 }
 
 long sys_clock_settime()
@@ -272,7 +272,7 @@ long sys_futex(void) {
     }
 
     if (++count < 5) {
-        debug("uaddr: 0x%lx, op: %d, val: %d, timeout: %p, uaddr2: 0x%lx, val3: %d", uaddr, op, val, &timeout, uaddr2, val3);
+        trace("uaddr: 0x%lx, op: %d, val: %d, timeout: %p, uaddr2: 0x%lx, val3: %d", uaddr, op, val, &timeout, uaddr2, val3);
     }
     if (op & 128)
         return -ENOSYS;
@@ -466,7 +466,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_utimensat] = "sys_utimensat",            // 88
     [SYS_exit] = "sys_exit",                      // 93
     [SYS_exit_group] = "sys_exit_group",          // 94
-    [SYS_set_tid_address] = "SYS_set_tid_address", // 96
+    [SYS_set_tid_address] = "sys_set_tid_address", // 96
     [SYS_futex] = "SYS_futex",                    // 98
     [SYS_nanosleep] = "sys_nanosleep",            // 101
     [SYS_getitimer] = "sys_getitimer",            // 102
@@ -645,7 +645,7 @@ void syscall(void)
         // and store its return value in p->trapframe->a0
 #if 0
         //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
-        if (p->pid == 3) {
+        if (p->pid >= 3 && p->pid <= 6) {
             switch(syscall_params[num]) {
             case 5:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],

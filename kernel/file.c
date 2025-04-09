@@ -334,14 +334,14 @@ bad:
     return -EINVAL;
 }
 
-long filelink(char *old, char *new)
+long filelink(char *oldpath, int olddirfd, char *newpath, int newdirfd)
 {
     char name[DIRSIZ];
     struct inode *dp, *ip;
     long error;
 
     begin_op();
-    if ((ip = namei(old)) == 0) {
+    if ((ip = namei(oldpath, olddirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -357,7 +357,7 @@ long filelink(char *old, char *new)
     iupdate(ip);
     iunlock(ip);
 
-    if ((dp = nameiparent(new, name)) == 0) {
+    if ((dp = nameiparent(newpath, name, newdirfd)) == 0) {
         error = -ENOENT;
         goto bad;
     }
@@ -388,7 +388,7 @@ bad:
     return error;
 }
 
-long filesymlink(char *old, char *new)
+long filesymlink(char *target, char *linkpath, int dirfd)
 {
     char name[DIRSIZ];
     struct inode *dp, *ip;
@@ -396,7 +396,7 @@ long filesymlink(char *old, char *new)
     struct timespec ts;
 
     begin_op();
-    if ((dp = nameiparent(new, name)) == 0) {
+    if ((dp = nameiparent(linkpath, name, dirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -427,29 +427,29 @@ long filesymlink(char *old, char *new)
 
     iupdate(dp);
     iunlockput(dp);
-    trace("old: %s, len: %d", old, strlen(old));
-    writei(ip, 0, (uint64_t)old, 0, strlen(old));
+    trace("target: %s, len: %d", target, strlen(target));
+    writei(ip, 0, (uint64_t)target, 0, strlen(target));
     iupdate(ip);
     iunlockput(ip);
     end_op();
     return 0;
 }
 
-ssize_t filereadlink(char *path, char *buf, size_t bufsize)
+ssize_t filereadlink(char *path, int dirfd, char *buf, size_t bufsize)
 {
     struct inode *ip, *dp;
     ssize_t n;
     char name[DIRSIZ];
 
     begin_op();
-    if ((dp = nameiparent(path, name)) == 0) {
+    if ((dp = nameiparent(path, name, dirfd)) == 0) {
         end_op();
         return -ENOTDIR;
     } else {
         iput(dp);
     }
 
-    if ((ip = namei(path)) == 0) {
+    if ((ip = namei(path, dirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -472,7 +472,7 @@ ssize_t filereadlink(char *path, char *buf, size_t bufsize)
     return n;
 }
 
-long fileunlink(char *path, int flags)
+long fileunlink(char *path, int dirfd, int flags)
 {
     trace("path: %s, flags: %d", path, flags);
     struct inode *ip, *dp;
@@ -481,7 +481,7 @@ long fileunlink(char *path, int flags)
     uint32_t error;
 
     begin_op();
-    if ((dp = nameiparent(path, name)) == 0) {
+    if ((dp = nameiparent(path, name, dirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -550,7 +550,7 @@ baddp:
     return error;
 }
 
-struct inode *create(char *path, short type, short major, short minor, mode_t mode)
+struct inode *create(char *path, int dirfd, short type, short major, short minor, mode_t mode)
 {
     struct inode *ip, *dp;
     char name[DIRSIZ];
@@ -558,7 +558,7 @@ struct inode *create(char *path, short type, short major, short minor, mode_t mo
 
     //debug("path: %s, type: %d, major: %d, minor: %s, mode: %x", path, type, major, minor, mode);
 
-    if ((dp = nameiparent(path, name)) == 0)
+    if ((dp = nameiparent(path, name, dirfd)) == 0)
         return (void *)-ENOENT;
 
     ilock(dp);
@@ -624,7 +624,7 @@ fail:
     return 0;
 }
 
-long fileopen(char *path, int flags, mode_t mode)
+long fileopen(char *path, int dirfd, int flags, mode_t mode)
 {
     struct inode *ip;
     struct file *f;
@@ -634,14 +634,14 @@ long fileopen(char *path, int flags, mode_t mode)
 
     begin_op();
     if (flags & O_CREAT) {
-        ip = namei(path);
+        ip = namei(path, dirfd);
         if (ip && flags & O_EXCL) {
             iput(ip);
             end_op();
             warn("O_CREAT && O_EXCL and  %s exists", path);
             return -EEXIST;
         } else if (!ip) {
-            if ((ip = create(path, T_FILE, 0, 0, mode | S_IFREG)) == 0) {
+            if ((ip = create(path, dirfd, T_FILE, 0, 0, mode | S_IFREG)) == 0) {
                 end_op();
                 warn("cant create %s", path);
                 return -EDQUOT;
@@ -651,7 +651,7 @@ long fileopen(char *path, int flags, mode_t mode)
         }
     } else {
 loop:
-        if ((ip = namei(path)) == 0) {
+        if ((ip = namei(path, dirfd)) == 0) {
             end_op();
             trace("%s is not found", path);
             return -ENOENT;
@@ -723,12 +723,12 @@ bad:
     return -EACCES;
 }
 
-long filechmod(char *path, mode_t mode)
+long filechmod(char *path, int dirfd, mode_t mode)
 {
     struct inode *ip;
 
     begin_op();
-    if ((ip = namei(path)) == 0) {
+    if ((ip = namei(path, dirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
@@ -742,7 +742,7 @@ long filechmod(char *path, mode_t mode)
     return 0;
 }
 
-long filechown(struct file *f, char *path, uid_t owner, gid_t group)
+long filechown(struct file *f, char *path, int dirfd, uid_t owner, gid_t group, int flags)
 {
     struct inode *ip;
     struct proc *p = myproc();
@@ -753,13 +753,28 @@ long filechown(struct file *f, char *path, uid_t owner, gid_t group)
     if (f != NULL) {
         ip = f->ip;
     } else {
-        if ((ip = namei(path)) == 0) {
+loop:
+        if ((ip = namei(path, dirfd)) == 0) {
             end_op();
             return -ENOENT;
         }
-    }
+        ilock(ip);
 
-    ilock(ip);
+        if ((flags & AT_SYMLINK_NOFOLLOW) == 0) {
+            if (ip->type == T_SYMLINK) {
+                int n;
+                if ((n = readi(ip, 0, (uint64_t)path, 0, sizeof(MAXPATH) - 1)) <= 0) {
+                    warn("couldn't read sysmlink target");
+                    iunlockput(ip);
+                    end_op();
+                    return -ENOENT;
+                }
+                path[n] = 0;
+                iunlockput(ip);
+                goto loop;
+            }
+        }
+    }
 
     if (owner != (uid_t)-1) {
         if (!capable(CAP_CHOWN)) {
@@ -811,7 +826,7 @@ struct file *fileget(char *path)
     trace("path: %s", path);
     begin_op();
 loop:
-    if ((ip = namei(path)) == 0) {
+    if ((ip = namei(path, AT_FDCWD)) == 0) {
         end_op();
         return (void *)-ENOENT;
     }
@@ -865,7 +880,7 @@ bad:
     return (void *)error;
 }
 
-long faccess(char *path, int mode, int flags)
+long faccess(char *path, int dirfd, int mode, int flags)
 {
     struct inode *ip;
     struct proc *p = myproc();
@@ -877,14 +892,32 @@ long faccess(char *path, int mode, int flags)
         return -EINVAL;
 
     begin_op();
-    if ((ip = namei(path)) == 0) {
+loop:
+    if ((ip = namei(path, dirfd)) == 0) {
         end_op();
         return -ENOENT;
     }
+    ilock(ip);
+
+    if ((flags & AT_SYMLINK_NOFOLLOW) == 0) {
+        if (ip->type == T_SYMLINK) {
+            int n;
+            if ((n = readi(ip, 0, (uint64_t)path, 0, sizeof(MAXPATH) - 1)) <= 0) {
+                warn("couldn't read sysmlink target");
+                iunlockput(ip);
+                end_op();
+                return -ENOENT;
+            }
+            path[n] = 0;
+            iunlockput(ip);
+            goto loop;
+        }
+    }
+
     fmode = ip->mode;
     fuid = ip->uid;
     fgid = ip->gid;
-    iput(ip);
+    iunlockput(ip);
     end_op();
 
     // mode == F_OKの場合はファイルが存在するのでOK
@@ -993,7 +1026,7 @@ static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip
 
 
 
-long filerename(char *path1, char *path2, uint32_t flags)
+long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32_t flags)
 {
     struct inode *ip1, *ip2, *dp1, *dp2;
     char name1[DIRSIZ], name2[DIRSIZ];
@@ -1001,24 +1034,24 @@ long filerename(char *path1, char *path2, uint32_t flags)
 
     begin_op();
     if (flags & RENAME_NOREPLACE) {
-        if ((ip2 = namei(path2)) != 0) {
+        if ((ip2 = namei(newpath, newdirfd)) != 0) {
             iunlock(ip2);
             end_op();
             return -EEXIST;
         }
     }
 
-    if ((ip1 = namei(path1)) == 0) {
+    if ((ip1 = namei(oldpath, olddirfd)) == 0) {
         end_op();
-        warn("path1 %s not exits", path1);
+        warn("oldpath %s not exits", oldpath);
         return -ENOENT;
     }
-    dp1 = nameiparent(path1, name1);
+    dp1 = nameiparent(oldpath, name1, olddirfd);
 
-    ip2 = namei(path2);
-    dp2 = nameiparent(path2, name2);
-    trace("path1: %s, dp1: %d, ip1: %d, name1: %s", path1, dp1->inum, ip1->inum, name1);
-    trace("path2: %s, dp2: %d, ip2: %d, name2: %s", path2, dp2 ? dp2->inum : -1, ip2 ? ip2->inum : -1, name2);
+    ip2 = namei(newpath, newdirfd);
+    dp2 = nameiparent(newpath, name2, newdirfd);
+    trace("oldpath: %s, dp1: %d, ip1: %d, name1: %s", oldpath, dp1->inum, ip1->inum, name1);
+    trace("newpath: %s, dp2: %d, ip2: %d, name2: %s", newpath, dp2 ? dp2->inum : -1, ip2 ? ip2->inum : -1, name2);
 
     // 同一ファイルのhard link
     if (ip1 == ip2) {
@@ -1048,7 +1081,7 @@ long filerename(char *path1, char *path2, uint32_t flags)
             }
             iput(dp1);
             end_op();
-            return fileunlink(path2, ip2->type == T_DIR ? AT_REMOVEDIR : 0);
+            return fileunlink(newpath, newdirfd, ip2->type == T_DIR ? AT_REMOVEDIR : 0);
         }
     // 異なるディレクトリへのmove
     } else {
@@ -1061,7 +1094,7 @@ long filerename(char *path1, char *path2, uint32_t flags)
             iput(dp1);
             iput(ip1);
             end_op();
-            return fileunlink(path1, flags);
+            return fileunlink(oldpath, olddirfd, flags);
         } else {
             if ((error = reinode(dp2, ip2, ip1)) < 0) {
                 warn("reinode failed 2");
@@ -1071,7 +1104,7 @@ long filerename(char *path1, char *path2, uint32_t flags)
             iput(dp1);
             iput(ip2);
             end_op();
-            return fileunlink(path2, flags);
+            return fileunlink(newpath, newdirfd, flags);
         }
     }
     error = 0;
