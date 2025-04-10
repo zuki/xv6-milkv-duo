@@ -1,4 +1,4 @@
 /bin/ln -s /lib/libc.so /lib/ld-musl-riscv64xthead.so.1
 /usr/bin/chmod 04755 /bin/passwd
 /usr/bin/chmod 04755 /bin/su
-/usr/bin/dash -l
+/usr/bin/dash

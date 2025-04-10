@@ -44,7 +44,7 @@ int main(int argc, char **argv)
             if (init)
                 execve("/bin/sh", sh_argv, sh_envp);
             else
-                execve("/bin/getty", 0, 0);
+                execve("/usr/bin/dash", 0, 0);
             printf("init: exec sh failed\n");
             exit(1);
         }
