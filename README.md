@@ -16,3 +16,6 @@
 8. ブロック長を4096に変更
 9. 開発をMilk-v Duo 256に変更 (tag: duo256-v0.2)
 10. mmap機能を追加 (tag: duo256_v0.3)
+11. coreutils, busybox, dashを導入 (tag: duo256_v0.3.1)
+12. Dynamic linkを実装 (tag: duo256_v0.4)
+13. Dynamic link版のcoreutils, busybox, dashを導入(tag: duo256_v0.4.1)
