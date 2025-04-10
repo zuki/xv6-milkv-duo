@@ -623,8 +623,8 @@ long sys_execve(void)
     uint64_t argvp, envpp;
     uint64_t arg_p, env_p;
     int argc = 0, envc = 0, error;
-    struct proc *p = myproc();
-    int ret;
+    int i, ret;
+    char buf[MAXPATH];
 
     if (argstr(0, path, MAXPATH) < 0) {
         warn("parse path error");
@@ -656,23 +656,22 @@ long sys_execve(void)
                 argv[argc] = 0;
                 break;
             }
-            // TODO: kmallocを作成
-            argv[argc] = kalloc();
+            if ((ret = fetchstr(arg_p, buf, MAXPATH)) < 0) {
+                error("fetchstr error: argv[%d]", argc);
+                error = -EIO;
+                goto bad;
+            }
+            argv[argc] = kmalloc(ret + 1);
             if (argv[argc] == 0) {
                 error("outof memory");
                 error = -ENOMEM;
                 goto bad;
             }
-
-            if (fetchstr(arg_p, argv[argc], PGSIZE) < 0) {
-                error("fetchstr error: argv[%d]", argc);
-                error = -EIO;
-                goto bad;
-            }
+            memcpy(argv[argc], buf, ret+1);
 
 #if 0
             //if (p->pid <= 2) {
-                debug("argv[%d] (0x%lx) = %s", argc, arg_p, argv[argc]);
+                debug("argv[%d] (0x%lx) = %s", argc, argv[argc], argv[argc]);
                 //for (int j=0; j < strlen(argv[argc]); j++) {
                 //    printf("%02x ", argv[argc][j]);
                 //}
@@ -692,9 +691,8 @@ long sys_execve(void)
                 error = -E2BIG;
                 goto bad;
             }
-            // TODO: argdtrで書き換え
             if (fetchaddr(envpp + sizeof(uint64_t) * envc, (uint64_t*)&env_p) < 0) {
-                error("fetchaddr error: uenv[%d]", envc);
+                error("fetchaddr error: env_p[%d]", envc);
                 error = -EFAULT;
                 goto bad;
             }
@@ -702,27 +700,26 @@ long sys_execve(void)
                 envp[envc] = 0;
                 break;
             }
-            // TODO: slabを使う
-            envp[envc] = kalloc();
+            if ((ret = fetchstr(env_p, buf, MAXPATH)) < 0) {
+                error("fetchstr error: env_p[%d]", envc);
+                error = -EIO;
+                goto bad;
+            }
+
+            envp[envc] = kmalloc(ret + 1);
             if (envp[envc] == 0) {
                 error("outof memory");
                 error = -ENOMEM;
                 goto bad;
             }
-
-            if (fetchstr(env_p, envp[envc], PGSIZE) < 0) {
-                error("fetchstr error: envp[%d]", envc);
-                error = -EIO;
-                goto bad;
-            }
-
+            memcpy(envp[envc], buf, ret+1);
 #if 0
             //if (p->pid == 3) {
-                debug("envp[%d] (0x%lx) = %s", envc, env_p, envp[envc]);
-                for (int j=0; j < strlen(envp[envc]); j++) {
-                    printf("%02x ", envp[envc][j]);
-                }
-                printf("\n");
+                debug("envp[%d] (0x%lx) = %s", envc, envp[envc], envp[envc]);
+                //for (int j=0; j < strlen(envp[envc]); j++) {
+                //    printf("%02x ", envp[envc][j]);
+                //}
+                //printf("\n");
             //}
 #endif
         }
@@ -730,30 +727,30 @@ long sys_execve(void)
         envc = 0;
     }
 
-    //int ret = exec(path, argv);
-    if (p->pid == 3)
-        trace("path: %s, argc: %d, envc: %d", path, argc, envc);
     ret = execve(path, argv, envp, argc, envc);
 
-    for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++) {
-        if (p->pid == 3)
-            trace("free argv[%d]: %s", argc, argv[argc]);
-        kfree(argv[argc]);
+    for (i = 0; i < argc; i++) {
+        trace("free argv[%d]: %s", i, argv[i]);
+        kmfree(argv[i]);
     }
 
-    for (envc = 0; envc < NELEM(envp) && envp[envc] != 0; envc++) {
-        if (p->pid == 3)
-            trace("free envp[%d]: %s", envc, envp[envc]);
-        kfree(envp[envc]);
+    for (i = 0; i < envc; i++) {
+        trace("free envp[%d]: %s", i, envp[i]);
+        kmfree(envp[i]);
     }
 
     return ret;
 
 bad:
-    for (argc = 0; argc < NELEM(argv) && argv[argc] != 0; argc++)
-        kfree(argv[argc]);
-    for (envc = 0; envc < NELEM(envp) && envp[envc] != 0; envc++)
-        kfree(envp[envc]);
+    for (i = 0; i < argc; i++) {
+        trace("bad: free argv[%d]: %s", i, argv[i]);
+        kmfree(argv[i]);
+    }
+
+    for (i = 0; i < envc; i++) {
+        trace("bad: free envp[%d]: %s", i, envp[i]);
+        kmfree(envp[i]);
+    }
 
     return error;
 }
