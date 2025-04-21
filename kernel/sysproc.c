@@ -295,6 +295,7 @@ long sys_rt_sigsuspend(void)
     return sigsuspend(&mask);
 }
 
+//int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 long sys_rt_sigaction()
 {
     int sig;
@@ -325,10 +326,12 @@ long sys_rt_sigaction()
         return -EINVAL;
     }
 
+#if 0
     if (act.flags & SA_SIGINFO) {
         trace("not support siginfo");
         return -EINVAL;
     }
+#endif
 
     return sigaction(sig, &act, oldact);
 }

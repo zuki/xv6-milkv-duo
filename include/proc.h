@@ -96,6 +96,7 @@ struct signal {
     sigset_t mask;
     sigset_t pending;
     struct sigaction actions[NSIG];
+    struct siginfo *sis[NSIG];
 };
 
 // mmap領域構造体

@@ -41,6 +41,7 @@ typedef uint64_t        off_t;
 typedef int32_t         blksize_t;
 typedef int64_t         blkcnt_t;
 typedef int64_t         time_t;
+typedef int64_t         clock_t;
 typedef int64_t         suseconds_t;
 typedef uint32_t        tcflag_t;
 typedef uint32_t        speed_t;

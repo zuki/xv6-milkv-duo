@@ -23,6 +23,7 @@ struct k_sigaction;
 struct pollfd;
 struct tm;
 struct mmap_region;
+struct siginfo;
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
@@ -197,7 +198,7 @@ long            sigaction(int sig, struct k_sigaction *act, uint64_t oldact);
 long            sigpending(uint64_t pending);
 long            sigprocmask(int how, sigset_t *set, uint64_t oldset);
 long            sigreturn(void);
-void            send_signal(struct proc *p, int sig);
+void            send_signal(struct proc *p, int sig, struct siginfo *si);
 //void            flush_signal_handlers(struct proc *p);
 long            ppoll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout_ts, sigset_t *sigmask);
 pid_t           getpgid(pid_t pid);

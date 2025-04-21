@@ -139,7 +139,8 @@ UPROGS=\
 	$U/login \
 	$U/passwd \
 	$U/getty \
-	$U/su
+	$U/su \
+	$U/mprotecttest
 DPROGS= \
 	$D/hello_dyn
 

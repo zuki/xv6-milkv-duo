@@ -416,12 +416,14 @@ int fork(void)
     np->fdflag = p->fdflag;
     np->cwd = idup(p->cwd);
     memmove(&np->signal, &p->signal, sizeof(struct signal));
+    np->signal.pending = 0UL;
 
     safestrcpy(np->name, p->name, sizeof(p->name));
 
     pid = np->pid;
 
     release(&np->lock);
+    flush_signal_handlers(np);
 
     acquire(&wait_lock);
     np->parent = p;
@@ -755,10 +757,28 @@ static void stop_handler(struct proc *p)
 static void user_handler(struct proc *p, int sig)
 {
     trace("sig=%d", sig);
+    uint64_t sp, sip;
 
     // now change the eip to point to the user handler
     trace("act[%d].handler: %p", sig, p->signal.actions[sig].sa_handler);
-    p->trapframe->epc = (uint64_t)p->signal.actions[sig].sa_handler;
+    if (p->signal.actions[sig].sa_flags & SA_SIGINFO) {
+        sp = p->trapframe->sp;
+        sp -= sizeof(struct siginfo);
+        sp -= sp % 16;
+        sip = sp;
+        if (copyout(p->pagetable, sip, (char *)p->signal.sis[sig], sizeof(struct siginfo)) < 0) {
+            error("failed copyout");
+        }
+        p->trapframe->sp = sp;
+        p->trapframe->epc = (uint64_t)p->signal.actions[sig].sa_sigaction;
+        p->trapframe->a0 = sig;
+        p->trapframe->a1 = sip;
+        p->trapframe->a2 = 0UL;
+        trace("act[%d].handler: %p, si(%p).si_addr: %p", sig, p->signal.actions[sig].sa_sigaction, p->signal.sis[sig], p->signal.sis[sig]->si_addr);
+    } else {
+        p->trapframe->epc = (uint64_t)p->signal.actions[sig].sa_handler;
+        p->trapframe->a0 = sig;
+    }
 }
 
 // シグナルを処理する
@@ -828,14 +848,16 @@ static void handle_signal(struct proc *p, int sig)
 }
 
 // IDがpidのプロセスにシグナルsigを送信する
-void send_signal(struct proc *p, int sig)
+void send_signal(struct proc *p, int sig, struct siginfo *si)
 {
     trace("pid=%d, sig=%d, state=%d, paused=%d", p->pid, sig, p->state, p->paused);
     if (sig == SIGKILL) {
         p->killed = 1;
     } else {
-        if (!sigismember(&p->signal.pending, sig))
+        if (!sigismember(&p->signal.pending, sig)) {
             sigaddset(&p->signal.pending, sig);
+            p->signal.sis[sig] = si;
+        }
         //else
             //debug("sig already pending");
     }
@@ -860,6 +882,11 @@ int kill(pid_t pid, int sig)
     struct proc *p, *cp = myproc();
     pid_t pgid;
     int err = -EINVAL;
+    struct siginfo si;
+    si.si_signo = sig;
+    si.si_code = SI_USER;
+    si.si_pid = cp->pid;
+    si.si_uid = cp->uid;
 
     if (pid == 0 || pid < -1) {
         pgid = pid == 0 ? cp->pgid : -pid;
@@ -867,7 +894,7 @@ int kill(pid_t pid, int sig)
             err = -ESRCH;
             for (p = proc; p < &proc[NPROC]; p++) {
                 if (p->pgid == pgid) {
-                    send_signal(p, sig);
+                    send_signal(p, sig, &si);
                     err = 0;
                 }
             }
@@ -875,14 +902,14 @@ int kill(pid_t pid, int sig)
     } else if (pid == -1) {
         for (p = proc; p < &proc[NPROC]; p++) {
             if (p->pid > 1 && p != cp) {
-                send_signal(p, sig);
+                send_signal(p, sig, &si);
                 err = 0;
             }
         }
     } else {
         for (p = proc; p < &proc[NPROC]; p++) {
             if (p->pid == pid) {
-                send_signal(p, sig);
+                send_signal(p, sig, &si);
                 err = 0;
             }
         }
@@ -1037,7 +1064,10 @@ long sigaction(int sig, struct k_sigaction *act,  uint64_t oldact)
     if (oldact) {
         struct sigaction *action = &signal->actions[sig];
         struct k_sigaction kaction;
-        kaction.handler = action->sa_handler;
+        if (action->sa_flags & SA_SIGINFO)
+            kaction.handler = (sighandler_t)action->sa_sigaction;
+        else
+            kaction.handler = action->sa_handler;
         kaction.flags = (unsigned long)action->sa_flags;
         memmove((void *)&kaction.mask, &action->sa_mask, 8);
         trace("oldact: handler: 0x%lx, mask[0:1]: 0x%x:0x%x, flags: 0x%x", kaction.handler, kaction.mask[0], kaction.mask[1], kaction.flags);
@@ -1047,7 +1077,11 @@ long sigaction(int sig, struct k_sigaction *act,  uint64_t oldact)
 
     if (act) {
         struct sigaction *action = &signal->actions[sig];
-        action->sa_handler = act->handler;
+        if (act->flags & SA_SIGINFO) {
+            action->sa_sigaction = (sigaction_t)act->handler;
+        } else {
+            action->sa_handler = act->handler;
+        }
         action->sa_flags = (int)act->flags;
         memmove((void *)&action->sa_mask, &act->mask, 8);
         signal->mask = action->sa_mask;
@@ -1239,6 +1273,7 @@ void flush_signal_handlers(struct proc *p)
             ka->sa_handler = SIG_DFL;
         ka->sa_flags = 0;
         sigemptyset(&ka->sa_mask);
+        p->signal.sis[i] = 0;
     }
     acquire(&p->lock);
     p->paused = 0;
