@@ -1,5 +1,6 @@
 make clean
 rm -f duo-imgtools/kernel.bin
+date +%s --date 'now - 60 secs' > usr/etc/now
 make
 make kernel/kernel.bin
 cp kernel/kernel.bin duo-imgtools/

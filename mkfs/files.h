@@ -116,6 +116,7 @@ char *etc_files[] = {
     "usr/etc/group",
     "usr/etc/inittab",
     "usr/etc/profile",
+    "usr/etc/now",
     NULL
 };
 

@@ -2,6 +2,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 char * const wdays[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
@@ -17,11 +19,17 @@ void print_now(void) {
 
 int main(int argc, char *argv[])
 {
+    int fd;
+    char buf[11];
+
     if (argc == 1) {
         print_now();
-    } else if (argc == 2) {
+    } else if (argc == 2 && *(argv[1]) == '-' && *(argv[1]+1) == 's') {
+        fd = open("/etc/now", O_RDONLY);
+        read(fd, buf, 11);
+        close(fd);
         struct timespec tp;
-        int t = atoi(argv[1]);
+        int t = atoi(buf);
         tp.tv_sec = (time_t)t;
         tp.tv_nsec = 0;
         if (clock_settime(CLOCK_REALTIME, &tp) < 0) {
