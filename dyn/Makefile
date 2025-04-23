@@ -9,7 +9,8 @@ OBJCOPY := $(CROSS)objcopy
 STRIP := $(CROSS)strip
 
 #MUSL = /home/vagrant/musl-1.2.2/musl
-MUSL = /home/vagrant/musl_current
+#MUSL = /home/vagrant/musl_current
+MUSL = /home/vagrant/riscv/musl-125
 LIBC_LIBS = $(wildcard /home/vagrant/musl_current/lib*)
 LIBC_INCS = $(wildcard /home/vagrant/musl_current/include/**/*)
 LIBC_DEPS = $(LIBC_LIBS) $(LIBC_INCS)

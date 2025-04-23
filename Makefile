@@ -113,6 +113,10 @@ tags: $(OBJS) _init
 mkfs/mkfs: mkfs/mkfs.c
 	gcc -Werror -Wall -Wno-unused-but-set-variable -Imkfs -o mkfs/mkfs mkfs/mkfs.c
 
+$U/sh: obj/usr/bin/sh
+$U/busybox: obj/usr/bin/busybox
+$D/myadd: obj/dyn/bin/myadd
+
 UPROGS=\
 	$U/cat\
 	$U/date\
@@ -142,7 +146,8 @@ UPROGS=\
 	$U/su \
 	$U/mprotecttest
 DPROGS= \
-	$D/hello_dyn
+	$D/hello_dyn \
+	$D/myadd
 
 $(DPROGS):
 	(cd dyn; make)

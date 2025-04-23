@@ -8,7 +8,8 @@ OBJDUMP := $(CROSS)objdump
 OBJCOPY := $(CROSS)objcopy
 STRIP := $(CROSS)strip
 
-MUSL := $(HOME)/musl-1.2.2/musl
+#MUSL := $(HOME)/musl-1.2.2/musl
+MUSL := $(HOME)/riscv/musl-125
 #LIBC_A = $(MUSL)/lib/libc.a
 #LIBC_SPEC = $(MUSL)/lib/musl-gcc.specs
 #LIBC_LIBS = $(wildcard $(MUSL)/lib/*)

@@ -43,6 +43,7 @@ int main(int argc, char **argv)
             //execv("/bin/dash", argv);
             if (init)
                 execve("/bin/sh", sh_argv, sh_envp);
+                //execve("/bin/sh", 0, sh_envp);
             else
                 execve("/usr/bin/dash", 0, 0);
             printf("init: exec sh failed\n");

@@ -108,6 +108,9 @@ char *usrbins[] = {
     "usr/bin/yes",
     "usr/bin/[",
     "usr/bin/dash",
+    "usr/bin/login",
+    "usr/bin/passwd",
+    "usr/bin/su",
     NULL
 };
 
@@ -115,14 +118,25 @@ char *etc_files[] = {
     "usr/etc/passwd",
     "usr/etc/group",
     "usr/etc/inittab",
+    "usr/etc/login.access",
+    "usr/etc/login.defs",
+    "usr/etc/limits",
     "usr/etc/profile",
     "usr/etc/now",
     NULL
 };
 
+char *usrsbins[] = {
+    "usr/sbin/pwconv",
+    "usr/sbin/pwunconv",
+    NULL
+};
+
 char *lib_files[] = {
     "usr/lib/libc.so",
-//    "usr/lib/ld-musl-riscv64xthead.so.1",
+    "usr/lib/libmd.so.0",
+    "usr/lib/libbsd.so.0",
+    "usr/lib/libmyadd.so",
     NULL
 };
 

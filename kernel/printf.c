@@ -266,7 +266,7 @@ void debug_bytes(char *title, char *buf, int size) {
     if (size % 16 == 0) lines -= 1;
 
     uint64_t byte = 0;
-    printf("%s\n", title);
+    printf("== %s ==\n", title);
     for (int i = 0; i < lines; i++) {
         for (int j = 0; j < 16; j++) {
             if (j == 0)

@@ -1,5 +1,6 @@
 /bin/ln -s /lib/libc.so /lib/ld-musl-riscv64xthead.so.1
-/usr/bin/chmod 04755 /bin/passwd
-/usr/bin/chmod 04755 /bin/su
+/usr/bin/chmod 04755 /usr/bin/passwd
+/usr/bin/chmod 04755 /usr/bin/su
+/usr/bin/chmod 0700 /etc/login.defs
 /bin/date -s
 /usr/bin/dash

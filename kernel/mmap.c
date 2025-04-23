@@ -114,35 +114,51 @@ uint64_t get_perm(int prot, int flags)
 
 /*
  * addr, lengthを持つmmap_regionを作成できるか
- * できる: 1, できない: 0
+ * できる: NULL, できない: MAP_FAILED, 分割: region
  */
-static int is_usable(void *addr, size_t length)
+static struct mmap_region *is_usable(void *addr, size_t length)
 {
     struct proc *p = myproc();
+    //if (p->pid == 8)
+    //    trace("check addr: %p, length: 0x%lx", addr, length);
 
     // ELF_ET_DYN_BASE未満のアドレスは使用不可
-    if (addr < (void *)ELF_ET_DYN_BASE || addr > (void *)USERTOP)
-        return 0;
+    if (addr < (void *)ELF_ET_DYN_BASE || addr > (void *)USERTOP) {
+        error("addr: %p is invalid", addr);
+        return MAP_FAILED;
+    }
 
     struct mmap_region *cursor = p->regions;
     // regionが一つも作成されていなければ使用可能
     if (cursor == NULL)
-        return 1;
+        return NULL;
 
     while (cursor) {
+        //if (p->pid == 8)
+        //    trace("region addr: %p, length: 0x%lx", cursor->addr, cursor->length);
+
         // 1. 使用済み
-        if (addr == cursor->addr)
-            return 0;
-        // 2: 右端が最左のregionより小さい
+        if (addr == cursor->addr) {
+            error("addr: %p is used", addr);
+            return MAP_FAILED;
+        }
+
+        // 2. addr + length == cursor->addr + cursor->length: 分割
+        if (addr + length == cursor->addr + cursor->length) {
+            return cursor;
+        }
+
+        // 3: 右端が最左のregionより小さい
         if (addr + length <= cursor->addr)
-            return 1;
+            return NULL;
         // 3: 左端が最左のregionより大きい、かつ、次のregionがないか、右端が次のregionより小さい
         if (cursor->addr + cursor->length <= addr && (cursor->next == 0 || addr + length <= cursor->next->addr))
-            return 1;
+            return NULL;
         cursor = cursor->next;
     }
 
-    return 0;
+    error("mmap is full: addr: %p", addr);
+    return MAP_FAILED;
 }
 
 /*
@@ -361,14 +377,42 @@ long alloc_mmap_page(struct proc *p, uint64_t addr,  uint64_t scause) {
     return 0;
 }
 
+// musl libc.so対応
+//  addr + length がregionの最高位アドレスに等しい場合に、2つに分割する。
+static long devide_region(struct mmap_region *region, void *addr, size_t length, int prot, int flags, struct file *f, off_t offset)
+{
+    struct mmap_region *backup;
+    long error;
+
+    if (NOT_PAGEALIGN(addr) || NOT_PAGEALIGN(length))
+        return (long)MAP_FAILED;
+
+    if ((addr + length) != (region->addr + region->length))
+        return (long)MAP_FAILED;
+
+    backup = slab_cache_alloc(MMAPREGIONS);
+    if (backup == NULL)
+        return (long)MAP_FAILED;
+    memmove((void *)backup, region, sizeof(struct mmap_region));
+
+    if ((error = munmap(region->addr, region->length)) < 0) {
+        slab_cache_free(MMAPREGIONS, backup);
+        return error;
+    }
+
+    mmap(backup->addr, backup->length - length, backup->prot, (backup->flags | MAP_FIXED), backup->f, backup->offset);
+    slab_cache_free(MMAPREGIONS, backup);
+    return mmap(addr, length, prot, (flags | MAP_FIXED), f,  offset);
+}
+
 // sys_mmapのメイン関数
 long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t offset)
 {
     struct proc *p = myproc();
-    struct mmap_region *node;
+    struct mmap_region *node, *dev_region;
     long error = -EINVAL;
 
-    if (p->pid == 7)
+    if (p->pid == 8)
         trace("addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, off: 0x%lx",
         addr, length, prot, flags, f ? f->ip->inum : 0, offset);
 
@@ -403,9 +447,14 @@ long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t 
                 return (long)addr;
             } else {
                 // 1.1.2.2 指定されたアドレスが使用可能なこと
-                if (!is_usable(addr, length)) {
+                dev_region = is_usable(addr, length);
+                if (dev_region == MAP_FAILED) {
                     error("addr %p is not available", addr);
                     return -EINVAL;
+                } else if (dev_region == NULL) {
+                    /* ok */
+                } else {
+                    return devide_region(dev_region, addr, length, prot, flags, f, offset);
                 }
             }
         // 1.1.3 MAP_FIXEDが指定されていない場合は、アドレスを丸め下げ
@@ -502,7 +551,11 @@ load_pages:
     region->addr = addr;
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
-    trace("return addr: %p, length: 0x%lx", region->addr, region->length);
+#if 1
+    if (p->pid == 8)
+        trace("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
+        region->addr, region->length, region->prot, region->flags, region->f ? region->f->ip->inum : 0, region->offset);
+#endif
     return (long)region->addr;
 
 out:
@@ -515,6 +568,9 @@ out:
 long munmap(void *addr, size_t length)
 {
     struct proc *p = myproc();
+
+    //if (p->pid == 8)
+    //    trace("addr: %p, length: 0x%lx", addr, length);
 
     // addrはページ境界になければならない
     if ((uint64_t)addr & (PGSIZE - 1))
@@ -636,6 +692,9 @@ long mprotect(void *addr, size_t length, int prot)
     uint64_t offset1, offset2, offset3;
     int old_prot;
     long error;
+
+    if (p->pid == 8)
+        trace("addr: %p, length: 0x%lx, prot: 0x%x", addr, length, prot);
 
     uint64_t addrp = (uint64_t)addr;
     if (addrp <= p->sz) {

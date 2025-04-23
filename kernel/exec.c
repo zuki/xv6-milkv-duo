@@ -66,7 +66,8 @@ static void padzero(uint64_t elf_bss)
     char *buf;
 
     nbyte = ELF_PAGEOFFSET(elf_bss);
-    trace("elf_bss=0x%llx, nbyte=0x%llx", elf_bss, nbyte ? (ELF_MIN_ALIGN - nbyte) : 0);
+    if (myproc()->pid == 8)
+        trace("elf_bss=0x%llx, nbyte=0x%llx", elf_bss, nbyte ? (ELF_MIN_ALIGN - nbyte) : 0);
     if (nbyte) {
         nbyte = ELF_MIN_ALIGN - nbyte;
         buf = kmalloc(nbyte);
@@ -80,8 +81,9 @@ static char *mapping_bss(uint64_t start, uint64_t end)
 {
     char  *old_start = (char *)start;
     //char  *old_end   = (char *)end;
+    if (myproc()->pid == 8)
+        trace("start: 0x%lx, end: 0x%lx", start, end);
 
-    trace("start: 0x%lx, end: 0x%lx", start, end);
     start = ELF_PAGEALIGN(start);   // roundup
     end = ELF_PAGEALIGN(end);       // roundup
     // 既存のマッピング内に収まれば何もしない（0詰め済み）
@@ -90,7 +92,8 @@ static char *mapping_bss(uint64_t start, uint64_t end)
         return old_start;
     }
 
-    trace("mmap start: 0x%lx (%p), end: 0x%lx (%p), length: 0x%lx", start, old_start, end, old_end, end - start);
+    if (myproc()->pid == 8)
+        trace("mmap start: 0x%lx (%p), end: 0x%lx (%p), length: 0x%lx", start, old_start, end, old_end, end - start);
     // mappingを行う
     return (char *)mmap((void *)start, end - start, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE, NULL, 0);
 }
@@ -180,7 +183,8 @@ static uint64_t load_interpreter(char *path, uint64_t *base)
             load_addr = ELF_PAGESTART(ELF_ET_DYN_BASE + vaddr);
 
         // 3.4 データをmappingする
-        trace("start: 0x%lx  = load_addr: 0x%lx + vaddr: 0x%lx, ", ELF_PAGESTART(load_addr + vaddr), load_addr, vaddr);
+        if (myproc()->pid == 8)
+            trace("start: 0x%lx  = load_addr: 0x%lx + vaddr: 0x%lx, ", ELF_PAGESTART(load_addr + vaddr), load_addr, vaddr);
         mapped = (char *)mmap(
             (void *)ELF_PAGESTART(load_addr + vaddr),
             ph.filesz  + ELF_PAGEOFFSET(vaddr),
@@ -190,12 +194,15 @@ static uint64_t load_interpreter(char *path, uint64_t *base)
             errno = (long)mapped;
             goto out;
         }
-        trace("mapped: 0x%lx", mapped);
+        if (myproc()->pid == 8)
+            trace("mapped: 0x%lx, length: 0x%lx", mapped, PGROUNDUP(ph.filesz  + ELF_PAGEOFFSET(vaddr)));
 
         // 3.5 ロードアドレスを調整する
         if (addr_fix == 0 && elf.type == ET_DYN) {
             load_addr = (uint64_t)mapped - ELF_PAGESTART(vaddr);
             addr_fix = 1;
+            if (myproc()->pid == 8)
+                trace("load_addr: 0x%lx", load_addr);
         }
 
         // 3.6 bss領域をセットする
@@ -203,7 +210,8 @@ static uint64_t load_interpreter(char *path, uint64_t *base)
         if (k > bss_start) bss_start = k;
         k = load_addr + vaddr + ph.memsz;
         if (k > bss_end) bss_end = k;
-        trace("bss_start: 0x%lx, bss_end: %lx", bss_start, bss_end);
+        if (myproc()->pid == 8)
+            trace("bss_start: 0x%lx, bss_end: %lx", bss_start, bss_end);
     }
 
     // 4. 必要があればbss領域を0クリアしてmappingする
@@ -355,8 +363,10 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
             errno = -ENOMEM;
             goto bad;
         }
-        trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
-        trace("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
+        if (myproc()->pid == 8) {
+            trace("LOAD[%d] sz: 0x%lx, sz1: 0x%lx, flags: 0x%08x", i, sz, sz1, flags2perm(ph.flags));
+            trace("         addr: 0x%lx, off: 0x%lx, fsz: 0x%lx", ph.vaddr, ph.off, ph.filesz);
+        }
 
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
             warn("loadseg error: inum: %d, off: 0x%lx", ip->inum, ph.off);
@@ -380,7 +390,8 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
             error("interpreter load error: %ld", interp_entry);
             goto bad;
         }
-        trace("interp_base: 0x%lx, interp_entry: 0x%lx", interp_base, interp_entry);
+        if (myproc()->pid == 8)
+            trace("interp_base: 0x%lx, interp_entry: 0x%lx", interp_base, interp_entry);
     }
 
     // スタックを割り当てる; STACKBASEからSTACKTOPまでのページを割り当てる
@@ -496,11 +507,6 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
     }
 
     trace("path: %s, argc: %d, envc: %d", path, argc, envc);
-    // void _start_c(long *p) {
-    //      int argc = p[0];
-    //      char **argv = (void *)(p+1);
-    //p->trapframe->a1 = sp;
-    //p->trapframe->a2 = sp_envp;
 
     // デバッグ用にプログラム名を保存する .
     for (last=s=path; *s; s++)
@@ -520,21 +526,23 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
         p->trapframe->epc = elf.entry;
     // スタックポインタ
     p->trapframe->sp = sp;
-    trace("pid[%d] sz: 0x%lx, sp: 0x%lx, interp: %d, epc: 0x%lx", p->pid, p->sz, p->trapframe->sp, has_interp, p->trapframe->epc);
+    if (myproc()->pid == 8)
+        trace("pid[%d] sz: 0x%lx, sp: 0x%lx, interp: %d, epc: 0x%lx", p->pid, p->sz, p->trapframe->sp, has_interp, p->trapframe->epc);
 
 #if 0
-    debug("free old pagetable: pid=%d", p->pid);
-    //if (p->pid == 8) {
+
+    trace("free old pagetable: pid=%d", p->pid);
+    if (p->pid == 8) {
         uvmdump(pagetable, p->pid, "new");
-        uvmdump(oldpagetable, p->pid, "old");
-    //}
-    //print_mmap_list(p, "new proc");
+        //uvmdump(oldpagetable, p->pid, "old");
+    }
+    print_mmap_list(p, "new proc");
 #endif
 
     proc_freepagetable(oldpagetable, oldsz);
 
 #if 0
-    if (p->pid == 7) {
+    if (p->pid == 8) {
         uvmdump(p->pagetable, p->pid, p->name);
         printf("\n== Stack TOP : 0x%08lx ==\n", STACKTOP);
         for (uint64_t e = STACKTOP - 8; e >= sp; e -= 8) {
@@ -591,9 +599,11 @@ loadseg(pagetable_t pagetable, uint64_t va, struct inode *ip, uint32_t offset, u
         } else {
             n = PGSIZE;
         }
-        trace("va: 0x%lx, pa: 0x%lx, off: 0x%x, n: 0x%x", va, pa, offset, n);
+        if (myproc()->pid == 8)
+            trace("va: 0x%lx, pa: 0x%lx, off: 0x%x, n: 0x%x", va, pa, offset, n);
         if ((bytes = readi(ip, 0, pa, offset, n)) != n) {
-            trace("n: 0x%x, bytes: 0x%x", n, bytes);
+            if (myproc()->pid == 8)
+                trace("n: 0x%x, bytes: 0x%x", n, bytes);
             return -1;
         }
         offset += n;

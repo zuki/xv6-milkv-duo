@@ -139,8 +139,8 @@ long sys_read(void)
         return -EINVAL;
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    //if (fd == 0)
-    //    debug("ip: %d, p: 0x%lx, n: %d", f->ip->inum, p, n);
+    if (myproc()->pid == 8)
+        trace("fd: %d, ip: %d, buf: 0x%lx, count: %d", fd, f->ip->inum, p, n);
     return fileread(f, p, n, 1);
 }
 
@@ -275,7 +275,8 @@ long sys_close(void)
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
 
-    trace("pid[%d] fd: %d", myproc()->pid, fd);
+    if (myproc()->pid == 8)
+        trace("pid[%d] fd: %d", myproc()->pid, fd);
 
     myproc()->ofile[fd] = 0;
     bit_remove(myproc()->fdflag, fd);
@@ -493,7 +494,9 @@ long sys_openat(void)
         warn("dirfd unimplemented");
         return -EINVAL;
     }
-    trace("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
+
+    if (myproc()->pid == 8)
+        trace("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;

@@ -92,7 +92,7 @@ main(int argc, char *argv[])
     int i;
     uint off;
     uint rootino, devino, binino, etcino, libino, homeino, mntino;
-    uint zukiino, suino, usrino, usrbinino;
+    uint zukiino, suino, usrino, usrbinino, usrsbinino;
     uint localino, localbinino, locallibino, localincludeino, localshareino, localsharemiscino;
     char buf[BSIZE];
     struct dinode din;
@@ -184,6 +184,8 @@ main(int argc, char *argv[])
     usrino = make_dir(rootino, "usr", 0, 0, S_IFDIR|0775);
     // create /usr/bin
     usrbinino = make_dir(usrino, "bin", 0, 0, S_IFDIR|0775);
+    // create /usr/sbin
+    usrsbinino = make_dir(usrino, "sbin", 0, 0, S_IFDIR|0775);
     // create /usr/local
     localino = make_dir(usrino, "local", 0, 0, S_IFDIR|0775);
     // create /usr/local/bin
@@ -205,6 +207,9 @@ main(int argc, char *argv[])
 
     // /usr/bin  (coreutils)
     copy_file(0, nelms(usrbins), usrbins, usrbinino, 0, 0, S_IFREG|0755);
+
+    // /usr/sbin  (shadow)
+    copy_file(0, nelms(usrsbins), usrsbins, usrsbinino, 0, 0, S_IFREG|0755);
 
     // /etc/passwd, group, inittab
     copy_file(0, nelms(etc_files), etc_files, etcino, 0, 0, S_IFREG|0644);

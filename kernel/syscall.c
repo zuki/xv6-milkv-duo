@@ -298,17 +298,18 @@ long sys_uname(void) {
 }
 
 long sys_debug(void) {
-    char name[MAXPATH];
+    char name[MAXPATH], tag[MAXPATH];
     uint64_t val;
 
-    if (argstr(0, name, MAXPATH) < 0 || argu64(1, &val) < 0)
+    if (argstr(0, name, MAXPATH) < 0 || argstr(1, tag, MAXPATH) < 0
+     || argu64(2, &val) < 0)
         return -EINVAL;
-    debug("%s: 0x%lx", name, val);
+    debug("%s: %s = 0x%lx", name, tag, val);
     return 0;
 }
 
 long sys_dso(void) {
-    char name[MAXPATH];
+    char name[MAXPATH], dname[64];
     uint64_t dsop;
     struct dso dso;
 
@@ -316,8 +317,14 @@ long sys_dso(void) {
         return -EINVAL;
 
     copyin(myproc()->pagetable, (char *)&dso, dsop, sizeof(struct dso));
+    if (dso.name)
+        copyin(myproc()->pagetable, dname, (uint64_t)dso.name, 64);
 
-    debug_bytes(name, (char *)&dso, sizeof(struct dso));
+    //debug_bytes(name, (char *)&dso, sizeof(struct dso));
+    debug("%s: 0x%lx", name, dsop);
+    printf("  name: %s, base: %p, map: %p, map_len: 0x%lx\n", dname, dso.base, dso.map, dso.map_len);
+    printf("  phdr: %p, phnum: %d, relocated: %d, constructed: %d, kernel_mapped: %d\n", dso.phdr, dso.phnum, dso.relocated, dso.constructed, dso.kernel_mapped);
+
     return 0;
 }
 
@@ -625,7 +632,7 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_faccessat2] = 4,                       // 439
     [SYS_dso] = 2,                              // 997
     [SYS_libc] = 2,                             // 998
-    [SYS_debug]     = 2,                        // 999
+    [SYS_debug]     = 3,                        // 999
 };
 
 
@@ -645,7 +652,7 @@ void syscall(void)
         // and store its return value in p->trapframe->a0
 #if 0
         //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
-        if (p->pid >= 3 && p->pid <= 6) {
+        if (p->pid == 8) {
             switch(syscall_params[num]) {
             case 5:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],

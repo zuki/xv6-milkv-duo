@@ -28,22 +28,22 @@
 
 // File header 20 + 4 + 24 + 4 + 12 = 64
 struct elfhdr {
-    uint32_t magic;  // must equal ELF_MAGIC
-    uchar elf[12];
-    ushort type;
-    ushort machine;
-    uint32_t version;
-    uint64_t entry;
-    uint64_t phoff;
-    uint64_t shoff;
-    uint32_t flags;
-    ushort ehsize;
-    ushort phentsize;
-    ushort phnum;
-    ushort shentsize;
-    ushort shnum;
-    ushort shstrndx;
-};
+    uint32_t magic;  // must equal ELF_MAGIC    0
+    uchar elf[12];      // 4
+    ushort type;        // 16
+    ushort machine;     // 18
+    uint32_t version;   // 20
+    uint64_t entry;     // 24
+    uint64_t phoff;     // 32
+    uint64_t shoff;     // 40
+    uint32_t flags;     // 48
+    ushort ehsize;      // 52
+    ushort phentsize;   // 54
+    ushort phnum;       // 56
+    ushort shentsize;   // 58
+    ushort shnum;       // 60
+    ushort shstrndx;    // 62
+};                      // 64
 
 // Program section header
 struct proghdr {

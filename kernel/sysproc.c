@@ -192,23 +192,31 @@ long sys_munmap(void)
 // int mprotect(void *addr, size_t len, int prot);
 long sys_mprotect(void)
 {
-    void *addr;
-    size_t len;
+    uint64_t addr;
+    size_t len, end;
     int prot;
 
-    if (argu64(0, (uint64_t *)&addr) < 0 || argu64(1, &len) < 0
+    if (argu64(0, &addr) < 0 || argu64(1, &len) < 0
      || argint(2, &prot) < 0)
         return -EINVAL;
 
-    if ((uint64_t)addr & (PGSIZE-1))
+    if (addr & (PGSIZE-1))
         return -EINVAL;
 
-    if ((prot & PROT_NONE) != 0 && (prot & (PROT_READ | PROT_WRITE | PROT_EXEC)) == 0 )
+    end = addr + PGROUNDUP(len);
+
+    if (end < addr)
         return -EINVAL;
 
-    trace("addr: %p, len: 0x%lx, prot: 0x%x", addr, len, prot);
+    if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC))
+        return -EINVAL;
 
-    return mprotect(addr, len, prot);
+    if (end == addr)
+        return 0;
+
+    trace("addr: 0x%lx, len: 0x%lx, prot: 0x%x", addr, len, prot);
+
+    return mprotect((void *)addr, len, prot);
 }
 
 long sys_msync(void)
