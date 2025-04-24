@@ -195,29 +195,45 @@ struct iovec {
     size_t iov_len;             /* Number of bytes to transfer. */
 };
 
+// ssize_t readv(int d, const struct iovec *iov, int iovcnt);
 long sys_readv(void)
 {
     struct file *f;
-    int iovcnt, bytes;
-    struct iovec iov, *pp;
+    uint64_t iovp;
+    int fd, iovcnt, i, bytes;
+    struct iovec iov;
     ssize_t tot = 0;
+    void *base;
+    size_t len;
 
-    if (argptr(1, (char *)&iov, sizeof(struct iovec)) < 0)
-        return -EINVAL;
-    if (argint(2, &iovcnt) < 0)
-        return -EINVAL;
-    if (argfd(0, 0, &f) < 0)
+    if (argfd(0, &fd, &f) < 0) {
+        error("fd: %d is not opened", fd);
         return -EBADF;
+    }
 
-    for (pp = &iov; pp < &iov + iovcnt; pp++) {
-        trace("base: %p, len: 0x%lx", pp->iov_base, pp->iov_len);
-        bytes = fileread(f, (uint64_t)pp->iov_base, pp->iov_len, 1);
-        if (bytes < 0)
+    if (argu64(1, &iovp) < 0 || argint(2, &iovcnt) < 0)
+        return -EINVAL;
+
+    for (i = 0; i < iovcnt; i++) {
+        if (copyin(myproc()->pagetable, (char *)&iov, iovp, sizeof(struct iovec)) < 0)
+            return -EIO;
+        base = iov.iov_base;
+        len  = iov.iov_len;
+        //if (myproc()->pid == 9)
+        //    trace("base: %p, len: 0x%lx", base, len);
+        bytes = fileread(f, (uint64_t)base, (int)len, 1);
+        if (bytes < 0) {
+            error("error: %d", bytes);
             return bytes;
+        }
         tot += bytes;
         if (bytes == 0)
             break;
+        iovp += sizeof(struct iovec);
     }
+
+    //if (myproc()->pid == 9)
+    //    trace("tot: %ld", tot);
     return tot;
 }
 
