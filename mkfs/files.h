@@ -111,6 +111,9 @@ char *usrbins[] = {
     "usr/bin/login",
     "usr/bin/passwd",
     "usr/bin/su",
+    "usr/bin/readelf",
+    "usr/bin/objdump",
+    "usr/bin/file",
     NULL
 };
 
@@ -137,6 +140,7 @@ char *lib_files[] = {
     "usr/lib/libmd.so.0",
     "usr/lib/libbsd.so.0",
     "usr/lib/libmyadd.so",
+    "usr/lib/libmagic.so.1",
     NULL
 };
 
@@ -145,8 +149,8 @@ char *local_bin_files[] = {
     NULL
 };
 
-char *local_share_misc_files[] = {
-    "usr/local/share/misc/magic.mgc",
+char *usr_share_misc_files[] = {
+    "usr/share/misc/magic.mgc",
     NULL
 };
 

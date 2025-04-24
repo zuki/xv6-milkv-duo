@@ -202,6 +202,7 @@ extern long sys_openat(void);
 extern long sys_ppoll(void);
 extern long sys_write(void);
 extern long sys_writev(void);
+extern long sys_pread64(void);
 extern long sys_sendfile(void);
 extern long sys_mknodat(void);
 extern long sys_unlinkat(void);
@@ -371,6 +372,7 @@ static func syscalls[] = {
     [SYS_write]     = sys_write,                //  64
     [SYS_readv]     = sys_readv,                //  65
     [SYS_writev]    = sys_writev,               //  66
+    [SYS_pread64]   = sys_pread64,              //  67
     [SYS_sendfile]  = sys_sendfile,             //  71
     [SYS_ppoll]     = sys_ppoll,                //  73
     [SYS_readlinkat] = (func)sys_readlinkat,    //  78

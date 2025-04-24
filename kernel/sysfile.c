@@ -144,6 +144,28 @@ long sys_read(void)
     return fileread(f, p, n, 1);
 }
 
+// ssize_t pread64(int fd, void *buf, size_t count, off_t offset);
+long sys_pread64(void)
+{
+    struct file *f;
+    int fd;
+    long offset, current, ret;
+    uint64_t count, p;
+
+    if (argu64(1, &p) < 0 || argu64(2, &count) < 0 || argu64(3, (uint64_t *)&offset))
+        return -EINVAL;
+    if (argfd(0, &fd, &f) < 0)
+        return -EBADF;
+    //if (myproc()->pid == 8)
+        trace("fd: %d, ip: %d, buf: 0x%lx, count: %ld, offset: %ld", fd, f->ip->inum, p, count, offset);
+
+    current = filelseek(f, 0, SEEK_CUR);
+    filelseek(f, offset, SEEK_SET);
+    ret = fileread(f, p, (int)count, 1);
+    filelseek(f, current, SEEK_SET);
+    return ret;
+}
+
 long sys_write(void)
 {
     struct file *f;
