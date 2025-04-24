@@ -149,8 +149,8 @@ char *local_bin_files[] = {
     NULL
 };
 
-char *usr_share_misc_files[] = {
-    "usr/share/misc/magic.mgc",
+char *usr_share_file_files[] = {
+    "usr/share/file/magic.mgc",
     NULL
 };
 
