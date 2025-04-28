@@ -111,7 +111,7 @@ void help(const char *prog) {
     fprintf(stderr, " l: print log block, arg1: 終了ログブロック番号\n");
     fprintf(stderr, " b: print bitmap\n");
     fprintf(stderr, " i: print inode, arg1: 開始inum[. arg2: 終了inum[=開始inum]]\n");
-    fprintf(stderr, " d: print data, arg1: 開始セクタ番号, [arg2: セクタ数[=1]]\n");
+    fprintf(stderr, " d: print data, arg1: 開始セクタ番号, [arg2: ブロック数[=1], arg3: 表示セクタ数[=1]]\n");
 }
 
 void dump_hex(int start, char *buf, int len) {
@@ -134,7 +134,7 @@ void dump_hex(int start, char *buf, int len) {
     }
 }
 
-void dump(FILE *f, char type, int arg1, int arg2) {
+void dump(FILE *f, char type, int arg1, int arg2, int arg3) {
 
     int seek, iseek, i, j;
     size_t n;
@@ -204,6 +204,7 @@ void dump(FILE *f, char type, int arg1, int arg2) {
         dump_hex(seek, buf, 128);
         break;
     case 'd':
+        int sectors = 1;
         for (i = 0; i < arg2; i++) {
             seek = v6_addr + BSIZE * (arg1 + i);
             fseek(f, seek, SEEK_SET);
@@ -213,7 +214,7 @@ void dump(FILE *f, char type, int arg1, int arg2) {
                 exit(1);
             }
             printf("SECTOR: %d (0x%08x)\n", arg1 + i, data_start + arg1 + i);
-            dump_hex(seek, buf, 512);
+            dump_hex(seek, buf, 512 * arg3);
         }
         break;
     default:
@@ -223,7 +224,7 @@ void dump(FILE *f, char type, int arg1, int arg2) {
 
 int main(int argc, char *argv[]) {
     char type;
-    int arg1, arg2;
+    int arg1, arg2, arg3 = 1;
     FILE *sdimg;
 
     // type [s, l, i, b], number
@@ -250,10 +251,14 @@ int main(int argc, char *argv[]) {
             return 1;
         } else {
             arg1 = atoi(argv[2]);
-            if (argc == 4)
+            arg2 = 1;
+            arg3 = 1;
+            if (argc == 4) {
                 arg2 = atoi(argv[3]);
-            else
-                arg2 = 1;
+            } else {
+                arg2 = atoi(argv[3]);
+                arg3 = atoi(argv[4]);
+            }
         }
     }
 
@@ -277,7 +282,7 @@ int main(int argc, char *argv[]) {
         printf("Bitmap    : 0x%x 0x%08x (%d)\n", lba + 8 * sb.bmapstart, v6_addr + BSIZE * sb.bmapstart, nbitmap);
         printf("Data      : 0x%x 0x%08x\n\n", lba + 8 * (sb.bmapstart + nbitmap), v6_addr + BSIZE * (sb.bmapstart + nbitmap));
     } else {
-         dump(sdimg, type, arg1, arg2);
+         dump(sdimg, type, arg1, arg2, arg3);
     }
 
     fclose(sdimg);
