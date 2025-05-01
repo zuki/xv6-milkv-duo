@@ -127,6 +127,7 @@ int vprintf(const char *fmt, va_list args)
     long long int num;
     unsigned long long int unum;
     char *str;
+    char c;
     char padc = '\0'; /* Padding character */
     int padn; /* Number of characters to pad */
     int count = 0; /* Number of printed characters */
@@ -175,10 +176,19 @@ loop:
                 count += unsigned_num_print(unum, 16,
                                 padc, padn);
                 break;
+            case 'o':
+                unum = get_unum_va_args(args, l_count);
+                count += unsigned_num_print(unum, 8,
+                                padc, padn);
+                break;
             case 'b':
                 unum = get_unum_va_args(args, l_count);
                 count += unsigned_num_print(unum, 2,
                                 padc, padn);
+                break;
+            case 'c':
+                c = (char)va_arg(args, int);
+                (void)putchar(c);
                 break;
             case 'z':
                 if (sizeof(size_t) == 8U)
