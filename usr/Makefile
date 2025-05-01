@@ -1,7 +1,7 @@
 
 #CROSS := /home/vagrant/riscv-gnu-toolchain/bin/riscv64-unknown-elf-
-#CROSS := /usr/bin/riscv64-linux-gnu-
-CROSS := /home/vagrant/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
+CROSS := /usr/bin/riscv64-linux-gnu-
+#CROSS := /home/vagrant/duo-buildroot-sdk/host-tools/gcc/riscv64-linux-musl-x86_64/bin/riscv64-unknown-linux-musl-
 CC := $(CROSS)gcc
 LD := $(CROSS)ld
 OBJDUMP := $(CROSS)objdump
@@ -9,7 +9,7 @@ OBJCOPY := $(CROSS)objcopy
 STRIP := $(CROSS)strip
 
 #MUSL := $(HOME)/musl-1.2.2/musl
-MUSL := $(HOME)/riscv/musl-125
+MUSL := /usr/local/musl_riscv
 #LIBC_A = $(MUSL)/lib/libc.a
 #LIBC_SPEC = $(MUSL)/lib/musl-gcc.specs
 #LIBC_LIBS = $(wildcard $(MUSL)/lib/*)
@@ -40,16 +40,15 @@ all:
 
 $(OBJ)/%.c.o: %.c
 	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c -o $@ $<
-#	$(USR_CC) $(CFLAGS) -c -o $@ $<
+#	$(CC) $(CFLAGS) -c -o $@ $<
+	$(USR_CC) $(CFLAGS) -c -o $@ $<
 # Same as `bin/NAME: $(OBJ)/NAME/*.c.o $(LIBC_A)`
 # NOTE: Static library should be at last.
 .SECONDEXPANSION:
 $(BIN)/%: $$(addsuffix .o, $$(addprefix $(OBJ)/, $$(shell find $(SRC)/% -name "*.c")))
 	mkdir -p $(dir $@)
-#	$(USR_CC) $(LDFLAGS) -T user.ld -o $@ $^
-#	$(USR_CC) $(LDFLAGS) -o $@ $^
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(USR_CC) $(LDFLAGS) -o $@ $^
+#	$(CC) $(LDFLAGS) -o $@ $^
 	$(OBJDUMP) -S -d $@ > $(OBJ)/src/$(notdir $@)/$(notdir $@).asm
 	$(OBJDUMP) -x $@ > $(OBJ)/src/$(notdir $@)/$(notdir $@).hdr
 	$(STRIP) --strip-debug $@

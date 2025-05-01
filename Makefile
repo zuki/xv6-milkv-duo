@@ -114,7 +114,7 @@ mkfs/mkfs: mkfs/mkfs.c
 	gcc -Werror -Wall -Wno-unused-but-set-variable -Imkfs -o mkfs/mkfs mkfs/mkfs.c
 
 $U/sh: obj/usr/bin/sh
-$U/busybox: obj/usr/bin/busybox
+# $U/busybox: obj/usr/bin/busybox
 $D/myadd: obj/dyn/bin/myadd
 
 UPROGS=\
@@ -138,13 +138,13 @@ UPROGS=\
 	$U/mmaptest \
 	$U/mmaptest3 \
 	$U/forktest \
-	$U/busybox \
 	$U/sh \
 	$U/login \
 	$U/passwd \
 	$U/getty \
 	$U/su \
 	$U/mprotecttest
+#	$U/busybox
 DPROGS= \
 	$D/hello_dyn \
 	$D/myadd
