@@ -171,6 +171,7 @@ extern long sys_execve(void);
 extern long sys_fstat(void);
 extern long sys_utimensat(void);
 extern long sys_fstatat(void);
+extern long sys_statx(void);
 extern long sys_chdir(void);
 extern long sys_fchmodat(void);
 extern long sys_fchownat(void);
@@ -231,6 +232,7 @@ extern long sys_prlimit64(void);
 extern long sys_renameat2(void);
 extern mode_t sys_umask(void);
 extern long sys_sched_getaffinity(void);
+extern long sys_faccessat(void);
 extern long sys_faccessat2(void);
 
 long sys_clock_gettime()
@@ -345,6 +347,26 @@ long sys_libc(void) {
     return 0;
 }
 
+long sys_musl_file(void) {
+    char where[MAXPATH];
+    uint64_t musl_filep;
+    struct musl_file musl_file;
+
+    if (argstr(0, where, MAXPATH) < 0 || argu64(1, &musl_filep) < 0)
+        return -EINVAL;
+
+    copyin(myproc()->pagetable, (char *)&musl_file, musl_filep, sizeof(struct musl_file));
+    debug("'%s': ", where);
+    printf("  wbase: 0x%010lx\n", musl_file.wbase);
+    printf("  wpos : 0x%010lx\n", musl_file.wpos);
+    printf("  wend : 0x%010lx\n", musl_file.wend);
+    printf("  buf  : 0x%010lx\n", musl_file.buf);
+    /* printf("  bsize: % 10ld\n", musl_file.buf_size);   // 1024 固定 */
+    /* printf("  mode : 0x%lx\n", musl_file.mode);        // ここでは意味無し */
+    /* printf("  lbf  : 0x%lx\n", musl_file.lbf);         // 0xa 改行コード */
+    return 0;
+}
+
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static func syscalls[] = {
@@ -359,6 +381,7 @@ static func syscalls[] = {
     [SYS_unlinkat]  = sys_unlinkat,             //  35
     [SYS_symlinkat] = sys_symlinkat,            //  36
     [SYS_linkat]    = sys_linkat,               //  37
+    [SYS_faccessat] = sys_faccessat,            //  48
     [SYS_chdir]     = sys_chdir,                //  49
     [SYS_fchmodat]  = sys_fchmodat,             //  53
     [SYS_fchownat]  = sys_fchownat,             //  54
@@ -428,7 +451,9 @@ static func syscalls[] = {
     [SYS_wait4]     = sys_wait4,                // 260
     [SYS_prlimit64] = sys_prlimit64,            // 261
     [SYS_renameat2] = sys_renameat2,            // 276
+    [SYS_statx]     = sys_statx,                // 291
     [SYS_faccessat2] = sys_faccessat2,          // 439
+    [SYS_musl_file] = sys_musl_file,            // 996
     [SYS_dso]       = sys_dso,                  // 997
     [SYS_libc]      = sys_libc,                 // 998
     [SYS_debug]     = sys_debug,                // 999
@@ -529,7 +554,9 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_prlimit64] = "sys_prlimit64",            // 261
     [SYS_renameat2] = "sys_renameat2",            // 276
     [SYS_getrandom] = "sys_getrandom",            // 278
+    [SYS_statx]     = "sys_statx",                // 291
     [SYS_faccessat2] = "sys_faccessat2",          // 439
+    [SYS_musl_file]   = "sys_musl_file",          // 996
     [SYS_dso]       = "sys_dso",                  // 997
     [SYS_libc]      = "sys_libc",                 // 998
     [SYS_debug]     = "sys_debug",                // 999
@@ -631,7 +658,9 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_prlimit64] = 2,                        // 261
     [SYS_renameat2] = 5,                        // 276
     [SYS_getrandom] = 3,                        // 278
+    [SYS_statx]     = 5,                        // 291
     [SYS_faccessat2] = 4,                       // 439
+    [SYS_musl_file] = 2,                        // 996
     [SYS_dso] = 2,                              // 997
     [SYS_libc] = 2,                             // 998
     [SYS_debug]     = 3,                        // 999

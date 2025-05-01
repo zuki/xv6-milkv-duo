@@ -76,4 +76,33 @@ struct dso {
     char buf[];
 };
 
+struct musl_file {
+    unsigned flags;
+    unsigned char *rpos, *rend;
+    int (*close)(struct musl_file *);
+    unsigned char *wend, *wpos;
+    unsigned char *mustbezero_1;
+    unsigned char *wbase;
+    size_t (*read)(struct musl_file *, unsigned char *, size_t);
+    size_t (*write)(struct musl_file *, const unsigned char *, size_t);
+    off_t (*seek)(struct musl_file *, off_t, int);
+    unsigned char *buf;
+    size_t buf_size;
+    struct musl_file *prev, *next;
+    int fd;
+    int pipe_pid;
+    long lockcount;
+    int mode;
+    int lock;
+    int lbf;
+    void *cookie;
+    off_t off;
+    char *getln_buf;
+    void *mustbezero_2;
+    unsigned char *shend;
+    off_t shlim, shcnt;
+    struct musl_file *prev_locked, *next_locked;
+    void *locale;
+};
+
 #endif

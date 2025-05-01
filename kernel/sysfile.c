@@ -396,6 +396,153 @@ loop:
     return 0;
 }
 
+// int statx(int dirfd, const char *_Nullable restrict pathname,
+//    int flags, unsigned int mask, struct statx *restrict statxbuf);
+long sys_statx(void)
+{
+    char path[MAXPATH];
+    uint64_t statxbufp; // user pointer to struct statx
+    int dirfd, flags;
+    unsigned int mask;
+
+    struct proc *p = myproc();
+    int ret;
+    struct inode *ip;
+    struct stat st;
+    struct statx statx = { 0 };
+
+    if (argint(0, &dirfd) < 0 || argint(2, &flags) < 0
+     || argint(3, (int *)&mask) < 0 || argu64(4, &statxbufp) < 0)
+        return -EINVAL;
+    if ((ret = argstr(1, path, MAXPATH)) < 0)
+        return -EFAULT;
+
+    trace("dirfd: %d, path: %s, flags: 0x%x, mask: 0x%x, statx: 0x%lx", dirfd, path == NULL ? "null" : path, flags, mask, statxbufp);
+
+    // AT_FDCWD, AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW, AT_STATX_SYNC_AS_STAT
+
+    if (path == NULL || strlen(path) == 0) {
+        if (!p->ofile[dirfd]) {
+            error("dirfd %d is not opened", dirfd);
+            return -EBADF;
+        } else {
+            ip = idup(p->ofile[dirfd]->ip);
+            goto ip_lock;
+        }
+    } else {
+        if ((ret = check_fdcwd(path, dirfd)) < 0)
+            return ret;
+    }
+
+    begin_op();
+loop:
+    if ((ip = namei(path, dirfd)) == 0) {
+        end_op();
+        return -ENOENT;
+    }
+ip_lock:
+    ilock(ip);
+
+    if ((flags & AT_SYMLINK_NOFOLLOW) == 0) {
+        if (ip->type == T_SYMLINK) {
+            int n;
+            if ((n = readi(ip, 0, (uint64_t)path, 0, sizeof(MAXPATH) - 1)) <= 0) {
+                warn("couldn't read sysmlink target");
+                iunlockput(ip);
+                end_op();
+                return -ENOENT;
+            }
+            path[n] = 0;
+            iunlockput(ip);
+            goto loop;
+        }
+    }
+
+    stati(ip, &st);
+
+    if (mask & STATX_TYPE) {
+        statx.stx_mode = (st.st_mode & S_IFMT);
+        statx.stx_mask |= STATX_TYPE;
+    }
+    if (mask & STATX_MODE) {
+        statx.stx_mode = st.st_mode;
+        statx.stx_mask |= STATX_MODE;
+    }
+
+    if (mask & STATX_NLINK) {
+        statx.stx_nlink = st.st_nlink;
+        statx.stx_mask |= STATX_NLINK;
+    }
+
+    if (mask & STATX_UID) {
+        statx.stx_uid = st.st_uid;
+        statx.stx_mask |= STATX_UID;
+    }
+
+    if (mask & STATX_GID) {
+        statx.stx_gid = st.st_gid;
+        statx.stx_mask |= STATX_GID;
+    }
+
+    if (mask & STATX_INO) {
+        statx.stx_ino = st.st_ino;
+        statx.stx_mask |= STATX_INO;
+    }
+
+    if (mask & STATX_SIZE) {
+        if (S_ISLNK(st.st_mode) && (flags & AT_SYMLINK_NOFOLLOW))
+            statx.stx_size = strlen(path);
+        else
+            statx.stx_size = st.st_size;
+        statx.stx_mask |= STATX_SIZE;
+    }
+
+    if (mask & STATX_BLOCKS) {
+        statx.stx_blksize = BSIZE;
+        statx.stx_mask |= STATX_BLOCKS;
+    }
+
+    if (mask & STATX_ATIME) {
+        statx.stx_atime.tv_sec  = st.st_atime.tv_sec;
+        statx.stx_atime.tv_nsec = st.st_atime.tv_nsec;
+        statx.stx_mask |= STATX_ATIME;
+    }
+
+    if (mask & STATX_MTIME) {
+        statx.stx_mtime.tv_sec  = st.st_mtime.tv_sec;
+        statx.stx_mtime.tv_nsec = st.st_mtime.tv_nsec;
+        statx.stx_mask |= STATX_MTIME;
+    }
+
+    if (mask & STATX_CTIME) {
+        statx.stx_ctime.tv_sec  = st.st_ctime.tv_sec;
+        statx.stx_ctime.tv_nsec = st.st_ctime.tv_nsec;
+        statx.stx_mask |= STATX_CTIME;
+    }
+
+    if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode)) {
+        statx.stx_rdev_major = ip->major;
+        statx.stx_rdev_minor = ip->minor;
+    } else if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+        statx.stx_dev_major = SDMAJOR;
+        statx.stx_dev_minor = XV6MINOR;
+    }
+
+    iunlockput(ip);
+    end_op();
+
+    if (copyout(p->pagetable, statxbufp, (char *)&statx, sizeof(statx)) < 0) {
+        error("failed copyout");
+        return -EFAULT;
+    }
+
+    if (myproc()->pid == 6)
+        trace("path: %s, mask: 0x%x, stax mask: 0x%x, nlink: %d, uid: %d, gid: %d, mode: 0%03o, ino: %d, size: %ld, block: %ld", path == NULL ? "null" : path, mask,
+        statx.stx_mask, statx.stx_nlink, statx.stx_uid, statx.stx_gid,
+        statx.stx_mode, statx.stx_ino, statx.stx_size, statx.stx_blocks);
+    return 0;
+}
+
 // Create the path new as a link to the same inode as old.
 long sys_linkat(void)
 {
@@ -1074,6 +1221,23 @@ long sys_fchownat()
     return filechown(0, path, dirfd, owner, group, flags);
 }
 
+// int faccessat(int dirfd, const char *pathname, int mode, int flags);
+long sys_faccessat(void)
+{
+    int dirfd, mode, flags, ret;
+    char path[MAXPATH];
+
+    if (argint(0, &dirfd) < 0 || argstr(1, path, MAXPATH) < 0
+     || argint(2, &mode) < 0  || argint(3, &flags) < 0)
+        return -EINVAL;
+
+    if ((ret = check_fdcwd(path, dirfd)) < 0)
+        return ret;
+
+    return faccess(path, dirfd, mode, flags);
+}
+
+// int faccessat2(int dirfd, const char *pathname, int mode, int flags);
 long sys_faccessat2(void)
 {
     int dirfd, mode, flags, ret;
