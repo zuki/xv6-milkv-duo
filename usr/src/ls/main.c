@@ -124,7 +124,7 @@ void ls(char *path)
                     continue;
                 }
                 printf("%-10s %4ld %-10s %8ld %11s %s\n", fmtmode(st.st_mode),
-                       st.st_ino, fmtuser(0, 0), st.st_size, fmttime(st.st_mtime), fmtname(buf));
+                       st.st_ino, fmtuser(0, 0), S_ISLNK(st.st_mode) ? strlen(p) : st.st_size, fmttime(st.st_mtime), fmtname(buf));
             }
         }
     } else {
