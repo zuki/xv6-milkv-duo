@@ -555,6 +555,7 @@ struct inode *create(char *path, int dirfd, short type, short major, short minor
     struct inode *ip, *dp;
     char name[DIRSIZ];
     struct timespec ts;
+    long err = -EINVAL;
 
     //debug("path: %s, type: %d, major: %d, minor: %s, mode: %x", path, type, major, minor, mode);
 
@@ -598,11 +599,13 @@ struct inode *create(char *path, int dirfd, short type, short major, short minor
 
     if (type == T_DIR) {  // Create . and .. entries.
         // No ip->nlink++ for ".": avoid cyclic ref count.
-        if (dirlink(ip, ".", ip->inum, ip->type) < 0 || dirlink(ip, "..", dp->inum, dp->type) < 0)
-        goto fail;
+        if (dirlink(ip, ".", ip->inum, ip->type) < 0 || dirlink(ip, "..", dp->inum, dp->type) < 0) {
+            err = -ENOMEM;
+            goto fail;
+        }
     }
 
-    if (dirlink(dp, name, ip->inum, ip->type) < 0)
+    if ((err = dirlink(dp, name, ip->inum, ip->type)) < 0)
         goto fail;
 
     if (type == T_DIR){
@@ -621,7 +624,7 @@ fail:
     iupdate(ip);
     iunlockput(ip);
     iunlockput(dp);
-    return 0;
+    return (void *)err;
 }
 
 long fileopen(char *path, int dirfd, int flags, mode_t mode)

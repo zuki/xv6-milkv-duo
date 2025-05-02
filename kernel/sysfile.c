@@ -713,7 +713,7 @@ long sys_mkdirat(void)
         return ret;
 
     begin_op();
-    if ((long)(ip = create(path, dirfd, T_DIR, 0, 0, mode | S_IFDIR)) == 0) {
+    if ((long)(ip = create(path, dirfd, T_DIR, 0, 0, mode | S_IFDIR)) < 0) {
         end_op();
         return (long)ip;
     }
