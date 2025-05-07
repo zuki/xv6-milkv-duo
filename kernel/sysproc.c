@@ -233,19 +233,20 @@ long sys_msync(void)
 
 }
 
+//  int nanosleep(const struct timespec *req, struct timespec *rem);
 long sys_nanosleep(void)
 {
     struct timespec req;
-    uint64_t rem;
+    uint64_t rem, reqp;
     uint64_t expire;
     struct timespec t = { 0, 0 };
 
-    if (argu64(1, &rem) < 0)
+    if (argu64(0, &reqp) < 0 || argu64(1, &rem) < 0)
         return -EINVAL;
 
     trace("req: n=0: 0x%lx, req: %p, size: %ld", myproc()->trapframe->a0, req, sizeof(struct timespec));
-    if (argptr(0, (char *)&req, sizeof(struct timespec)) < 0)
-        return -EINVAL;
+    if (copyin(myproc()->pagetable, (char *)&req, reqp, sizeof(struct timespec)) < 0)
+        return -EFAULT;
 
     if (req.tv_nsec >= 1000000000L || req.tv_nsec < 0 || req.tv_sec < 0)
         return -EINVAL;
@@ -291,13 +292,17 @@ long sys_set_tid_address(void)
     return myproc()->pid;
 }
 
+// int sigsuspend(const sigset_t *mask)
 long sys_rt_sigsuspend(void)
 {
     sigset_t mask;
+    uint64_t maskp;
 
-    if (argptr(0, (char *)&mask, sizeof(sigset_t)) < 0)
+    if (argu64(0, &maskp) < 0)
         return -EINVAL;
 
+    if (copyin(myproc()->pagetable, (char *)&mask, maskp, sizeof(sigset_t)) < 0)
+        return -EFAULT;
     trace("p.mask: 0x%lx, mask: 0x%lx", myproc()->signal.mask, mask);
 
     return sigsuspend(&mask);
@@ -360,14 +365,19 @@ long sys_rt_sigpending()
 long sys_rt_sigprocmask(void) {
     int how;
     sigset_t set;
-    uint64_t oldset;
+    uint64_t setp, oldset;
     size_t size;
 
-    if (argint(0, &how) < 0 || argu64(2, &oldset) < 0 || argu64(3, &size) < 0)
+    if (argint(0, &how) < 0 || argu64(1, &setp) < 0
+      ||argu64(2, &oldset) < 0 || argu64(3, &size) < 0)
         return -EINVAL;
 
-    if (argptr(1, (char *)&set, sizeof(sigset_t)) < 0)
-        return -EFAULT;
+    if (setp) {
+        if (copyin(myproc()->pagetable, (char *)&set, setp, sizeof(set)) < 0)
+            return -EFAULT;
+    } else {
+        set = 0UL;
+    }
 
     trace("pid[%d] how=%d, set=0x%lx, &set: 0x%lx, oldset=0x%lx, size=%ld", myproc()->pid, how, set, &set, oldset, size);
 
@@ -379,23 +389,26 @@ long sys_rt_sigprocmask(void) {
     return sigprocmask(how, &set, oldset);
 }
 
+// int sigreturn();
 long sys_rt_sigreturn(void)
 {
     return sigreturn();
 }
 
+// int ppoll(struct pollfd *fds, nfds_t nfds,
+//           const struct timespec *timeout_ts, const sigset_t *sigmask);
 long sys_ppoll(void) {
     struct pollfd *fds;
     nfds_t nfds;
     struct timespec timeout_ts;
     sigset_t sigmask;
+    uint64_t fdsp, tsp, maskp;
 
     //struct proc *p = myproc();
     trace("[0]: fds: 0x%lx, nfds: 0x%lx, timeout: 0x%lx, sigmask: 0x%lx", p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3);
 
-    if (argu64(1, &nfds) < 0
-     || argptr(2, (char *)&timeout_ts, sizeof(struct timespec)) < 0
-     || argptr(3, (char *)&sigmask, sizeof(sigset_t)) < 0) {
+    if (argu64(0, &fdsp) < 0 || argu64(1, &nfds) < 0
+     || argu64(2, &tsp) < 0  || argu64(3, &maskp) < 0) {
         trace("invald either of nfds, timeout, sigmask");
         return -EINVAL;
      }
@@ -403,22 +416,28 @@ long sys_ppoll(void) {
 
     if (nfds > 0) {
         // FIXME: kmallocを作成する
-        fds = (struct pollfd *)kalloc();
+        fds = (struct pollfd *)kmalloc(sizeof(struct pollfd) * nfds);
         if (fds == 0) {
-            error("no memory");
             return -ENOMEM;
         }
 
-        if (argptr(0, (char *)fds, nfds * sizeof(struct pollfd)) < 0) {
-            error("invalid fds");
-            return -EINVAL;
-        }
+        if (copyin(myproc()->pagetable, (char *)fds, fdsp, sizeof(fds)) < 0)
+            return -EFAULT;
 
     } else {
         fds = NULL;
     }
 
+    if (copyin(myproc()->pagetable, (char *)&timeout_ts, tsp, sizeof(struct timespec)) < 0)
+            return -EFAULT;
+
+    if (maskp) {
+        if (copyin(myproc()->pagetable, (char *)&sigmask, maskp, sizeof(sigset_t)) < 0)
+            return -EFAULT;
+    }
+
     trace("fds: %p, nfds: %ld, timeout: 0x%lx, sigmask: 0x%lx", fds, nfds, &timeout_ts, sigmask);
+
     return ppoll(fds, nfds, &timeout_ts, &sigmask);
 }
 
@@ -827,13 +846,14 @@ long sys_sched_getaffinity(void) {
     return 0;
 }
 
-
+// int prlimit(pid_t pid, int resource, const struct rlimit *new_limit, struct rlimit *old_limit)
+// new_limitは未実装
 long sys_prlimit64(void)
 {
     pid_t pid;
     int resource;
     uint64_t new_limit_p, old_limit_p;
-    struct rlimit old_limit;
+    struct rlimit new_limit, old_limit;
 
     if (argint(0, &pid) < 0 || argint(1, &resource) < 0
      || argu64(2, &new_limit_p) < 0
@@ -843,13 +863,17 @@ long sys_prlimit64(void)
     trace("pid=%d, resource=%d, new_limit=0x%llx, old_limit=0x%llx",
         pid, resource, new_limit_p, old_limit_p);
 
-    if (old_limit_p != 0) {
+    if (new_limit_p) {
+        if (copyin(myproc()->pagetable, (char *)&new_limit, new_limit_p, sizeof(struct rlimit)) < 0)
+            return -EFAULT;
+    }
+
+    if (old_limit_p) {
         old_limit.rlim_cur = RLIM_SAVED_CUR;
         old_limit.rlim_max = RLIM_SAVED_MAX;
         if (copyout(myproc()->pagetable, old_limit_p, (char *)&old_limit, sizeof(struct rlimit)) < 0)
-            return -EINVAL;
+            return -EFAULT;
     }
 
     return 0;
-
 }

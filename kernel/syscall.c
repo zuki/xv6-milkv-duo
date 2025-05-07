@@ -248,13 +248,18 @@ long sys_clock_gettime()
     return clock_gettime(1, clk_id, (struct timespec *)tp);
 }
 
+// int clock_settime(clockid_t clk_id, const struct timespec *tp);
 long sys_clock_settime()
 {
     clockid_t clk_id;
     struct timespec tp;
+    uint64_t tpp;
 
-    if (argint(0, (clockid_t *)&clk_id) < 0 || argptr(1, (char *)&tp, sizeof(struct timespec)) < 0)
+    if (argint(0, (clockid_t *)&clk_id) < 0 || argu64(1, &tpp) < 0)
         return -EINVAL;
+
+    if (copyin(myproc()->pagetable, (char *)&tp, tpp, sizeof(struct timespec)) < 0)
+        return -EFAULT;
 
     trace("clk_id: %d, tp.sec: %ld\n", clk_id, tp.tv_sec);
 

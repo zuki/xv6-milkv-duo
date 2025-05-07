@@ -630,25 +630,26 @@ long sys_unlinkat(void)
     return fileunlink(path, dirfd, flags);
 }
 
+// int readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
 ssize_t sys_readlinkat()
 {
     char path[MAXPATH];
-    char *buf = 0;
+    uint64_t bufp;
     int dirfd;
     size_t bufsiz;
     int ret;
 
     if (argint(0, &dirfd) < 0 || argstr(1, path, MAXPATH) < 0
-     || argu64(3, &bufsiz) < 0)
+    || argu64(2, &bufp) < 0 || argu64(3, &bufsiz) < 0)
         return -EINVAL;
 
-    if ((ret = argptr(2, buf, bufsiz)) < 0)
-        return -EFAULT;
+    //if ((ret = argptr(2, buf, bufsiz)) < 0)
+    //    return -EFAULT;
 
     if ((ssize_t)bufsiz <= 0)
         return -EINVAL;
 
-    trace("dirfd=%d, path=%s, buf=%p, bufsiz=%lld", dirfd, path, buf, bufsiz);
+    trace("dirfd=%d, path=%s, bufp=0x%lx, bufsiz=%lld", dirfd, path, bufp, bufsiz);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;
@@ -656,12 +657,27 @@ ssize_t sys_readlinkat()
     if (!strncmp(path, "/proc/self/fd/", 14)) {   // TODO: ttyをちゃんと実装
         int fd = path[14] - '0';                  // /proc/self/fd/n -> /dev/tty/n, /dev/pts/n
         if (fd < 3) {
-            copyout(myproc()->pagetable, (uint64_t)buf, "/dev/tty", strlen("/dev/tty"));
-            return 9;
+            copyout(myproc()->pagetable, bufp, "/dev/tty", 8);
+            trace("return /dev/tty");
+            return 8;
         }
     }
 
-    return filereadlink(path, dirfd, buf, bufsiz);
+#if 0
+    ssize_t lsize = filereadlink(path, dirfd, bufp, bufsiz);
+    if (lsize > 0) {
+        char link[lsize + 1];
+        copyin(myproc()->pagetable, link, bufp, lsize);
+        link[lsize] = 0;
+        debug("buf: %s, bufsiz: %ld", link, lsize);
+    } else {
+        debug("error: %ld", lsize);
+    }
+
+    return lsize;
+#endif
+
+    return filereadlink(path, dirfd, bufp, bufsiz);
 }
 
 long sys_openat(void)
