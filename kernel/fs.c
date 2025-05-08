@@ -902,17 +902,17 @@ int getdents64(struct file *f, uint64_t data, size_t size)
         //de64.d_type = IFTODT(f->ip->mode);
         if (dirip->type == T_DEVICE) {
             if (f->major == 0)      // SD
-                de64.d_type = IFTODT(S_IFBLK);
+                de64.d_type = DT_BLK;
             else // if (f->major == 1) // CONSOLE
-                de64.d_type = IFTODT(S_IFCHR);
+                de64.d_type = DT_CHR;
         } else if (dirip->type == T_DIR) {
-            de64.d_type = IFTODT(S_IFDIR);
+            de64.d_type = DT_DIR;
         } else if (dirip->type == T_SYMLINK) {
-            de64.d_type = IFTODT(S_IFLNK);
+            de64.d_type = DT_LNK;
         } else if (dirip->type == T_MOUNT) {
-            de64.d_type = IFTODT(S_IFDIR);
+            de64.d_type = DT_DIR;
         } else { // if (dirip->type == T_FILE)
-            de64.d_type = IFTODT(S_IFREG);
+            de64.d_type = DT_REG;
         }
         iunlockput(dirip);
 
