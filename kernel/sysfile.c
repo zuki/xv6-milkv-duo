@@ -1384,3 +1384,42 @@ long sys_renameat2(void)
 
     return filerename(oldpath, olddirfd, newpath, newdirfd, flags);
 }
+
+//ssize_t copy_file_range(int fd_in, off_t *_Nullable off_in,
+//  int fd_out, off_t *_Nullable off_out, size_t size, unsigned int flags);
+long sys_copy_file_range(void)
+{
+    return -EOPNOTSUPP;
+
+#if 0
+    int fd_in, fd_out, flags;
+    off_t off_in, off_out;
+    size_t size;
+    struct file *f_in, *f_out;
+
+
+    if (argfd(0, &fd_in, &f_in) < 0 || || argfd(2, &fd_out, &f_out) < 0)
+        return -EBADF;
+
+    if (argu64(1, &off_in) < 0 || argu64(3, &off_out) < 0
+     || argu64(4, &size) < 0 || argint(5, &flags) < 0)
+        return -EINVAL;
+
+    if (!f_in->readable || !f_out->writable)
+        return -EBADF;
+
+    if (f_out->flags & O_APPEND)
+        return -EBADF;
+
+    if (off_out >= MAXFILE * BSIZE || off_out + size >= MAXFILE * BSIZE)
+        return -EFBIG;
+
+    if (flags != 0) return -EINVAL;
+
+    if (fd_in == fd_out && off_in + size < off_out)
+        return -EINVAL;
+
+    if (f_in->ip->type == T_DIR || f_out->ip->type == T_DIR)
+        return -EISDIR;
+#endif
+}

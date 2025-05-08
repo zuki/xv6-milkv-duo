@@ -184,6 +184,8 @@ extern long sys_gettid(void);
 extern long sys_setgid(void);
 extern long sys_setreuid(void);
 extern long sys_setuid(void);
+extern long sys_getgroups(void);
+extern long sys_setgroups(void);
 extern long sys_setresuid(void);
 extern long sys_getresuid(void);
 extern long sys_setresgid(void);
@@ -230,11 +232,13 @@ extern long sys_setpgid(void);
 extern long sys_getpgid(void);
 extern long sys_prlimit64(void);
 extern long sys_renameat2(void);
+extern long sys_copy_file_range(void);
 extern mode_t sys_umask(void);
 extern long sys_sched_getaffinity(void);
 extern long sys_faccessat(void);
 extern long sys_faccessat2(void);
 
+// int clock_gettime(clockid_t clk_id, struct timespec *tp);
 long sys_clock_gettime()
 {
     clockid_t clk_id;
@@ -305,6 +309,20 @@ long sys_uname(void) {
     return 0;
 }
 
+// socket(int domain, int type, int protocol);
+// 引数のチェック用、当面実装はしない
+long sys_socket(void) {
+    int domain, type, protocol;
+
+    if (argint(0, &domain) < 0 || argint(1, &type) < 0 || argint(2, &protocol) < 0)
+        return -EACCES;
+
+    debug("domain: %d, type: 0x%x, protocol: %d", domain, type, protocol);
+    return -EACCES;
+}
+
+// 独自実装
+// long debug(char *name, char *tag, uint64_t val);
 long sys_debug(void) {
     char name[MAXPATH], tag[MAXPATH];
     uint64_t val;
@@ -432,11 +450,12 @@ static func syscalls[] = {
     [SYS_setfsgid]  = sys_setfsgid,             // 152
     [SYS_setpgid]   = sys_setpgid,              // 154
     [SYS_getpgid]   = sys_getpgid,              // 155
+    [SYS_getgroups] = sys_getgroups,            // 158
+    [SYS_setgroups] = sys_setgroups,            // 159
     [SYS_uname]     = sys_uname,                // 160
     [SYS_umask]     = (func)sys_umask,          // 166
     [SYS_getpid]    = sys_getpid,               // 172
     [SYS_getppid]   = sys_getppid,              // 173
-    [SYS_setuid]    = sys_setuid,               // 146
     [SYS_getuid]    = sys_getuid,               // 174
     [SYS_geteuid]   = sys_geteuid,              // 175
     [SYS_getgid]    = sys_getgid,               // 176
@@ -444,6 +463,7 @@ static func syscalls[] = {
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
+    [SYS_socket]    = sys_socket,               // 198
     [SYS_brk]       = sys_brk,                  // 214
     [SYS_munmap]    = sys_munmap,               // 215
 //    [SYS_mremap]    = sys_mremap,               // 216
@@ -456,6 +476,7 @@ static func syscalls[] = {
     [SYS_wait4]     = sys_wait4,                // 260
     [SYS_prlimit64] = sys_prlimit64,            // 261
     [SYS_renameat2] = sys_renameat2,            // 276
+    [SYS_copy_file_range] = sys_copy_file_range, // 285
     [SYS_statx]     = sys_statx,                // 291
     [SYS_faccessat2] = sys_faccessat2,          // 439
     [SYS_musl_file] = sys_musl_file,            // 996
@@ -545,6 +566,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_getegid] = "sys_getegid",                // 177
     [SYS_gettid] = "sys_gettid",                  // 178
     [SYS_sysinfo] = "sys_sysinfo",                // 179
+    [SYS_socket] = "sys_socket",                  // 198
     [SYS_brk] = "sys_brk",                        // 214
     [SYS_munmap] = "sys_munmap",                  // 215
     [SYS_mremap] = "sys_mremap",                  // 216
@@ -559,6 +581,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_prlimit64] = "sys_prlimit64",            // 261
     [SYS_renameat2] = "sys_renameat2",            // 276
     [SYS_getrandom] = "sys_getrandom",            // 278
+    [SYS_copy_file_range] = "sys_copy_file_range", // 285
     [SYS_statx]     = "sys_statx",                // 291
     [SYS_faccessat2] = "sys_faccessat2",          // 439
     [SYS_musl_file]   = "sys_musl_file",          // 996
@@ -649,6 +672,7 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_getegid] = 0,                          // 177
     [SYS_gettid] = 0,                           // 178
     [SYS_sysinfo] = 1,                          // 179
+    [SYS_socket] = 3,                           // 198
     [SYS_brk] = 1,                              // 214
     [SYS_munmap] = 2,                           // 215
     [SYS_mremap] = 4,                           // 216
@@ -663,6 +687,7 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_prlimit64] = 2,                        // 261
     [SYS_renameat2] = 5,                        // 276
     [SYS_getrandom] = 3,                        // 278
+    [SYS_copy_file_range] = 6,                  // 285
     [SYS_statx]     = 5,                        // 291
     [SYS_faccessat2] = 4,                       // 439
     [SYS_musl_file] = 2,                        // 996

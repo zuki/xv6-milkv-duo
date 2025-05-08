@@ -534,6 +534,62 @@ long sys_getresgid()
     return 0;
 }
 
+/* 補助グループIDのリストを取得する */
+// int getgroups(int size, gid_t *list);
+long sys_getgroups()
+{
+    struct proc *p = myproc();
+    size_t size;
+    uint64_t listp;
+    int ngroups = p->ngroups;
+
+    if (argu64(0, &size) < 0 || argu64(1, &listp) < 0)
+        return -EINVAL;
+
+    if (size == 0) return ngroups;
+    if (ngroups > size) return -EINVAL;
+
+    if (copyout(p->pagetable, listp, (char *)p->groups, ngroups * sizeof(gid_t)) < 0) {
+        error("pid[%d] copyout error: listp=0x%lx", p->pid, listp);
+        return -EFAULT;
+    }
+
+    return ngroups;
+}
+
+/* 補助グループIDのリストを設定する */
+//  int setgroups(size_t size, const gid_t *list);
+long sys_setgroups()
+{
+    struct proc *p = myproc();
+    size_t size;
+    uint64_t listp;
+    int i;
+
+    if (argu64(0, &size) < 0 || argu64(1, &listp) < 0)
+        return -EINVAL;
+
+    if (size > NGROUPS || size == 0) return -EINVAL;
+    if (!capable(CAP_SETGID)) return -EPERM;
+
+    memset(p->groups, 0, sizeof(p->groups));
+    for (i = 0; i < size; i++, listp++) {
+        if (copyin(p->pagetable, (char *)&p->groups[i], listp, sizeof(gid_t)) < 0) {
+            error("pid[%d] copyin [%d: error: listp=0x%lx", p->pid, i, listp);
+            return -EFAULT;
+        }
+    }
+
+    if (p->pid == 15) {
+        for (i = 0; i < size; i++)
+            debug("groups[%d]=%d", i, p->groups[i]);
+    }
+
+    p->ngroups = size;
+    return 0;
+}
+
+
 /* ユーザIDを設定する */
 long sys_setuid()
 {

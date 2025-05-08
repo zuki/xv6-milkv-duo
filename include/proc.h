@@ -9,6 +9,8 @@
 
 extern struct slab_cache *MMAPREGIONS;
 
+#define NGROUPS         32      // ユーザが所属できる最大グループ数
+
 // カーネルコンテキストスイッチ用に保存するレジスタ.
 struct context {
     uint64_t ra;
@@ -130,6 +132,8 @@ struct proc {
     // 以下の項目はプロセス私用なので操作の際にp->lockは不要
     uid_t uid, euid, suid, fsuid;   // ユーザーID
     gid_t gid, egid, sgid, fsgid;   // グループID
+    gid_t groups[NGROUPS];          // 補助グループ
+    int ngroups;                    // 実際に所属している補助グループ数
     kernel_cap_t   cap_effective, cap_inheritable, cap_permitted;   // capabilities
     uint64_t kstack;                // カーネルスタックの仮想アドレス
     uint64_t sz;                    // プロセスメモリサイズ（バイト単位）

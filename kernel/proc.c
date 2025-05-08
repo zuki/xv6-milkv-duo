@@ -213,6 +213,9 @@ freeproc(struct proc *p)
     p->sid = 0;
     p->uid = p->euid = p->suid = p->fsuid = -1;
     p->gid = p->egid = p->sgid = p->fsgid = -1;
+    p->ngroups = 0;
+    memset(p->groups, 0, sizeof(gid_t)*NGROUPS);
+
     p->cap_effective = p->cap_inheritable = p->cap_permitted = 0;
     p->umask = 0;
     p->fdflag = 0;
@@ -326,6 +329,8 @@ userinit(void)
     p->cwd = namei("/", AT_FDCWD);
     p->uid = p->euid = p->suid = p->fsuid = 0;
     p->gid = p->egid = p->sgid = p->fsgid = 0;
+    p->ngroups = 0;
+    memset(p->groups, 0, sizeof(gid_t)*NGROUPS);
 
     p->cap_effective = p->cap_inheritable = p->cap_permitted = CAP_INIT_EFF_SET;
 
@@ -399,6 +404,8 @@ int fork(void)
     np->egid = p->egid;
     np->sgid = p->sgid;
     np->fsgid = p->fsgid;
+    np->ngroups = p->ngroups;
+    memmove(np->groups, p->groups, sizeof(gid_t) * p->ngroups);
     np->cap_effective = p->cap_effective;
     np->cap_inheritable = p->cap_inheritable;
     np->cap_permitted = p->cap_permitted;
