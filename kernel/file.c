@@ -435,7 +435,7 @@ long filesymlink(char *target, char *linkpath, int dirfd)
     return 0;
 }
 
-ssize_t filereadlink(char *path, int dirfd, char *buf, size_t bufsize)
+ssize_t filereadlink(char *path, int dirfd, uint64_t buf, size_t bufsize)
 {
     struct inode *ip, *dp;
     ssize_t n;
@@ -461,7 +461,7 @@ ssize_t filereadlink(char *path, int dirfd, char *buf, size_t bufsize)
         return -EINVAL;
     }
 
-    if ((n = readi(ip, 1, (uint64_t)buf, 0, bufsize)) <= 0) {
+    if ((n = readi(ip, 1, buf, 0, bufsize)) <= 0) {
         iunlockput(ip);
         end_op();
         return -EIO;

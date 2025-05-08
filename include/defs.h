@@ -70,7 +70,7 @@ int             fileioctl(struct file*, unsigned long, void *argp);
 long            filelseek(struct file *f, off_t offset, int whence);
 long            filelink(char *oldpath, int olddirfd, char *newpath, int newdirfd);
 long            filesymlink(char *target, char *linkpath, int dirfd);
-ssize_t         filereadlink(char *path, int dirfd, char *buf, size_t bufsize);
+ssize_t         filereadlink(char *path, int dirfd, uint64_t buf, size_t bufsize);
 long            fileunlink(char *path, int dirfd, int flags);
 struct inode *  create(char *path, int dirfd, short type, short major, short minor, mode_t mode);
 long            fileopen(char *path, int dirfd, int flags, mode_t mode);
