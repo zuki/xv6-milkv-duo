@@ -36,10 +36,12 @@ static int in_user(uint64_t addr, size_t n)
 int fetchaddr(uint64_t addr, uint64_t *ip)
 {
     struct proc *p = myproc();
+    if (p->pid >= 9)
+        trace("addr: 0x%lx, ip: %p", addr, ip);
     if ((addr >= p->sz || addr + sizeof(uint64_t) > p->sz)          // コード領域外
     && (is_mmap_region(p, (void *)addr, sizeof(uint64_t)) == 0      // mmap領域外
     && (addr < STACKBASE || addr >= STACKTOP))) {                   // スタック領域外
-        debug("addr; 0x%lx, p->sz: 0x%lx", addr, p->sz);
+        trace("addr; 0x%lx, p->sz: 0x%lx", addr, p->sz);
         return -1;
     }
 
@@ -54,11 +56,11 @@ int fetchaddr(uint64_t addr, uint64_t *ip)
 int fetchstr(uint64_t addr, char *buf, int max)
 {
     struct proc *p = myproc();
+
     if (copyinstr(p->pagetable, buf, addr, max) < 0) {
-        error("failed");
+        error("addr: 0x%lx", addr);
         return -1;
     }
-    trace("buf: %s", buf);
     return strlen(buf);
 }
 
@@ -270,7 +272,8 @@ long sys_clock_settime()
     return clock_settime(clk_id, &tp);
 }
 
-
+// int futex(int *uaddr, int op, int val, const struct timespec *timeout,
+//           int *uaddr2, int val3);
 long sys_futex(void) {
     uint64_t uaddr, uaddr2;
     int op, val, val3;
@@ -292,6 +295,7 @@ long sys_futex(void) {
         return 0;
 }
 
+//  int uname(struct utsname *buf);
 long sys_uname(void) {
     uint64_t utsp;
     struct utsname uts;
@@ -330,10 +334,13 @@ long sys_debug(void) {
     if (argstr(0, name, MAXPATH) < 0 || argstr(1, tag, MAXPATH) < 0
      || argu64(2, &val) < 0)
         return -EINVAL;
-    debug("%s: %s = 0x%lx", name, tag, val);
+    if (myproc()->pid == 15)
+        debug("%s: %s = 0x%lx", name, tag, val);
     return 0;
 }
 
+// 独自実装
+// long dso(char *name, struct dso *dso);
 long sys_dso(void) {
     char name[MAXPATH], dname[64];
     uint64_t dsop;
@@ -354,6 +361,8 @@ long sys_dso(void) {
     return 0;
 }
 
+// 独自実装
+// long libc(char *name, struct __libc *libc);
 long sys_libc(void) {
     int stage;
     uint64_t libcp;
@@ -370,6 +379,8 @@ long sys_libc(void) {
     return 0;
 }
 
+// 独自実装
+// long musl_file(char *where, struct musl_file *musl_file);
 long sys_musl_file(void) {
     char where[MAXPATH];
     uint64_t musl_filep;
@@ -713,8 +724,12 @@ void syscall(void)
         // and store its return value in p->trapframe->a0
 #if 0
         //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
-        if (p->pid == 8) {
+        if (p->pid == 15) {
             switch(syscall_params[num]) {
+            case 6:
+                debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx, a5: 0x%lx", p->pid, syscall_names[num],
+                p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3, p->trapframe->a4, p->trapframe->a5);
+                break;
             case 5:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx", p->pid, syscall_names[num],
                 p->trapframe->a0, p->trapframe->a1, p->trapframe->a2, p->trapframe->a3, p->trapframe->a4);
@@ -756,6 +771,6 @@ void syscall(void)
     } else {
         debug("[%d] %s: unknown sys call %d: %s\n",
                 p->pid, p->name, num, syscall_names[num]);
-        p->trapframe->a0 = -1;
+        p->trapframe->a0 = -EOPNOTSUPP;
     }
 }

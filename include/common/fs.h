@@ -85,11 +85,11 @@ struct dirent {
 };
 
 struct dirent64 {
-  ino_t d_ino;
-  off_t d_off;
-  unsigned short d_reclen;
-  unsigned char d_type;
-  char d_name[256];
+  ino_t d_ino;                  // 0
+  off_t d_off;                  // 8
+  unsigned short d_reclen;      // 16
+  unsigned char d_type;         // 18
+  char d_name[256];             // 19
 };
 
 #endif

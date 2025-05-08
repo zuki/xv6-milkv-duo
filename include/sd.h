@@ -10,7 +10,7 @@
 // FIXME: vfsを実装したらvfs.hに移動
 #define SDMAJOR         0                   // SD card major block device
 #define FATMINOR        0                   // FAT partition [0,0]
-#define EXT2MINOR       1                   // Ext2 partition [0.1]
+#define XV6MINOR        1                   // xv6 partition [0.1]
 
 struct ptable_entry {
   char      flag;         // ブートフラグ

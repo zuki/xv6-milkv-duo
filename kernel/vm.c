@@ -167,7 +167,7 @@ mappages(pagetable_t pagetable, uint64_t va, uint64_t size, uint64_t pa, uint64_
         if((pte = walk(pagetable, a, 1)) == 0)
             return -1;
         if (*pte & PTE_V) {
-            debug("va: 0x%lx, pte: 0x%lx, *pte=0x%lx", a, pte, *pte);
+            error("va: 0x%lx, pte: 0x%lx, *pte=0x%lx", a, pte, *pte);
             panic("mappages: remap");
         }
 
@@ -473,6 +473,8 @@ int copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t len)
         dst += n;
         srcva = va0 + PGSIZE;
     }
+    fence_i();
+    fence_rw();
     return 0;
 }
 
@@ -485,7 +487,8 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
 {
     uint64_t n = 0, va0, pa0;
     int got_null = 0;
-    trace("pid[%d] dst=%p, srcva=0x%lx, max=%ld", myproc()->pid, dst, srcva, max);
+    if (myproc()->pid == 9)
+        trace("pid[%d] dst=%p, srcva=0x%lx, max=%ld", myproc()->pid, dst, srcva, max);
 
     if (srcva == 0UL) {
         // 空送信
@@ -497,7 +500,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
         va0 = PGROUNDDOWN(srcva);
         pa0 = walkaddr(pagetable, va0);
         if (pa0 == 0) {
-            trace("va0: 0x%lx, pa0=0", va0);
+            error("va0: 0x%lx, pa0=0", va0);
             return -1;
         }
 
@@ -525,6 +528,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max)
     if (got_null) {
         return 0;
     } else {
+        debug("str does not null terminate");
         return -1;
     }
 }

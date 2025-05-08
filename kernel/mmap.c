@@ -552,9 +552,11 @@ load_pages:
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
 #if 1
-    if (p->pid == 8)
-        trace("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
+    if (p->pid == 15) {
+        debug("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
         region->addr, region->length, region->prot, region->flags, region->f ? region->f->ip->inum : 0, region->offset);
+        print_mmap_list(p, "mmap");
+    }
 #endif
     return (long)region->addr;
 
@@ -569,8 +571,8 @@ long munmap(void *addr, size_t length)
 {
     struct proc *p = myproc();
 
-    //if (p->pid == 8)
-    //    trace("addr: %p, length: 0x%lx", addr, length);
+    if (p->pid == 15)
+        trace("addr: %p, length: 0x%lx", addr, length);
 
     // addrはページ境界になければならない
     if ((uint64_t)addr & (PGSIZE - 1))

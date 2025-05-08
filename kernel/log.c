@@ -168,6 +168,7 @@ void
 end_op(void)
 {
     fence_i();
+    fence_rw();
     return;
 
 #if 0
@@ -246,6 +247,7 @@ void
 log_write(struct buf *b)
 {
     bwrite(b);
+    fence_rw();
 
 #if 0
     int i;

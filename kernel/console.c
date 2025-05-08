@@ -94,6 +94,8 @@ consolewrite(int user_src, uint64_t src, int n)
         char c;
         if(either_copyin(&c, user_src, src+i, 1) == -1)
             break;
+        if (c == '\1')
+            c = 0x20;
         uartputc(c);
     }
 
@@ -190,14 +192,17 @@ static int consoleioctl(int fd, uint64_t req, void *argp)
             // Windowサイズ設定: 当面何もしない
             break;
         case TIOCSPGRP:  // TODO: 本来、dev(tty)用なのでp->sgid?
-            p->pgid = (pid_t)(uint64_t)argp;
+            if (copyin(p->pagetable, (char *)&p->pgid, (uint64_t)argp, sizeof(pid_t)) < 0) {
+                error("TIOCSPGRP argp: 0x%lx, old pgid: %d, size: %d", argp, p->pgid, sizeof(pid_t));
+                return -EINVAL;
+            }
             break;
         case TIOCGPGRP:
+            trace("TIOCGPGRP: pgid=%d", p->pgid);
             if (copyout(p->pagetable, (uint64_t)argp, (char *)&p->pgid, sizeof(pid_t)) < 0) {
                 error("TIOCGPGRP argp: 0x%lx, pgid: %d, size: %d", argp, p->pgid, sizeof(pid_t));
                 return -EINVAL;
             }
-
             break;
         default:
             error("unimplemented req: 0x%lx", req);

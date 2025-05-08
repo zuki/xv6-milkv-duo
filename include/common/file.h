@@ -12,7 +12,7 @@ struct file {
     struct pipe *pipe;  // FD_PIPE
     struct inode *ip;   // FD_INODE and FD_DEVICE
     uint32_t off;       // FD_INODE
-    int flags;          //
+    int flags;          // ファイル状態フラグ
     short major;        // FD_DEVICE
     char readable;
     char writable;

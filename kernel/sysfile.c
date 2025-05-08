@@ -42,10 +42,15 @@ static int argfd(int n, int *pfd, struct file **pf)
 // AT_FDCWDをチェックする
 static int check_fdcwd(const char *path, int dirfd)
 {
-   if (*path != '/' && dirfd != AT_FDCWD) {
-        if (myproc()->ofile[dirfd] == 0)
+    struct proc *p = myproc();
+
+    if (*path != '/' && dirfd != AT_FDCWD) {
+        if (p->ofile[dirfd] == 0) {
+            error("pid[%d] path: %s (ofile[%d]) is not open", p->pid, path, dirfd);
             return -EBADF;
-        if (myproc()->ofile[dirfd]->type != T_DIR)
+        }
+
+        if (p->ofile[dirfd]->type != T_DIR)
             return -ENOTDIR;
     }
 
@@ -166,25 +171,27 @@ long sys_pread64(void)
     return ret;
 }
 
+//  ssize_t write(int fd, const void *buf, size_t count);
 long sys_write(void)
 {
     struct file *f;
     int n;
     uint64_t p;
-    // int fd;
+    int fd;
 
     if (argu64(1, &p) < 0 || argint(2, &n) < 0)
         return -EINVAL;
-    //if (argfd(0, &fd, &f) < 0)
-    if (argfd(0, 0, &f) < 0)
+    if (argfd(0, &fd, &f) < 0)
+    //if (argfd(0, 0, &f) < 0)
         return -EBADF;
 #if 0
-    if (fd == 1 || fd == 2) {
-        char buf[n+1];
-        copyin(myproc()->pagetable, buf, p, n);
-        buf[n] = 0;
-        debug("s = '%s'", buf);
-    }
+    if (myproc()->pid == 6)
+        if (fd == 1 || fd == 2) {
+            char buf[n+1];
+            copyin(myproc()->pagetable, buf, p, n);
+            buf[n] = 0;
+            debug("s = '%s'", buf);
+        }
 #endif
     trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
     return filewrite(f, p, n, 1);
@@ -241,16 +248,19 @@ long sys_readv(void)
 ssize_t sys_writev(void)
 {
     struct file *f;
-    int fd, iovcnt;
-    struct iovec *iov, *pp, iov_k;
+    int fd, iovcnt, i;
+    struct iovec iov;
+    uint64_t iovp;
     struct proc *p = myproc();
 #if 0
-    char buf[32];
+    char buf[128];
+    uint64_t base;
     uint64_t blen;
-    int i = 0;
+    ssize_t iobytes = 0;
 #endif
 
-    if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
+    //if (argu64(1, (uint64_t *)&iov) < 0 || argint(2, &iovcnt) < 0)
+    if (argu64(1, &iovp) < 0 || argint(2, &iovcnt) < 0)
         return -EINVAL;
     if (iovcnt == 0)
         return 0;
@@ -258,29 +268,46 @@ ssize_t sys_writev(void)
     trace("n: 1, iov: %p", iov);
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    trace("fd: %d, ip: %d, iov: %p, iovcnt: %d", fd, f->ip->inum, iov, iovcnt);
+    trace("fd: %d, ip: %d, iovp: 0x%lx, iovcnt: %d", fd, f->ip->inum, iovp, iovcnt);
     ssize_t tot = 0;
 
-    for (pp = iov; pp < iov + iovcnt; pp++) {
-        if (copyin(p->pagetable, (char *)&iov_k, (uint64_t)pp, sizeof(struct iovec)) != 0)
+    for (i = 0; i < iovcnt; i++) {
+        if (copyin(p->pagetable, (char *)&iov, iovp + i * sizeof(struct iovec), sizeof(struct iovec)) != 0)
             return -EIO;
 #if 0
-        if (fd == 1 || fd ==2) {
-            blen = iov_k.iov_len > 32 ? 32 : iov_k.iov_len;
-            copyin(p->pagetable, buf, (uint64_t)iov_k.iov_base, blen);
-            debug("iov[%d] blen: %ld", i, blen)
-            for (int j=0; j < blen; j++)
-                printf(" %02x", buf[j]);
-            printf("\n");
+        iobytes += iov.iov_len;
+        if (myproc()->pid == 6) {
+            if (fd == 1 || fd ==2) {
+                blen = iov.iov_len > 128 ? 128 : iov.iov_len;
+                base = (uint64_t)iov.iov_base;
+                copyin(p->pagetable, buf, base, blen);
+                trace("iov[%d] base: %p, len: %ld", i, iov.iov_base, iov.iov_len);
+                buf[blen] = '\0';
+                if (buf[0] == '\n') {
+                    debug("iov[%d] buf='LF'", i);
+                } else {
+                    printf("[DEBUG] sys_writev: buf=");
+                    for (int j=0; j < blen; j++) {
+                        if (buf[j] < 0x20 || buf[j] > 0x7e)
+                            printf(" %02x", buf[j]);
+                        else
+                            printf("%c", buf[j]);
+                    }
+                    printf("\n");
+                }
+            }
         }
 #endif
-        tot += filewrite(f, (uint64_t)iov_k.iov_base, iov_k.iov_len, 1);
+        tot += filewrite(f, (uint64_t)iov.iov_base, iov.iov_len, 1);
 
-        trace("[%d]: base: %p, len: 0x%lx, tot: 0x%lx", i++, iov_k.iov_base, iov_k.iov_len, tot);
+        trace("[%d]: base: %p, len: 0x%lx, tot: 0x%lx", i++, iov.iov_base, iov.iov_len, tot);
     }
+    trace("iobytes: %ld, write: %ld", iobytes, tot);
+
     return tot;
 }
 
+// off_t lseek(int fd, off_t offset, int whence);
 long sys_lseek()
 {
     off_t offset;
@@ -288,7 +315,7 @@ long sys_lseek()
     struct file *f;
     int fd;
 
-    if (argfd(0, &fd, &f) < 0 || argu64(1, (uint64_t *)&offset) < 0
+    if (argfd(0, &fd, &f) < 0 || argu64(1, &offset) < 0
      || argint(2, &whence) < 0)
         return -EINVAL;
 
@@ -304,17 +331,19 @@ long sys_lseek()
     return filelseek(f, offset, whence);
 }
 
-
+// int close(int fd);
 long sys_close(void)
 {
     int fd;
     struct file *f;
 
-    if (argfd(0, &fd, &f) < 0)
+    if (argfd(0, &fd, &f) < 0) {
+        error("invalid arg");
         return -EBADF;
+    }
 
-    if (myproc()->pid == 8)
-        trace("pid[%d] fd: %d", myproc()->pid, fd);
+    if (myproc()->pid == 15)
+        debug("pid[%d] fd: %d", myproc()->pid, fd);
 
     myproc()->ofile[fd] = 0;
     bit_remove(myproc()->fdflag, fd);
@@ -322,6 +351,7 @@ long sys_close(void)
     return 0;
 }
 
+// int fstat(int fd, struct stat *buf);
 long sys_fstat(void)
 {
     struct file *f;
@@ -336,6 +366,7 @@ long sys_fstat(void)
     return filestat(f, st);
 }
 
+// int fstatat(int dirfd, const char *pathname, struct stat *buf, int flags);
 long sys_fstatat(void)
 {
     char path[MAXPATH];
@@ -544,6 +575,8 @@ ip_lock:
 }
 
 // Create the path new as a link to the same inode as old.
+// int linkat(int olddirfd, const char *oldpath,
+//            int newdirfd, const char *newpath, int flags);
 long sys_linkat(void)
 {
     char newpath[MAXPATH], oldpath[MAXPATH];
@@ -591,6 +624,7 @@ long sys_linkat(void)
     return filelink(oldpath, olddirfd, newpath, newdirfd);
 }
 
+// int symlinkat(const char *target, int newdirfd, const char *linkpath);
 long sys_symlinkat(void)
 {
     char target[MAXPATH], linkpath[MAXPATH];
@@ -610,6 +644,7 @@ long sys_symlinkat(void)
     return filesymlink(target, linkpath, dirfd);
 }
 
+// int unlinkat(int dirfd, const char *pathname, int flags);
 long sys_unlinkat(void)
 {
     char path[MAXPATH];
@@ -680,6 +715,7 @@ ssize_t sys_readlinkat()
     return filereadlink(path, dirfd, bufp, bufsiz);
 }
 
+// int openat(int dirfd, const char *pathname, int flags, mode_t mode);
 long sys_openat(void)
 {
     char path[MAXPATH];
@@ -696,22 +732,26 @@ long sys_openat(void)
         return -EINVAL;
     }
 
-    if (myproc()->pid == 8)
-        trace("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
+    if (myproc()->pid == 15)
+        debug("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
 
-    if ((ret = check_fdcwd(path, dirfd)) < 0)
+    if ((ret = check_fdcwd(path, dirfd)) < 0) {
+        error("check_fdcwd error: %d", ret);
         return ret;
+    }
 
-/*
+
+#if 0
     if ((flags & O_LARGEFILE) == 0) {
         error("expect O_LARGEFILE in open flags");
         return -EINVAL;
     }
-*/
+#endif
 
     return fileopen(path, dirfd, flags, mode);
 }
 
+// int mkdirat(int dirfd, const char *pathname, mode_t mode);
 long sys_mkdirat(void)
 {
     int dirfd, ret;
@@ -738,6 +778,7 @@ long sys_mkdirat(void)
     return 0;
 }
 
+// int mknodat(int dirfd, const char *pathname, mode_t mode, dev_t dev);
 long sys_mknodat(void)
 {
     struct inode *ip;
@@ -788,6 +829,7 @@ long sys_mknodat(void)
     return 0;
 }
 
+// int chdir(const char *path);
 long sys_chdir(void)
 {
     char path[MAXPATH];
@@ -820,6 +862,7 @@ long sys_chdir(void)
     return 0;
 }
 
+//  int execve(const char *filename, char *const argv[], char *const envp[]);
 long sys_execve(void)
 {
     char path[MAXPATH];
@@ -840,8 +883,8 @@ long sys_execve(void)
         return -EINVAL;
     }
 
-    //if (p->pid <= 2)
-        trace("path: '%s', argv: 0x%lx, envp: 0x%lx", path, argvp, envpp);
+    if (myproc()->pid >= 9)
+        trace("pid[%d] path: '%s', argv: 0x%lx, envp: 0x%lx, sp: 0x%lx", myproc()->pid, path, argvp, envpp, myproc()->trapframe->sp);
 
     memset(argv, 0, sizeof(argv));
     if (argvp != 0 && argvp != -1) {
@@ -900,6 +943,7 @@ long sys_execve(void)
                 error = -EFAULT;
                 goto bad;
             }
+
             if (env_p == 0) {
                 envp[envc] = 0;
                 break;
@@ -918,7 +962,7 @@ long sys_execve(void)
             }
             memcpy(envp[envc], buf, ret+1);
 #if 0
-            //if (p->pid == 3) {
+            //if (p->pid >= 9) {
                 debug("envp[%d] (0x%lx) = %s", envc, envp[envc], envp[envc]);
                 //for (int j=0; j < strlen(envp[envc]); j++) {
                 //    printf("%02x ", envp[envc][j]);
@@ -959,6 +1003,7 @@ bad:
     return error;
 }
 
+// int pipe2(int pipefd[2], int flags);
 long sys_pipe2(void)
 {
     uint64_t fdarray;       // fd[2]
@@ -1001,6 +1046,7 @@ long sys_pipe2(void)
     return 0;
 }
 
+// int ioctl(int fd, unsigned long request, ...);
 long sys_ioctl(void)
 {
     struct file *f;
@@ -1012,7 +1058,8 @@ long sys_ioctl(void)
      || argfd(0, &fd, &f) < 0)
         return -EINVAL;
 
-    trace("pid[%d] fd: %d, f.type: %d, f.major: %d, req: 0x%lx, argp: %p", myproc()->pid, fd, f->type, f->major, req, argp);
+    if (myproc()->pid == 9)
+        trace("pid[%d] fd: %d, f.type: %d, f.major: %d, req: 0x%lx, argp: %p", myproc()->pid, fd, f->type, f->major, req, argp);
 
     if (f->type != FD_INODE && f->ip->type != T_DEVICE) {
         warn("bad type: %d, %d", f->type, f->ip->type);
@@ -1022,11 +1069,13 @@ long sys_ioctl(void)
     return fileioctl(f, req, (void *)argp);
 }
 
+// int fcntl(int fd, int cmd, ... /* arg */ );
 long sys_fcntl(void)
 {
     struct file *f;
     struct proc *p = myproc();
     int fd, cmd, args;
+    long ret;
 
     if (argfd(0, &fd, &f) < 0
      || argint(1, &cmd) < 0 || argint(2, &args) < 0)
@@ -1049,7 +1098,11 @@ long sys_fcntl(void)
             return 0;
 
         case F_GETFL:
-            return (f->flags & (FILE_STATUS_FLAGS | O_ACCMODE));
+            ret = f->flags & (FILE_STATUS_FLAGS | O_ACCMODE);
+            if (p->pid == 6)
+                trace("fd[%d] flag = 0x%0x, ret = 0x%lx", fd, f->flags, ret);
+            return ret;
+            //return (f->flags & (FILE_STATUS_FLAGS | O_ACCMODE));
 
         case F_SETFL:
             f->flags = ((args & FILE_STATUS_FLAGS) | (f->flags & O_ACCMODE));
@@ -1059,12 +1112,24 @@ long sys_fcntl(void)
     return -EINVAL;
 }
 
+#if 0
+struct dir_top {
+    off_t tell;
+	int fd;
+	int buf_pos;
+	int buf_end;
+	int lock;
+};
+#endif
+
+// ssize_t getdents64(int fd, void *dirp, size_t count);
 long sys_getdents64(void)
 {
     int fd;
     uint64_t dirp;
     uint64_t count;
     struct file *f;
+    //struct dir_top dirtop;
 
     if (argfd(0, &fd, &f) < 0) {
         if (f == 0)
@@ -1076,18 +1141,42 @@ long sys_getdents64(void)
     if (argu64(1, &dirp) < 0 || argu64(2, &count) <0)
         return -EINVAL;
 
+#if 0
+    if (myproc()->pid == 6)
+        debug("fd: %d, ino: %d, type: %d, dirp: 0x%lx, count: %ld", fd, f->ip->inum, f->ip->type, dirp, count);
+        if (copyin(myproc()->pagetable, (char *)&dirtop, dirp - 24, 24) < 0) {
+            error("copyin error: addr=0x%lx", dirp - 24);
+        } else {
+            debug("dirtop: fd: %d, pos: %d, end: %d", dirtop.fd, dirtop.buf_pos, dirtop.buf_end);
+        }
+#endif
+
     if (f->ip->type == T_DEVICE) {
-        trace("fd: %d, type: %d", fd, f->ip->type);
-        return -EBADF;
-    } else if (f->ip->type != T_DIR) {
+        return 0;
+    }
+
+    if (f->ip->type != T_DIR) {
         trace("fd: %d, type: %d", fd, f->ip->type);
         return -ENOTDIR;
     }
+
+#if 0
+    int ret = getdents64(f, dirp, count);
+    if (myproc()->pid == 6) {
+        if (copyin(myproc()->pagetable, (char *)&dirtop, dirp - 24, 24) < 0) {
+            error("copyin error: addr=0x%lx", dirp - 24);
+        } else {
+            debug("dirtop: fd: %d, pos: %d, end: %d", dirtop.fd, dirtop.buf_pos, dirtop.buf_end);
+        }
+    }
+    return ret;
+#endif
 
     return getdents64(f, dirp, count);
 }
 
 /* カレントワーキングディレクトリ名の取得 */
+// char *getcwd(char *buf, size_t size);
 void *sys_getcwd()
 {
     uint64_t bufp;
@@ -1150,6 +1239,7 @@ bad:
     return NULL;
 }
 
+//  ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 long sys_sendfile(void)
 {
     struct file *out_f, *in_f;
@@ -1168,6 +1258,7 @@ long sys_sendfile(void)
     return sendfile(out_f, in_f, offset, count);
 }
 
+// int posix_fadvise(int fd, off_t offset, off_t len, int advice);
 long sys_fadvise64()
 {
     int fd;
@@ -1187,6 +1278,7 @@ long sys_fadvise64()
     return 0;
 }
 
+// int fchmodat(int dirfd, const char *pathname, mode_t mode, int flags);
 long sys_fchmodat()
 {
     int dirfd, flags, ret;
@@ -1203,6 +1295,7 @@ long sys_fchmodat()
     return filechmod(path, dirfd, mode);
 }
 
+// fchown(int fd, uid_t owner, gid_t group);
 long sys_fchown()
 {
     int fd;
@@ -1217,6 +1310,8 @@ long sys_fchown()
     return filechown(f, 0, AT_FDCWD, owner, group, 0);
 }
 
+// int fchownat(int dirfd, const char *pathname,
+//              uid_t owner, gid_t group, int flags);
 long sys_fchownat()
 {
     int dirfd, flags, ret;
@@ -1269,6 +1364,7 @@ long sys_faccessat2(void)
     return faccess(path, dirfd, mode, flags);
 }
 
+// ssize_t llistxattr(const char *path, char *list, size_t size);
 long sys_llistxattr(void)
 {
     char path[MAXPATH];
@@ -1280,7 +1376,7 @@ long sys_llistxattr(void)
         return -EINVAL;
 
     // 拡張属性は実装しない
-    return 0;
+    return -ENOTSUP;
 }
 
 //int utimensat(int dirfd, const char *pathname,

@@ -16,6 +16,7 @@
 #include <linux/capability.h>
 #include <linux/resources.h>
 
+//  void _exit(int status);
 long sys_exit(void)
 {
     int n;
@@ -28,6 +29,7 @@ long sys_exit(void)
     return 0;
 }
 
+// void exit_group(int status);
 long sys_exit_group(void)
 {
     int n;
@@ -40,6 +42,7 @@ long sys_exit_group(void)
     return 0;
 }
 
+// pid_t getpid(void);
 long sys_getpid(void)
 {
     pid_t pid = myproc()->pid;
@@ -47,11 +50,13 @@ long sys_getpid(void)
     return pid;
 }
 
+// pid_t getppid(void);
 long sys_getppid(void)
 {
     return myproc()->parent->pid;
 }
 
+// pid_t gettid(void);
 long sys_gettid(void)
 {
     pid_t tid = myproc()->pid;
@@ -100,6 +105,7 @@ long sys_wait4(void)
     return wait4(wpid, status, options, ru);
 }
 
+//  int brk(void *addr);
 long sys_brk(void)
 {
     struct proc *p = myproc();
@@ -122,6 +128,8 @@ long sys_brk(void)
         return p->sz;
 }
 
+// void *mmap(void *addr, size_t length, int prot, int flags,
+//            int fd, off_t offset);
 size_t sys_mmap(void)
 {
     void *addr;
@@ -176,6 +184,7 @@ size_t sys_mmap(void)
     return mmap(addr, len, prot, flags, f, off);
 }
 
+// int munmap(void *addr, size_t length);
 long sys_munmap(void)
 {
     void *addr;
@@ -219,6 +228,7 @@ long sys_mprotect(void)
     return mprotect((void *)addr, len, prot);
 }
 
+//  int msync(void *addr, size_t length, int flags);
 long sys_msync(void)
 {
     void *addr;
@@ -263,6 +273,7 @@ long sys_nanosleep(void)
     return 0;
 }
 
+// int kill(pid_t pid, int sig);
 long sys_kill(void)
 {
     pid_t pid;
@@ -279,8 +290,7 @@ long sys_kill(void)
     return kill(pid, sig);
 }
 
-// return how many clock tick interrupts have occurred
-// since start.
+//  int sysinfo(struct sysinfo *info);
 long sys_sysinfo(void)
 {
     return -EINVAL;
@@ -321,13 +331,6 @@ long sys_rt_sigaction()
         return -EINVAL;
     }
 
-#if 0
-    if (argptr(1, (char *)&act, sizeof(struct k_sigaction)) < 0) {
-        trace("invalid argument: act=%p", &act);
-        return -EINVAL;
-    }
-#endif
-
     if (actp) {
         if (copyin(myproc()->pagetable, (char *)&act, actp, sizeof(act)) < 0)
             return -EFAULT;
@@ -349,6 +352,7 @@ long sys_rt_sigaction()
     return sigaction(sig, &act, oldact);
 }
 
+// int sigpending(sigset_t *set);
 long sys_rt_sigpending()
 {
     uint64_t pending;  // sigset_t *のアドレス: out
@@ -459,6 +463,7 @@ cap_emulate_setxuid(int old_ruid, int old_euid, int old_suid)
     }
 }
 
+// pid_t getpgid(pid_t pid);
 long sys_getpgid(void) {
     pid_t pid;
 
@@ -468,6 +473,7 @@ long sys_getpgid(void) {
     return getpgid(pid);
 }
 
+// int setpgid(pid_t pid, pid_t pgid);
 long sys_setpgid(void)
 {
     pid_t pid, pgid;
@@ -478,19 +484,20 @@ long sys_setpgid(void)
     return setpgid(pid, pgid);
 }
 
-/* 実ユーザIDを取得する */
+// uid_t getuid(void);
 long sys_getuid()
 {
     return myproc()->uid;
 }
 
-/* 実効ユーザID、保存ユーザIDを取得する */
+// uid_t geteuid(void);
 long sys_geteuid()
 {
     return myproc()->euid;
 }
 
 /* 実ユーザID、実効ユーザID、保存ユーザIDを取得する */
+// int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid);
 long sys_getresuid()
 {
     struct proc *p = myproc();
@@ -507,18 +514,21 @@ long sys_getresuid()
 }
 
 /* 実グループIDを取得する */
+// gid_t getgid(void);
 long sys_getgid()
 {
     return myproc()->gid;
 }
 
 /* 実効グループIDを取得する */
+// gid_t getegid(void);
 long sys_getegid()
 {
     return myproc()->egid;
 }
 
 /* 実グループID、実効グループID、保存グループIDを取得する */
+// int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid);
 long sys_getresgid()
 {
     struct proc *p = myproc();
@@ -591,6 +601,7 @@ long sys_setgroups()
 
 
 /* ユーザIDを設定する */
+//  int setuid(uid_t uid);
 long sys_setuid()
 {
     struct proc *p = myproc();
@@ -606,7 +617,6 @@ long sys_setuid()
     trace("uid: %d, old: euid=%d ruid=%d suid=%d, new: ruid=%d suid=%d",
         uid, old_euid, old_ruid, old_suid, new_ruid, new_suid);
     trace("p[%d] cap_effective=%d", p->pid, p->cap_effective);
-
 
     if (capable(CAP_SETUID)) {
         if (uid != old_ruid) {
@@ -630,6 +640,7 @@ long sys_setuid()
 }
 
 /* 実 (real)ユーザIDと実効 (effective)ユーザIDを設定する */
+// int setreuid(uid_t ruid, uid_t euid);
 long sys_setreuid()
 {
     struct proc *p = myproc();
@@ -673,6 +684,7 @@ long sys_setreuid()
 }
 
 /* ユーザの実ID、実効ID、保存IDを設定する */
+// int setresuid(uid_t ruid, uid_t euid, uid_t suid);
 long sys_setresuid()
 {
     struct proc *p = myproc();
@@ -715,6 +727,7 @@ long sys_setresuid()
 }
 
 /* ファイルシステムのチェックに用いられるユーザIDを設定する */
+// int setfsuid(uid_t fsuid);
 long sys_setfsuid()
 {
     struct proc *p = myproc();
@@ -742,6 +755,7 @@ long sys_setfsuid()
 }
 
 /* グループIDを設定する */
+//  int setgid(gid_t gid);
 long sys_setgid()
 {
     struct proc *p = myproc();
@@ -770,6 +784,7 @@ long sys_setgid()
 }
 
 /* 実グループIDと実効グループIDを設定する */
+// int setregid(gid_t rgid, gid_t egid);
 long sys_setregid()
 {
     struct proc *p = myproc();
@@ -811,6 +826,7 @@ long sys_setregid()
 }
 
 /* 実グループID、実効グループID、保存グループIDを設定する */
+// int setresgid(gid_t rgid, gid_t egid, gid_t sgid);
 long sys_setresgid()
 {
     struct proc *p = myproc();
@@ -850,6 +866,7 @@ long sys_setresgid()
 }
 
 /* ファイルシステムのチェックに用いられるグループIDを設定する */
+// int setfsgid(uid_t fsgid);
 long sys_setfsgid()
 {
     struct proc *p = myproc();
@@ -869,7 +886,7 @@ long sys_setfsgid()
 
     return old_fsgid;
 }
-
+//  mode_t umask(mode_t mask);
 mode_t sys_umask()
 {
     mode_t umask;
@@ -879,10 +896,11 @@ mode_t sys_umask()
         return -EINVAL;
     }
 
-    myproc()->umask = umask & S_IRWXUGO;
+    myproc()->umask = (umask & S_IRWXUGO);
     return oumask;
 }
 
+// int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
 long sys_sched_getaffinity(void) {
     pid_t pid;
     size_t cpusetsize;

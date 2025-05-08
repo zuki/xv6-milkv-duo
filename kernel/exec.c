@@ -464,6 +464,7 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
         { AT_PLATFORM, platform },
         { AT_HWCAP,   ELF_HWCAP },
         { AT_CLKTCK,  100 },
+        { AT_SECURE,  0 },
         { AT_NULL,    0 }
     };
     uint64_t auxv_sta[][2] = { { AT_PAGESZ, PGSIZE }, { AT_NULL,    0 } };
@@ -542,7 +543,7 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
     proc_freepagetable(oldpagetable, oldsz);
 
 #if 0
-    if (p->pid == 8) {
+    if (p->pid == 9) {
         uvmdump(p->pagetable, p->pid, p->name);
         printf("\n== Stack TOP : 0x%08lx ==\n", STACKTOP);
         for (uint64_t e = STACKTOP - 8; e >= sp; e -= 8) {
@@ -551,7 +552,7 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
             printf("%08lx: %016lx\n", e, val);
         }
         printf("== Stack END : 0x%08lx ==\n\n", sp);
-        print_mmap_list(p, "new proc");
+        print_mmap_list(p, p->name);
     }
 #endif
     return argc; // this ends up in a0, the first argument to main(argc, argv)

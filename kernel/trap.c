@@ -86,7 +86,7 @@ usertrap(void)
     // 13: ページアクセス例外 (load)
     } else if (scause == SCAUSE_PAGE_LOAD) {
         if (alloc_mmap_page(p, stval, scause) < 0) {
-            trace("pid[%d] LOAD failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
+            error("pid[%d] LOAD failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
             si.si_code = SEGV_MAPERR;
             si.si_addr = (void *)stval;
             send_signal(p, SIGSEGV, &si);
@@ -95,13 +95,13 @@ usertrap(void)
     // 15: ページアクセス例外 (store)
     } else if (scause == SCAUSE_PAGE_STORE) {
         if ((ret = alloc_cow_page(p->pagetable, stval)) < 0) {
-            trace("pid[%d] STORE COW failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
+            error("pid[%d] STORE COW failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
             si.si_code = SEGV_MAPERR;
             si.si_addr = (void *)stval;
             send_signal(p, SIGSEGV, &si);
             //setkilled(p);
         } else if (ret == 1 && alloc_mmap_page(p, stval, scause) < 0) {
-            trace("pid[%d] STORE failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
+            error("pid[%d] STORE failed: addr=0x%lx on 0x%lx", p->pid, stval, sepc);
             si.si_code = SEGV_MAPERR;
             si.si_addr = (void *)stval;
             send_signal(p, SIGSEGV, &si);
@@ -109,24 +109,24 @@ usertrap(void)
         }
     } else if ((which_dev = devintr()) != 0) {
         // ok
-    } else if (scause == SCAUSE_INST_INVAL || scause == SCAUSE_PAGE_FETCH) {
-        trace("pid[%d] INVAL INST: sepc=0x%lx stval=0x%lx", p->pid, sepc, stval);
+    } else if (scause == SCAUSE_INST_INVAL) {
+        error("pid[%d] INVAL INST: sepc=0x%lx stval=0x%lx", p->pid, sepc, stval);
         si.si_code = ILL_ILLOPC;
         si.si_addr = (void *)sepc;
         send_signal(p, SIGILL, &si);
     } else if (scause == SCAUSE_PAGE_FETCH) {
-        trace("pid[%d] INST FETCH: sepc=0x%lx stval=0x%lx", p->pid, sepc, stval);
+        error("pid[%d] INST FETCH: sepc=0x%lx stval=0x%lx", p->pid, sepc, stval);
         si.si_code = SEGV_MAPERR;
         si.si_addr = (void *)sepc;
         send_signal(p, SIGSEGV, &si);
     } else {
-        debug("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, scause, sepc, stval);
+        error("pid[%d]: scause %d sepc=0x%lx stval=0x%lx", p->pid, scause, sepc, stval);
         setkilled(p);
     }
 
     if (killed(p)) {
         int xstate = p->xstate ? p->xstate : -1;
-        debug("pid[%d] was killed, xstate: %d", p->pid, xstate);
+        error("pid[%d] was killed, xstate: %d", p->pid, xstate);
         exit(xstate);
     }
 

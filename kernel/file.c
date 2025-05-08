@@ -39,15 +39,16 @@ static int isdirempty(struct inode *dp)
     for (off=2*sizeof(de); off<dp->size; off+=sizeof(de)) {
         if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
             panic("isdirempty: readi");
-        if(de.inum != 0)
+        if (de.inum != 0) {
+            trace("inum: %d", de.inum);
             return 0;
+        }
     }
     return 1;
 }
 
 // ファイル構造体を割り当てる.
-struct file*
-filealloc(void)
+struct file *filealloc(void)
 {
     struct file *f;
 
@@ -64,8 +65,7 @@ filealloc(void)
 }
 
 // ファイルfのrefカウンタを増分.
-struct file*
-filedup(struct file *f)
+struct file *filedup(struct file *f)
 {
     acquire(&ftable.lock);
     if (f->ref < 1)
@@ -103,8 +103,7 @@ void fileclose(struct file *f)
 
 // Get metadata about file f.
 // addr is a user virtual address, pointing to a struct stat.
-int
-filestat(struct file *f, uint64_t addr)
+int filestat(struct file *f, uint64_t addr)
 {
     struct proc *p = myproc();
     struct stat st;
@@ -162,7 +161,7 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
 // Write to file f.
 // addr is a user virtual address.
 int
-filewrite(struct file *f, uint64_t addr, int n, int user)
+filewrite(struct file *f, volatile uint64_t addr, int n, int user)
 {
     trace("ip: %d, addr: 0x%lx, n: %d", f->ip->inum, addr, n);
     int r, ret = 0;
@@ -176,7 +175,7 @@ filewrite(struct file *f, uint64_t addr, int n, int user)
     } else if(f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
             return -1;
-        ret = devsw[f->major].write(1, addr, n);
+        ret = devsw[f->major].write(user, addr, n);
     } else if(f->type == FD_INODE){
         // write a few blocks at a time to avoid exceeding
         // the maximum log transaction size, including
@@ -288,7 +287,7 @@ int fileioctl(struct file *f, unsigned long request, void *argp)
     }
 
     if (f->type != FD_DEVICE) {
-        error("inval1");
+        trace("invalid type: %d", f->type);
         return -EINVAL;
     }
 
@@ -491,11 +490,13 @@ long fileunlink(char *path, int dirfd, int flags)
     /* Cannot unlink "." or "..". */
 
     if (namecmp(name, ".") == 0 || namecmp(name, "..") == 0) {
+        error("can't remove ./..");
         error = -EPERM;
         goto baddp;
     }
 
     if ((ip = dirlookup(dp, name, &off)) == 0) {
+        error("%s does not exist", path);
         error = -ENOENT;
         goto baddp;
     }
@@ -503,6 +504,7 @@ long fileunlink(char *path, int dirfd, int flags)
     ilock(ip);
 
     if (ip->nlink < 1) {
+        error("invalid nlink: %d", ip->nlink);
         error = -EPERM;
         goto badip;
         //panic("unlink: nlink < 1");
@@ -510,10 +512,12 @@ long fileunlink(char *path, int dirfd, int flags)
 
     if (flags & AT_REMOVEDIR) {
         if (ip->type != T_DIR) {
+            error("invalid type %d", ip->type);
             error = -ENOTDIR;
             goto badip;
         }
         if (!isdirempty(ip)) {
+            error("dir not empty");
             error = -EPERM;
             goto badip;
         }
@@ -530,6 +534,9 @@ long fileunlink(char *path, int dirfd, int flags)
         //panic("unlink: unlink");
     }
 
+    //while (dirlookup(dp, name, 0) != 0)     // ファイルが削除されるのを待つ
+    //    delayus(100);
+
     if (ip->type == T_DIR) {
         dp->nlink--;
         iupdate(dp);
@@ -540,6 +547,7 @@ long fileunlink(char *path, int dirfd, int flags)
     iupdate(ip);
     iunlockput(ip);
     end_op();
+
     return 0;
 
 badip:
@@ -633,7 +641,8 @@ long fileopen(char *path, int dirfd, int flags, mode_t mode)
     struct file *f;
     char buf[512];
     int fd, n;
-    trace("path: %s, flags: %d, mod: %ld", path, flags, mode);
+    if (myproc()->pid == 9)
+        trace("path: %s, flags: 0x%x, mod: 0x%lx", path, flags, mode);
 
     begin_op();
     if (flags & O_CREAT) {
@@ -644,23 +653,28 @@ long fileopen(char *path, int dirfd, int flags, mode_t mode)
             warn("O_CREAT && O_EXCL and  %s exists", path);
             return -EEXIST;
         } else if (!ip) {
-            if ((ip = create(path, dirfd, T_FILE, 0, 0, mode | S_IFREG)) == 0) {
+            if ((long)(ip = create(path, dirfd, T_FILE, 0, 0, mode | S_IFREG)) < 0) {
                 end_op();
                 warn("cant create %s", path);
-                return -EDQUOT;
+                return (long)ip;
             }
+            if (myproc()->pid == 9)
+                trace("createdip: num: %d, type: %d", ip->inum, ip->type);
         } else {
             ilock(ip);
+            if (myproc()->pid == 9)
+                trace("existed ip: num: %d, type: %d", ip->inum, ip->type);
         }
     } else {
 loop:
         if ((ip = namei(path, dirfd)) == 0) {
             end_op();
-            trace("%s is not found", path);
+            error("%s is not found", path);
             return -ENOENT;
         }
         ilock(ip);
-        trace("ip: num: %d, type: %d", ip->inum, ip->type);
+        if (myproc()->pid == 7)
+            trace("path ip: num: %d, type: %d", ip->inum, ip->type);
         if (ip->type == T_DIR && (flags & O_ACCMODE) != 0) {
             iunlockput(ip);
             end_op();
@@ -698,6 +712,9 @@ loop:
         return -ENOSPC;
     }
 
+    if (myproc()->pid == 7)
+        trace("process ip: num: %d, type: %d", ip->inum, ip->type);
+
     if (ip->type == T_DEVICE) {
         f->type = FD_DEVICE;
         f->major = ip->major;
@@ -723,6 +740,7 @@ loop:
 bad:
     iunlockput(ip);
     end_op();
+    error("cant access file");
     return -EACCES;
 }
 
@@ -750,7 +768,7 @@ long filechown(struct file *f, char *path, int dirfd, uid_t owner, gid_t group, 
     struct inode *ip;
     struct proc *p = myproc();
     long error = -EPERM;
-    //int i;
+    int i;
 
     begin_op();
     if (f != NULL) {
@@ -781,7 +799,7 @@ loop:
 
     if (owner != (uid_t)-1) {
         if (!capable(CAP_CHOWN)) {
-            debug("uid %d cant chown", owner);
+            error("uid %d cant chown", owner);
             goto bad;
         }
         ip->uid = owner;
@@ -791,18 +809,18 @@ loop:
         if (capable(CAP_CHOWN)) {
             ip->gid = group;
         } else if (ip->uid == p->euid) {
-            //for (i = 0; i < p->ngroups; i++) {
-            //    if (p->groups[i] == group) {
+            for (i = 0; i < p->ngroups; i++) {
+                if (p->groups[i] == group) {
                     ip->gid = group;
-            //        break;
-            //    }
-            //}
-            //if (i == p->ngroups) {
-            //    debug("uid %d and gid %d cant chown", owner, group);
-            //    goto bad;
-            //}
+                    break;
+                }
+            }
+            if (i == p->ngroups) {
+                trace("uid %d and gid %d cant chown", owner, group);
+                goto bad;
+            }
         } else {
-            debug("gid %d cant chown", group);
+            error("gid %d cant chown", group);
             goto bad;
         }
     }

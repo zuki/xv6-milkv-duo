@@ -1187,7 +1187,7 @@ long ppoll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout_ts, sigset_
     siginitset(&p->signal.mask, &origmask);
 
     if (fds)
-        kfree(fds);
+        kmfree(fds);
 
     // reventsを持つfdsの数を返す。0はtimeout
     return nfds;

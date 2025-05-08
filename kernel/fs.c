@@ -32,6 +32,10 @@
 // 我々は1台の装置しか使っていない。
 struct superblock sb;
 
+// in discv-cache.c
+//extern void flush_dcache_range(unsigned long start, unsigned long end);
+//extern void invalidate_dcache_range(unsigned long start, unsigned long end);
+
 // スーパーブロックを読み込む
 static void readsb(int dev, struct superblock *sb)
 {
@@ -722,7 +726,7 @@ dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
     if ((ip = dirlookup(dp, name, 0)) != 0) {
         iput(ip);
         debug("name: %s exits", name);
-        return -1;
+        return -ENOENT;
     }
 
     // Look for an empty dirent.
@@ -740,7 +744,7 @@ dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
     if ((ret = writei(dp, 0, (uint64_t)&de, off, sizeof(de))) != sizeof(de)) {
         debug("write error: inum: %d, type: %d, name: %s, want: %d, ret: %d",
             inum, type, name, sizeof(de), ret);
-        return -1;
+        return -EACCES;
     }
 
     return 0;
@@ -844,8 +848,14 @@ int unlink(struct inode *dp, uint32_t off)
     struct dirent de;
     // FIXME: 取り詰めとsizeの変更
     memset(&de, 0, sizeof(de));
-    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
+    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+        error("writei error: inum=%d", dp->inum);
         return -1;
+    }
+
+    // rm -rf 用に設定したが効果なし (flush_dcache_rangeも同様)
+    //invalidate_dcache_range((uint64_t)&de + off, (uint64_t)&de + off + sizeof(de));
+
     return 0;
 }
 
@@ -858,6 +868,7 @@ int getdents64(struct file *f, uint64_t data, size_t size)
     struct inode *dirip;
 
     trace("ip: %d, data: 0x%lx, size: %ld", f->ip->inum, data, size);
+
     while (1) {
         n = fileread(f, (uint64_t)&de, sizeof(struct dirent), 0);
         //debug("n: %kd, de: de.inum: %d, name: %s", n, de.inum, de.name);
@@ -867,6 +878,7 @@ int getdents64(struct file *f, uint64_t data, size_t size)
             //return tlen;
             //error("read 0, tlen=%ld", tlen);
             //return tlen ? tlen : -ENOENT;
+            trace("no data");
             break;
         }
         if (n < 0 || n != sizeof(struct dirent)) {
@@ -922,10 +934,10 @@ int getdents64(struct file *f, uint64_t data, size_t size)
             error("failed copyout");
             return -EFAULT;
         }
-
+        if (myproc()->pid == 6)
+            trace("tlen: %d, de64: ino: %d, off: %ld, reclen: %d, type: %d, name: %s", tlen, de64.d_ino, de64.d_off, de64.d_reclen, de64.d_type, de64.d_name);
         tlen += reclen;
         off = f->off;
-        trace("tlen: %d, de64: ino: %d, off: %ld, reclen: %d, type: %d, name: %s", tlen, de64.d_ino, de64.d_off, de64.d_reclen, de64.d_type, de64.d_name);
     }
     //debug_bytes("data:", data, tlen);
     return tlen;
