@@ -143,8 +143,8 @@ UPROGS=\
 	$U/passwd \
 	$U/getty \
 	$U/su \
-	$U/mprotecttest
-#	$U/busybox
+	$U/mprotecttest \
+	$U/busybox
 DPROGS= \
 	$D/hello_dyn \
 	$D/myadd

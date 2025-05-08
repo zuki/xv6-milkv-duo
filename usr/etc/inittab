@@ -1,4 +1,10 @@
-/bin/ln -s /lib/libc.so /lib/ld-musl-riscv64xthead.so.1
+/bin/ln -s /lib/libc.so /lib/ld-musl-riscv64.so.1
+/bin/ln -s /lib/libmd.so.0 /usr/lib/libmd.so.0
+/bin/ln -s /lib/libmd.so.0 /usr/lib/libbsd/libmd.so.0
+/bin/ln -s /lib/libmd.so.0 /usr/lib/libmd/libmd.so.0
+/bin/ln -s /lib/libbsd.so.0 /usr/lib/libbsd.so.0
+/bin/ln -s /lib/libbsd.so.0 /usr/lib/libbsd/libbsd.so.0
+/bin/ln -s /lib/libbsd.so.0 /usr/lib/libmd/libbsd.so.0
 /usr/bin/chmod 04755 /usr/bin/passwd
 /usr/bin/chmod 04755 /usr/bin/su
 /usr/bin/chmod 0700 /etc/login.defs

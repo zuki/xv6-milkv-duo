@@ -91,8 +91,10 @@ main(int argc, char *argv[])
 {
     int i;
     uint off;
-    uint rootino, devino, binino, etcino, libino, homeino, mntino;
-    uint zukiino, suino, usrino, usrbinino, usrsbinino, usrshareino, usrsharefileino;
+    uint rootino, devino, binino, etcino, libino, homeino, mntino, testino, tmpino;
+    uint zukiino, suino, usrino, usrbinino, usrsbinino, usrshareino, usrsharemiscino;
+    uint usrlibino, usrliblibbsdino, usrliblibmdino;
+    uint usrlibexecino, usrlibexeccoreino;
     uint localino, localbinino, locallibino, localincludeino;
     char buf[BSIZE];
     struct dinode din;
@@ -149,6 +151,12 @@ main(int argc, char *argv[])
 
     //copy_file(2, argc, argv, rootino, 0, 0, (S_IFREG | 0755));
 
+    // create /test
+    testino = make_dir(rootino, "test", 0, 0, S_IFDIR|0775);
+
+    // create /tmp
+    tmpino = make_dir(rootino, "tmp", 0, 0, S_IFDIR|0775);
+
     // Create /bin
     binino = make_dir(rootino, "bin", 0, 0, S_IFDIR|0775);
 
@@ -188,8 +196,20 @@ main(int argc, char *argv[])
     usrsbinino = make_dir(usrino, "sbin", 0, 0, S_IFDIR|0775);
     // create /usr/share
     usrshareino = make_dir(usrino, "share", 0, 0, S_IFDIR|0775);
-    // create /usr/share/file
-    usrsharefileino = make_dir(usrshareino, "file", 0, 0, S_IFDIR|0775);
+    // create /usr/share/misc
+    usrsharemiscino = make_dir(usrshareino, "misc", 0, 0, S_IFDIR|0775);
+    // create /usr/libexec
+    usrlibexecino = make_dir(usrino, "libexec", 0, 0, S_IFDIR|0775);
+    // create /usr/libexec/coreutils
+    usrlibexeccoreino = make_dir(usrlibexecino, "coreutils", 0, 0, S_IFDIR|0775);
+
+    // create /usr/lib
+    usrlibino = make_dir(usrino, "lib", 0, 0, S_IFDIR|0775);
+    // create /usr/lib/libbsd
+    usrliblibbsdino = make_dir(usrlibino, "libbsd", 0, 0, S_IFDIR|0775);
+    // create /usr/lib/libmd
+    usrliblibmdino = make_dir(usrlibino, "libmd", 0, 0, S_IFDIR|0775);
+
     // create /usr/local
     localino = make_dir(usrino, "local", 0, 0, S_IFDIR|0775);
     // create /usr/local/bin
@@ -202,8 +222,11 @@ main(int argc, char *argv[])
     // mkfsに渡されたargvのargv[2]以降のファイル
     copy_file(2, argc, argv, binino, 0, 0, S_IFREG|0755);
 
-    // /usr/test.txt
+    // /test.txt /test2.txt
     copy_file(0, nelms(text_files), text_files, rootino, 0, 0, S_IFREG|0664);
+
+    // /test/abc.txt
+    copy_file(0, nelms(test_files), test_files, testino, 0, 0, S_IFREG|0664);
 
     // /usr/bin  (coreutils)
     copy_file(0, nelms(usrbins), usrbins, usrbinino, 0, 0, S_IFREG|0755);
@@ -211,8 +234,11 @@ main(int argc, char *argv[])
     // /usr/sbin  (shadow)
     copy_file(0, nelms(usrsbins), usrsbins, usrsbinino, 0, 0, S_IFREG|0755);
 
-    // /usr/share/file/magic.mgc
-    copy_file(0, nelms(usr_share_file_files), usr_share_file_files, usrsharefileino, 0, 0, S_IFREG|0664);
+    // /usr/share/misc/magic.mgc
+    copy_file(0, nelms(usr_share_misc_files), usr_share_misc_files, usrsharemiscino, 0, 0, S_IFREG|0664);
+
+    // /usr/libexec/coreutils/libstdbuf.so
+    copy_file(0, nelms(usr_libexec_coreutils_files), usr_libexec_coreutils_files, usrlibexeccoreino, 0, 0, S_IFREG|0664);
 
     // /etc/passwd, group, inittab
     copy_file(0, nelms(etc_files), etc_files, etcino, 0, 0, S_IFREG|0644);
@@ -223,9 +249,9 @@ main(int argc, char *argv[])
     // /usr/local/bin/file
     copy_file(0, nelms(local_bin_files), local_bin_files, localbinino, 0, 0, S_IFREG|0755);
 
-    // /home/zuki/.dashrc
+    // /home/zuki/.profile
     copy_file(0, nelms(home_zuki_files), home_zuki_files, zukiino, 1000, 1000, S_IFREG|0640);
-    // /home/root/.dashrc
+    // /home/root/.profile
     copy_file(0, nelms(home_root_files), home_root_files, suino, 0, 0, S_IFREG|0640);
 
     // fix size of root inode dir

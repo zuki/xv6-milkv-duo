@@ -1,2 +1,1 @@
 PATH=/bin:/usr/bin; export PATH
-MAGIC=/usr/share/file/magic.mgc; export MAGIC

@@ -113,6 +113,7 @@ char *usrbins[] = {
     "usr/bin/su",
     "usr/bin/readelf",
     "usr/bin/objdump",
+    "usr/bin/nm",
     "usr/bin/file",
     NULL
 };
@@ -126,6 +127,7 @@ char *etc_files[] = {
     "usr/etc/limits",
     "usr/etc/profile",
     "usr/etc/now",
+    "usr/etc/ld-musl-riscv64.path",
     NULL
 };
 
@@ -137,10 +139,10 @@ char *usrsbins[] = {
 
 char *lib_files[] = {
     "usr/lib/libc.so",
-    "usr/lib/libmd.so.0",
-    "usr/lib/libbsd.so.0",
     "usr/lib/libmyadd.so",
     "usr/lib/libmagic.so.1",
+    "usr/lib/libbsd.so.0",
+    "usr/lib/libmd.so.0",
     NULL
 };
 
@@ -149,25 +151,37 @@ char *local_bin_files[] = {
     NULL
 };
 
-char *usr_share_file_files[] = {
-    "usr/share/file/magic.mgc",
+char *usr_share_misc_files[] = {
+    "usr/share/misc/magic.mgc",
+    NULL
+};
+
+char *usr_libexec_coreutils_files[] = {
+    "usr/libexec/coreutils/libstdbuf.so",
     NULL
 };
 
 char *home_zuki_files[] = {
-    "usr/home/zuki/.dashrc",
+    "usr/home/zuki/.profile",
     NULL
 };
 
 char *home_root_files[] = {
-    "usr/home/root/.dashrc",
+    "usr/home/root/.profile",
     NULL
 };
 
 char *text_files[] = {
     "usr/test.txt",
+    "usr/test2.txt",
     NULL
 };
+
+char *test_files[] = {
+    "usr/test/abc.txt",
+    NULL
+};
+
 
 int nelms(char **ary) {
     int num = 0;
