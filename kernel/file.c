@@ -473,7 +473,7 @@ ssize_t filereadlink(char *path, int dirfd, uint64_t buf, size_t bufsize)
 
 long fileunlink(char *path, int dirfd, int flags)
 {
-    trace("path: %s, flags: %d", path, flags);
+    trace("path: %s, delete %s", path, (flags & AT_REMOVEDIR) ? "dir" : "file");
     struct inode *ip, *dp;
     char name[DIRSIZ];
     uint32_t off;

@@ -50,8 +50,10 @@ static int check_fdcwd(const char *path, int dirfd)
             return -EBADF;
         }
 
-        if (p->ofile[dirfd]->type != T_DIR)
+        if (p->ofile[dirfd]->ip->type != T_DIR) {
+            error("pid[%d] path: %s, dirfd: %d is not dir", p->pid, path, p->ofile[dirfd]->ip->type);
             return -ENOTDIR;
+        }
     }
 
     return 0;
