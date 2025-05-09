@@ -11,7 +11,7 @@
 #define B_DIRTY 0x4     /* Buffer needs to be written to disk. */
 
 struct buf {
-    uint32_t flags;     // データをディスクから読み噛んでいるか?
+    uint32_t flags;     // データをディスクから読み込んでいるか?
     uint32_t dev;
     uint32_t blockno;
     uint32_t refcnt;
