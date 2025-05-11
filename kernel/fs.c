@@ -873,13 +873,9 @@ int getdents64(struct file *f, uint64_t data, size_t size)
         n = fileread(f, (uint64_t)&de, sizeof(struct dirent), 0);
         //debug("n: %kd, de: de.inum: %d, name: %s", n, de.inum, de.name);
 
-        //r = (buf - data);
         if (n == 0) {
-            //return tlen;
-            //error("read 0, tlen=%ld", tlen);
-            //return tlen ? tlen : -ENOENT;
-            trace("no data");
-            break;
+            trace("read 0");
+            return tlen ? tlen : 0;
         }
         if (n < 0 || n != sizeof(struct dirent)) {
             error("readi invalid n=%ld, tlen=%ld", n, tlen);
@@ -892,7 +888,7 @@ int getdents64(struct file *f, uint64_t data, size_t size)
         namelen = MIN(strlen(de.name), DIRSIZ) + 1;
         reclen = (size_t)(&((struct dirent64*)0)->d_name);
         reclen = reclen + namelen;
-        reclen = (reclen + 7) & ~0x7;
+        reclen = (reclen + 0x7) & ~0x7;
 
         trace("inum: %d, type: %d, namelen: %d, reclen: %d", de.inum, f->ip->type, namelen, reclen);
 
