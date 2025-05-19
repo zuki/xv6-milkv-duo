@@ -140,7 +140,7 @@ static struct slab_header *slab_new(const struct slab_cache *cache) {
     header->free[max_object_num] = SLAB_FREE_END;
     trace("  [%d]: %p = 0x%x", max_object_num, &header->free[max_object_num], header->free[max_object_num]);
 
-    //debug_bytes("header->free:", (char *)header->free, 64);
+    //debug_bytes("header->free:", (char *)header->free, 64, 0);
 
     return header;
 }
@@ -336,7 +336,7 @@ void *slab_cache_alloc(struct slab_cache *cache) {
     free_list = (uint32_t *)(header + 1);       /* free_listの先頭アドレス*/
 #if 0
     if (index < 2)
-        debug_bytes("free_list:", (char *)free_list, 128);
+        debug_bytes("free_list:", (char *)free_list, 128, 0);
 #endif
     index = (uint32_t)(header->free - free_list); /* 使用するフリーオブジェクトのインデックス */
     next_index = *header->free;                 /* 次のフリーオブジェクトのインデックス */
@@ -369,7 +369,7 @@ void *slab_cache_alloc(struct slab_cache *cache) {
     trace("addr: %p = %p + (0x%x * 0x%x)", addr, header->object, cache->object_size, index);
 #if 0
     if (index < 2) {
-        debug_bytes("free_list:", (char *)free_list, 128);
+        debug_bytes("free_list:", (char *)free_list, 128, 0);
     }
     printf("\n");
 #endif

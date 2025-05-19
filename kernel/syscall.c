@@ -353,7 +353,7 @@ long sys_dso(void) {
     if (dso.name)
         copyin(myproc()->pagetable, dname, (uint64_t)dso.name, 64);
 
-    //debug_bytes(name, (char *)&dso, sizeof(struct dso));
+    //debug_bytes(name, (char *)&dso, sizeof(struct dso), dsop);
     debug("%s: 0x%lx", name, dsop);
     printf("  name: %s, base: %p, map: %p, map_len: 0x%lx\n", dname, dso.base, dso.map, dso.map_len);
     printf("  phdr: %p, phnum: %d, relocated: %d, constructed: %d, kernel_mapped: %d\n", dso.phdr, dso.phnum, dso.relocated, dso.constructed, dso.kernel_mapped);

@@ -935,7 +935,7 @@ int getdents64(struct file *f, uint64_t data, size_t size)
         tlen += reclen;
         off = f->off;
     }
-    //debug_bytes("data:", data, tlen);
+    //debug_bytes("data:", data, tlen, 0);
     return tlen;
 }
 

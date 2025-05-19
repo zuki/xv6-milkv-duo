@@ -159,7 +159,7 @@ int             pipewrite(struct pipe*, uint64_t, int);
 int             printf(const char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
-void            debug_bytes(char *title, char *buf, int size);
+void            debug_bytes(char *title, char *buf, int size, uint64_t start);
 
 // proc.c
 struct cpu *    mycpu(void);
