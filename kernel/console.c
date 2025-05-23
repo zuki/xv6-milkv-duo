@@ -164,6 +164,7 @@ static int consoleioctl(int fd, uint64_t req, void *argp)
 {
     struct proc *p = myproc();
     struct winsize wins = { .ws_row = 24, .ws_col = 80 };
+    pid_t pgid;
 
     switch (req) {
         case TCGETS:
@@ -192,10 +193,12 @@ static int consoleioctl(int fd, uint64_t req, void *argp)
             // Windowサイズ設定: 当面何もしない
             break;
         case TIOCSPGRP:  // TODO: 本来、dev(tty)用なのでp->sgid?
-            if (copyin(p->pagetable, (char *)&p->pgid, (uint64_t)argp, sizeof(pid_t)) < 0) {
-                error("TIOCSPGRP argp: 0x%lx, old pgid: %d, size: %d", argp, p->pgid, sizeof(pid_t));
+            if (copyin(p->pagetable, (char *)&pgid, (uint64_t)argp, sizeof(pid_t)) < 0) {
+                error("TIOCSPGRP argp: 0x%lx, old pgid: %d, size: %d", argp, pgid, sizeof(pid_t));
                 return -EINVAL;
             }
+            trace("TIOCSPGRP: pgid=%d", pgid);
+            p->pgid = pgid;
             break;
         case TIOCGPGRP:
             trace("TIOCGPGRP: pgid=%d", p->pgid);
