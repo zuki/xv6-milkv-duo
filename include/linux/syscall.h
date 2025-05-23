@@ -297,6 +297,8 @@
 #define SYS_faccessat2        439
 
 /* 独自 */
+#define SYS_dump        994
+#define SYS_meta        995
 #define SYS_musl_file   996
 #define SYS_dso         997
 #define SYS_libc        998

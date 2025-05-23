@@ -337,8 +337,8 @@ long sys_debug(void) {
     if (argstr(0, name, MAXPATH) < 0 || argstr(1, tag, MAXPATH) < 0
      || argu64(2, &val) < 0)
         return -EINVAL;
-    if (myproc()->pid == 15)
-        debug("%s: %s = 0x%lx", name, tag, val);
+    //if (myproc()->pid == 11)
+    //    debug("%s: %s = 0x%lx", name, tag, val);
     return 0;
 }
 
@@ -401,6 +401,64 @@ long sys_musl_file(void) {
     /* printf("  bsize: % 10ld\n", musl_file.buf_size);   // 1024 固定 */
     /* printf("  mode : 0x%lx\n", musl_file.mode);        // ここでは意味無し */
     /* printf("  lbf  : 0x%lx\n", musl_file.lbf);         // 0xa 改行コード */
+    return 0;
+}
+
+// 独自実装
+// syscall(995, char *where, struct meta *meta);
+long sys_meta(void) {
+    char where[MAXPATH];
+    uint64_t metap;
+    //struct musl_meta meta;
+    //struct meta_group group;
+
+    if (argstr(0, where, MAXPATH) < 0 || argu64(1, &metap) < 0)
+        return -EINVAL;
+#if 0
+    copyin(myproc()->pagetable, (char *)&meta, metap, sizeof(struct musl_meta));
+
+    debug("'%s': 0x%lx", where, metap);
+    printf("  prev     : 0x%lx\n", meta.prev);
+    printf("  next     : 0x%lx\n", meta.next);
+    printf("  mem      : 0x%010lx\n", meta.mem);
+    printf("  avail_msk: 0x%x\n", meta.avail_mask);
+    printf("  freed_msk: 0x%x\n", meta.freed_mask);
+    printf("  last_idx : %ld\n", meta.last_idx);
+    printf("  freeable : %ld\n", meta.freeable);
+    printf("  sizeclass: %ld\n", meta.sizeclass);
+    printf("  maplen   : %ld\n\n", meta.maplen);
+
+    if (meta.mem != NULL) {
+        copyin(myproc()->pagetable, (char *)&group, (uint64_t)meta.mem, sizeof(*(meta.mem)));
+
+        debug("'meta->mem': %p", meta.mem);
+        printf("  meta   : 0x%lx\n", group.meta);
+        printf("  av_idx : %d\n", group.active_idx);
+        printf("  pad    : 0x%lx\n", group.pad);
+        printf("  storage: 0x%lx\n\n", group.storage);
+    }
+#endif
+    return 0;
+}
+
+// 独自実装
+// syscall(994, char *where, void *bufp, uint64_t size);
+long sys_dump(void) {
+    char where[MAXPATH];
+    uint64_t bufp, size;
+
+    if (argstr(0, where, MAXPATH) < 0 || argu64(1, &bufp) < 0
+        || argu64(2, &size) < 0)
+        return -EINVAL;
+#if 0
+    if (bufp) {
+        char buf[size];
+        copyin(myproc()->pagetable, buf, bufp, size);
+        debug("%s: 0x%lx", where, bufp);
+        debug_bytes(where, buf, size, bufp);
+    }
+#endif
+
     return 0;
 }
 
@@ -497,6 +555,8 @@ static func syscalls[] = {
     [SYS_copy_file_range] = sys_copy_file_range, // 285
     [SYS_statx]     = sys_statx,                // 291
     [SYS_faccessat2] = sys_faccessat2,          // 439
+    [SYS_dump]      = sys_dump,                 // 995
+    [SYS_meta]      = sys_meta,                 // 995
     [SYS_musl_file] = sys_musl_file,            // 996
     [SYS_dso]       = sys_dso,                  // 997
     [SYS_libc]      = sys_libc,                 // 998
@@ -604,6 +664,8 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_copy_file_range] = "sys_copy_file_range", // 285
     [SYS_statx]     = "sys_statx",                // 291
     [SYS_faccessat2] = "sys_faccessat2",          // 439
+    [SYS_dump]      = "sys_dump",                 // 995
+    [SYS_meta]      = "sys_meta",                 // 995
     [SYS_musl_file]   = "sys_musl_file",          // 996
     [SYS_dso]       = "sys_dso",                  // 997
     [SYS_libc]      = "sys_libc",                 // 998
@@ -712,6 +774,8 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_copy_file_range] = 6,                  // 285
     [SYS_statx]     = 5,                        // 291
     [SYS_faccessat2] = 4,                       // 439
+    [SYS_dump] = 3,                             // 995
+    [SYS_meta] = 2,                             // 995
     [SYS_musl_file] = 2,                        // 996
     [SYS_dso] = 2,                              // 997
     [SYS_libc] = 2,                             // 998

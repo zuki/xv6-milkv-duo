@@ -105,4 +105,21 @@ struct musl_file {
     void *locale;
 };
 
+struct meta_group {                     // size = 16
+	struct musl_meta *meta;                     //  8
+	unsigned char active_idx:5;                 //  1
+	char pad[16 - sizeof(struct meta *) - 1];   //  7
+	unsigned char storage[];                    //  0
+};
+
+struct musl_meta {                      // size = 40
+	struct musl_meta *prev, *next;
+	struct meta_group *mem;
+	int avail_mask, freed_mask;
+	uintptr_t last_idx:5;
+	uintptr_t freeable:1;
+	uintptr_t sizeclass:6;
+	uintptr_t maplen:8*sizeof(uintptr_t)-12;
+};
+
 #endif
