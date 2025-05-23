@@ -1280,6 +1280,22 @@ long sys_fadvise64()
     return 0;
 }
 
+// int fchmod(int fd, mode_t mode);
+long sys_fchmod(void)
+{
+    int fd;
+    mode_t mode;
+    struct file *f;
+
+    if (argfd(0, &fd, &f) < 0 || argint(1, (int *)&mode) < 0)
+        return -EINVAL;
+
+    if (myproc()->pid == 11)
+        debug("fd: %d, f->inum: %d, mode: 0x%x", fd, f->ip->inum, mode);
+
+    return filechmod(f, NULL, 0, mode);
+}
+
 // int fchmodat(int dirfd, const char *pathname, mode_t mode, int flags);
 long sys_fchmodat()
 {
@@ -1294,7 +1310,7 @@ long sys_fchmodat()
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;
 
-    return filechmod(path, dirfd, mode);
+    return filechmod(NULL, path, dirfd, mode);
 }
 
 // fchown(int fd, uid_t owner, gid_t group);
@@ -1478,7 +1494,7 @@ long sys_renameat2(void)
     if (flags & RENAME_EXCHANGE)
         return -EINVAL;
 
-    if (strncmp(oldpath, newpath, strlen(oldpath)) == 0) return 0;
+    if (strncmp(oldpath, newpath, MAX(strlen(oldpath), strlen(newpath))) == 0) return 0;
 
     return filerename(oldpath, olddirfd, newpath, newdirfd, flags);
 }
@@ -1520,4 +1536,45 @@ long sys_copy_file_range(void)
     if (f_in->ip->type == T_DIR || f_out->ip->type == T_DIR)
         return -EISDIR;
 #endif
+}
+
+//  int fsync(int fd);
+long sys_fsync(void)
+{
+    int fd;
+    struct file *f;
+    struct proc *p = myproc();
+
+    if (argfd(0, &fd, &f) < 0)
+        return -EBADF;
+
+    if (!p->ofile[fd])
+        return -EBADF;
+
+    if (f->type == FD_PIPE || IFTODT(f->ip->mode) == DT_FIFO || IFTODT(f->ip->mode) == DT_SOCK)
+        return -EINVAL;
+
+    return 0;
+}
+
+// int fdatasync(int fd);
+long sys_fdatasync(void)
+{
+    int fd;
+    struct file *f;
+    struct proc *p = myproc();
+
+    if (argfd(0, &fd, &f) < 0)
+        return -EBADF;
+
+    if (!p->ofile[fd])
+        return -EBADF;
+
+    if (f->type == FD_PIPE || IFTODT(f->ip->mode) == DT_FIFO || IFTODT(f->ip->mode) == DT_SOCK)
+        return -EINVAL;
+
+    if (p->pid == 11)
+        trace("fd: %d, inum: %d", fd, f->ip->inum);
+    // FIXME
+    return 0;
 }

@@ -349,6 +349,11 @@ sfence_vma()
     asm volatile("sfence.vma zero, zero");
 }
 
+static inline void sfence_vma_page(unsigned long addr)
+{
+	asm volatile("sfence.vma %0" : : "r" (addr) : "memory");
+}
+
 static inline void
 fence_i()
 {
@@ -419,17 +424,18 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PGSIZE 4096 // bytes per page
 #define PGSHIFT 12  // bits of offset within a page
 
-#define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
+#define PGROUNDUP(sz)   (((sz)+PGSIZE-1) & ~(PGSIZE-1))
+#define PGROUNDDOWN(a)  (((a)) & ~(PGSIZE-1))
+#define PGALINED(a)     (((uint64_t)(a) & (PGSIZE-1)) == 0UL)
 
-#define PTE_V       (1L << 0) // valid
-#define PTE_R       (1L << 1)
-#define PTE_W       (1L << 2)
-#define PTE_X       (1L << 3)
+#define PTE_V       (1L << 0) // Valid : Present
+#define PTE_R       (1L << 1) // Readable
+#define PTE_W       (1L << 2) // Writable
+#define PTE_X       (1L << 3) // Executable
 #define PTE_U       (1L << 4) // user can access
-#define PTE_G       (1L << 5)
-#define PTE_A       (1L << 6)
-#define PTE_D       (1L << 7)
+#define PTE_G       (1L << 5) // Global
+#define PTE_A       (1L << 6) // Accessed: Set by hardware on any access
+#define PTE_D       (1L << 7) // Dirty: Set by hardware on any wrte
 
 #define PTE_COW     (1L << 8)   // このページはCOWか?
 
@@ -439,14 +445,16 @@ typedef uint64_t *pagetable_t; // 512 PTEs
 #define PTE_C       (1UL << 62) /* Cacheable */
 #define PTE_SO      (1UL << 63) /* Strong Order */
 
+#define PTE_THEAD   (PTE_SEC | PTE_S | PTE_B | PTE_C | PTE_SO)
+
 #define PTE_TABLE(pte)   ((pte & 0xe) == 0)
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64_t)pa) >> 12) << 10)
 
-#define PTE2PA(pte) (((pte & ~((1UL << 63) | (1UL << 62) | (1UL << 61) | (1UL << 60) | (1UL << 59))) >> 10) << 12)
+#define PTE2PA(pte) (((pte & ~(PTE_THEAD_NORMAL)) >> 10) << 12)
 
-#define PTE_FLAGS(pte) ((pte) & (0x3FF | (1UL << 63)|(1UL << 62) | (1UL << 61) | (1UL << 60) | (1UL << 59)))
+#define PTE_FLAGS(pte) ((pte) & (0x3FF | PTE_THEAD))
 
 // extract the three 9-bit page table indices from a virtual address.
 /*

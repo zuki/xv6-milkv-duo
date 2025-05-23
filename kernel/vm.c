@@ -9,6 +9,7 @@
 #include <linux/mman.h>
 #include <config.h>
 #include <printf.h>
+#include <errno.h>
 #ifdef DUO256
 #include <cv181x_reg.h>
 #else
@@ -136,6 +137,33 @@ walkaddr(pagetable_t pagetable, uint64_t va)
         return 0;
     pa = PTE2PA(*pte);
     return pa;
+}
+
+int change_proc(uint64_t start, uint64_t end, int prot)
+{
+    uint64_t va;
+    pte_t *pte;
+
+    for (va = start; va < end; va+= PGSIZE) {
+        pte = walk(myproc()->pagetable, va, 0);
+        if ((*pte & PTE_RO) && (prot == PROT_WRITE)) {
+            error("wrong prot: prot: 0x%x, *pte: 0x%x", prot, *pte & 0xff);
+            return -EACCES;
+        }
+
+        *pte &= ~(PTE_R | PTE_W | PTE_X | PTE_U);
+        if (prot != PROT_NONE) {
+            if (prot & PROT_READ)
+                *pte |= PTE_R;
+            if (prot & PROT_WRITE)
+                *pte |= PTE_W;
+            if (prot & PROT_EXEC)
+                *pte |= PTE_X;
+            *pte |= PTE_U;
+        }
+    }
+    sfence_vma();
+    return 0;
 }
 
 // カーネルページテーブルにマッピングを追加する.
@@ -417,13 +445,14 @@ copyout(pagetable_t pagetable, uint64_t dstva, char *src, uint64_t len)
 
     while (len > 0) {
         va0 = PGROUNDDOWN(dstva);
+#if 0
         int ret = alloc_cow_page(pagetable, va0);
         if (ret < 0) {
             return -1;
         } else if (ret == 1) {
             trace("not cow");
         }
-
+#endif
         pa0 = walkaddr(pagetable, va0);
         if (pa0 == 0) {
             trace("pa0 = 0: dstva: 0x%lx (va0: 0x%lx)", dstva, va0);

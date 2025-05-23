@@ -30,23 +30,6 @@ fileinit(void)
   initlock(&ftable.lock, "ftable");
 }
 
-// Is the directory dp empty except for "." and ".." ?
-static int isdirempty(struct inode *dp)
-{
-    int off;
-    struct dirent de;
-
-    for (off=2*sizeof(de); off<dp->size; off+=sizeof(de)) {
-        if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
-            panic("isdirempty: readi");
-        if (de.inum != 0) {
-            trace("inum: %d", de.inum);
-            return 0;
-        }
-    }
-    return 1;
-}
-
 // ファイル構造体を割り当てる.
 struct file *filealloc(void)
 {
@@ -473,7 +456,8 @@ ssize_t filereadlink(char *path, int dirfd, uint64_t buf, size_t bufsize)
 
 long fileunlink(char *path, int dirfd, int flags)
 {
-    trace("path: %s, delete %s", path, (flags & AT_REMOVEDIR) ? "dir" : "file");
+    if (myproc()->pid == 11)
+        debug("path: %s, dirfd: %d, delete %s", path, dirfd, (flags & AT_REMOVEDIR) ? "dir" : "file");
     struct inode *ip, *dp;
     char name[DIRSIZ];
     uint32_t off;
@@ -503,55 +487,9 @@ long fileunlink(char *path, int dirfd, int flags)
 
     ilock(ip);
 
-    if (ip->nlink < 1) {
-        error("invalid nlink: %d", ip->nlink);
-        error = -EPERM;
-        goto badip;
-        //panic("unlink: nlink < 1");
-    }
-
-    if (flags & AT_REMOVEDIR) {
-        if (ip->type != T_DIR) {
-            error("invalid type %d", ip->type);
-            error = -ENOTDIR;
-            goto badip;
-        }
-        if (!isdirempty(ip)) {
-            error("dir not empty");
-            error = -EPERM;
-            goto badip;
-        }
-    } else {
-        if (ip->type == T_DIR) {
-            error = -EISDIR;
-            goto badip;
-        }
-    }
-
-    if (unlink(dp, off) < 0) {
-        error = -EIO;
-        goto badip;
-        //panic("unlink: unlink");
-    }
-
-    //while (dirlookup(dp, name, 0) != 0)     // ファイルが削除されるのを待つ
-    //    delayus(100);
-
-    if (ip->type == T_DIR) {
-        dp->nlink--;
-        iupdate(dp);
-    }
-    iunlockput(dp);
-
-    ip->nlink--;
-    iupdate(ip);
+    error = iunlink(dp, ip, flags);
     iunlockput(ip);
-    end_op();
 
-    return 0;
-
-badip:
-    iunlockput(ip);
 baddp:
     iunlockput(dp);
     end_op();
@@ -744,16 +682,20 @@ bad:
     return -EACCES;
 }
 
-long filechmod(char *path, int dirfd, mode_t mode)
+long filechmod(struct file *f, char *path, int dirfd, mode_t mode)
 {
     struct inode *ip;
 
     begin_op();
-    if ((ip = namei(path, dirfd)) == 0) {
-        end_op();
-        return -ENOENT;
+    if (f != NULL) {
+        ip = f->ip;
+        idup(ip);
+    } else {
+        if ((ip = namei(path, dirfd)) == 0) {
+            end_op();
+            return -ENOENT;
+        }
     }
-
     ilock(ip);
     ip->mode = (ip->mode & S_IFMT) | mode;
     iupdate(ip);
@@ -773,6 +715,8 @@ long filechown(struct file *f, char *path, int dirfd, uid_t owner, gid_t group, 
     begin_op();
     if (f != NULL) {
         ip = f->ip;
+        ilock(ip);
+        idup(ip);
     } else {
 loop:
         if ((ip = namei(path, dirfd)) == 0) {
@@ -1015,37 +959,59 @@ static long rename(struct inode *dp, char *name1, char *name2)
     return 0;
 }
 
-// dp/old_ip -> dp/new_ip へ付け替え
-static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip)
+// dp/old_ip の内容を dp/new_ip として、dp/new_ipをunlinkする
+static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip, char *name)
 {
     struct dirent de;
-    size_t off;
+    size_t offset;
     struct timespec ts;
+    long error;
 
     ilock(dp);
     ilock(old_ip);
     ilock(new_ip);
-    if (direntlookup(dp, old_ip->inum, &de, &off) < 0)
-        return -ENOENT;
 
-    de.inum = new_ip->inum;
-    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
-        warn("writei");
-        return -ENOSPC;
+    if (direntlookup(dp, old_ip->inum, &de, &offset) < 0) {
+        error("old_ip %d is not exist in dp %d", old_ip->inum, dp->inum);
+        error = -ENOENT;
+        goto bad;
     }
+
+    //de.inum = new_ip->inum;
+    de.type = new_ip->type;
+    strncpy(de.name, name, DIRSIZ);
+
+    if (writei(dp, 0, (uint64_t)&de, offset, sizeof(de)) != sizeof(de)) {
+        error("writei");
+        error = -ENOSPC;
+        goto bad;
+    }
+
     iupdate(dp);
     clock_gettime(0, CLOCK_REALTIME, &ts);
     old_ip->ctime = new_ip->ctime = ts;
     iupdate(old_ip);
     iupdate(new_ip);
-    iunlockput(old_ip);
+
+    error = iunlink(dp, new_ip, new_ip->type == T_DIR ? AT_REMOVEDIR : 0);
+
+bad:
     iunlockput(new_ip);
+
+    fence_i();
+    fence_rw();
+
+    direntlookup(dp, old_ip->inum, &de, 0);
+    if (myproc()->pid == 11)
+        debug("new inum[%d] name %s", de.inum, de.name);
+    iunlockput(old_ip);
     iunlockput(dp);
 
-    return 0;
+    fence_i();
+    fence_rw();
+
+    return error;
 }
-
-
 
 long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32_t flags)
 {
@@ -1083,7 +1049,7 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
         return 0;
     }
 
-    error = -EINVAL;
+    error = 0;
     // 親ディレクトリが同じ
     if (dp1 == dp2) {
         // name2はなし: 単なる改名(name1はdirectoryでもfileでも可)
@@ -1094,21 +1060,18 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
             }
             iput(ip1);
             iput(dp2);
-        // name2あり: direentを付け替えて、ip2はunlink
+        // name2あり: ip1 を残して、内容はip2 とする。ip2をunlink
         } else {
-            if ((error = reinode(dp2, ip2, ip1)) < 0) {
-                warn("reinode failed");
-                goto bad;
-            }
+            error = reinode(dp2, ip2, ip1, name2);
             iput(dp1);
-            end_op();
-            return fileunlink(newpath, newdirfd, ip2->type == T_DIR ? AT_REMOVEDIR : 0);
         }
     // 異なるディレクトリへのmove
     } else {
         if (ip2 == 0) {
             if ((error = dirlink(dp2, name2, ip1->inum, ip1->type)) < 0) {
                 warn("dirlink failed 2");
+                iput(dp1);
+                iput(ip1);
                 goto bad;
             }
             flags = ip1->type == T_DIR ? AT_REMOVEDIR : 0;
@@ -1116,19 +1079,12 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
             iput(ip1);
             end_op();
             return fileunlink(oldpath, olddirfd, flags);
+
         } else {
-            if ((error = reinode(dp2, ip2, ip1)) < 0) {
-                warn("reinode failed 2");
-                goto bad;
-            }
-            flags = ip2->type == T_DIR ? AT_REMOVEDIR : 0;
+            error = reinode(dp2, ip2, ip1, name2);
             iput(dp1);
-            iput(ip2);
-            end_op();
-            return fileunlink(newpath, newdirfd, flags);
         }
     }
-    error = 0;
 
 bad:
     end_op();

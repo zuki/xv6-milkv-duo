@@ -338,6 +338,23 @@ struct mmap_region *find_mmap_region(struct proc *p, void *start)
     return NULL;
 }
 
+/* startを含むregionを返し、そのprevをセットする */
+static struct mmap_region *find_mmap_region_prev(struct proc *p, void *start, struct mmap_region **pprev)
+{
+    struct mmap_region *region = p->regions;
+    struct mmap_region *prev = NULL;
+
+    while (region) {
+        if (region->addr <= start && start < (region->addr + region->length)) {
+            *pprev = prev;
+            return region;
+        }
+        prev = region;
+        region = region->next;
+    }
+    return NULL;
+}
+
 /* addr + length はp->regionsに含まれるか */
 bool is_mmap_region(struct proc *p, void *addr, uint64_t length)
 {
@@ -558,6 +575,8 @@ load_pages:
         print_mmap_list(p, "mmap");
     }
 #endif
+    fence_i();
+    fence_rw();
     return (long)region->addr;
 
 out:
@@ -632,6 +651,10 @@ long munmap(void *addr, size_t length)
     }
     //print_mmap_list(p, "munmap");
     //uvmdump(p->pagetable, p->pid, "munmap");
+
+    fence_i();
+    fence_rw();
+
     return 0;
 }
 
@@ -688,16 +711,18 @@ void *mremap(void *old_addr, size_t old_length, size_t new_length, int flags, vo
 long mprotect(void *addr, size_t length, int prot)
 {
     struct proc *p = myproc();
-    struct mmap_region *region;
-    char *addr1, *addr2, *addr3;
-    uint64_t length1, length2, length3;
-    uint64_t offset1, offset2, offset3;
-    int old_prot;
-    long error;
+    struct mmap_region *region, *new1, *new2;
+    int newprot;
 
     if (p->pid == 8)
         trace("addr: %p, length: 0x%lx, prot: 0x%x", addr, length, prot);
 
+    uint64_t addrp = (uint64_t)addr;
+    if (addrp <= p->sz) {
+        return change_proc(addrp, addrp + length, prot);
+    }
+
+#if 0
     uint64_t addrp = (uint64_t)addr;
     if (addrp <= p->sz) {
         for (; addrp < (uint64_t)addr + length; addrp += PGSIZE) {
@@ -706,14 +731,13 @@ long mprotect(void *addr, size_t length, int prot)
                 error("addr: 0x%lx is not mapping", addrp);
                 return -ENOMEM;
             }
-
             if ((*pte & PTE_RO) && (prot == PROT_WRITE)) {
                 error("wrong prot: prot: 0x%x, *pte: 0x%x", prot, *pte & 0xff);
                 return -EACCES;
             }
 
             if (prot == PROT_NONE) {
-                *pte &= ~PTE_U;
+                *pte &= ~(PTE_R | PTE_W | PTE_X | PTE_U);
             } else {
                 if (prot == PROT_READ)
                     *pte |= PTE_R;
@@ -727,10 +751,11 @@ long mprotect(void *addr, size_t length, int prot)
 
         return 0;
     }
+#endif
 
-    if (!is_mmap_region(p, addr, PGROUNDUP(length))) {
+    if (!is_mmap_region(p, addr, length)) {
         error("invalid region: addr: %p, length: 0x%lx", addr, length);
-        return -ENOMEM;
+        return -EFAULT;
     }
 
     region = find_mmap_region(p, addr);
@@ -741,56 +766,85 @@ long mprotect(void *addr, size_t length, int prot)
     }
 
     length = PGROUNDUP(length);
+
     if (region->addr == addr && region->length == length && region->prot == prot)
         return 0;
 
-    old_prot = region->prot;
+    newprot = region->prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC);
+    newprot |= prot;
 
+    // 1: 先頭も末尾も同じ
     if (region->addr == addr && region->length == length) {
-        region->prot = prot;
+        region->prot = newprot;
+    // 2: 先頭が同じ
     } else if (region->addr == addr) {
-        addr1 = region->addr;
-        length1 = length;
-        offset1 = region->offset;
-        addr2 = addr1 + length1;
-        length2 = region->length - length1;
-        offset2 = region->f ? offset1 + length1 : 0;
-        if ((error = munmap(region->addr, region->length)) < 0)
-            return error;
-        mmap(addr1, length1, prot, (region->flags | MAP_FIXED), region->f,  offset1);
-        mmap(addr2, length2, old_prot, (region->flags | MAP_FIXED), region->f,  offset2);
+        new2 = slab_cache_alloc(MMAPREGIONS);
+        if (!new2) return -ENOMEM;
+
+        new2->addr = region->addr + length;
+        new2->length = region->length - length;
+        new2->flags = region->flags;
+        new2->prot = region->prot;
+        new2->f = region->f;
+        new2->offset = region->f ? region->offset + length: 0;
+        new2->next = region->next;
+
+        region->addr = region->addr;
+        region->length = length;
+        region->prot = newprot;
+        region->next = new2;
+    // 3: 末尾が同じ
     } else if ((addr + length) == (region->addr + region->length)) {
-        addr1 = region->addr;
-        length1 = region->length - length;
-        offset1 = region->offset;
-        addr2 = addr;
-        length2 = length;
-        offset2 = region->f ? offset1 + length1 : 0;
-        if ((error = munmap(region->addr, region->length)) < 0)
-            return error;
-        mmap(addr1, length1, old_prot, (region->flags | MAP_FIXED), region->f,  offset1);
-        mmap(addr2, length2, prot, (region->flags | MAP_FIXED), region->f,  offset2);
+        new1 = slab_cache_alloc(MMAPREGIONS);
+        if (!new1) return -ENOMEM;
+
+        new1->addr = region->addr;
+        new1->length = region->length - length;
+        new1->flags = region->flags;
+        new1->prot = region->prot;
+        new1->f = region->f;
+        new1->offset = region->f ? region->offset : 0;
+        new1->next = region;
+
+        region->addr = addr;
+        region->length = length;
+        region->prot = newprot;
+    // 4: 領域の真ん中
     } else {
-        addr1 = region->addr;
-        length1 = (uint64_t)(addr) - (uint64_t)addr1;
-        offset1 = region->offset;
-        addr2 = addr;
-        length2 = length;
-        offset2 = region->f ? offset1 + length1 : 0;
-        addr3 = addr + length;
-        length3 = region->length - length1 - length2;
-        offset3 = region->f ? offset2 + length2 : 0;
-        if ((error = munmap(region->addr, region->length)) < 0)
-            return error;
-        mmap(addr1, length1, old_prot, (region->flags | MAP_FIXED), region->f,  offset1);
-        mmap(addr2, length2, prot, (region->flags | MAP_FIXED), region->f,  offset2);
-        mmap(addr3, length3, old_prot, (region->flags | MAP_FIXED), region->f,  offset3);
+        new1 = slab_cache_alloc(MMAPREGIONS);
+        if (!new1) return -ENOMEM;
+        new2 = slab_cache_alloc(MMAPREGIONS);
+        if (!new2) return -ENOMEM;
+
+        new1->addr = region->addr;
+        new1->length = (uint64_t)addr - (uint64_t)region->addr;
+        new1->flags = region->flags;
+        new1->prot = region->prot;
+        new1->f = region->f;
+        new1->offset = region->f ? region->offset : 0;
+        new1->next = region;
+
+        new2->addr = addr + length;
+        new2->length = region->length - new1->length - length;
+        new2->flags = region->flags;
+        new2->prot = region->prot;
+        new2->f = region->f;
+        new2->offset = region->f ? region->offset + new1->length + length: 0;
+        new2->next = region->next;
+
+        region->addr = addr;
+        region->length = length;
+        region->prot = newprot;
+        region->next = new2;
     }
 
-    if (p->pid == 7)
-        print_mmap_list(p, "mprotect");
+    fence_i();
+    fence_rw();
 
-    return 0;
+    return change_proc((uint64_t)region->addr, (uint64_t)region->addr + region->length, prot);
+
+    //if (p->pid == 11)
+    //    print_mmap_list(p, "mprotect");
 }
 
 long msync(void *addr, size_t length, int flags)

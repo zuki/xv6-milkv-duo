@@ -74,7 +74,7 @@ ssize_t         filereadlink(char *path, int dirfd, uint64_t buf, size_t bufsize
 long            fileunlink(char *path, int dirfd, int flags);
 struct inode *  create(char *path, int dirfd, short type, short major, short minor, mode_t mode);
 long            fileopen(char *path, int dirfd, int flags, mode_t mode);
-long            filechmod(char *path, int dirfd, mode_t mode);
+long            filechmod(struct file *f, char *path, int dirfd, mode_t mode);
 long            filechown(struct file *f, char *path, int dirfd, uid_t owner, gid_t group, int flags);
 struct file *   fileget(char *path);
 long            faccess(char *path, int dirfd, int mode, int flags);
@@ -100,7 +100,7 @@ int             readi(struct inode *ip, int user_dst, uint64_t dst, uint32_t off
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode *ip, int user_src, uint64_t src, uint32_t off, uint32_t n);
 void            itrunc(struct inode*);
-int             unlink(struct inode *dp, uint32_t off);
+int             iunlink(struct inode *dp, struct inode *ip, int flags);
 int             getdents64(struct file *f, uint64_t data, size_t size);
 int             permission(struct inode *ip, int mask);
 
@@ -177,8 +177,6 @@ int             growproc(int);
 void            kdelay(unsigned long n);
 int             kill(pid_t pid, int sig);
 int             killed(struct proc*);
-struct cpu*     mycpu(void);
-struct proc*    myproc();
 void            procdump(void);
 void            procinit(void);
 void            proc_mapstacks(pagetable_t);
@@ -317,6 +315,8 @@ int             copyin(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_
 int             copyinstr(pagetable_t pagetable, char *dst, uint64_t srcva, uint64_t max);
 void            uvmdump(pagetable_t pagetable, pid_t pid, char *name);
 int             alloc_cow_page(pagetable_t pagetable, uint64_t va);
+int             change_proc(uint64_t start, uint64_t end, int prot);
+
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);

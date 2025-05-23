@@ -171,10 +171,13 @@ extern long sys_readv(void);
 extern long sys_kill(void);
 extern long sys_execve(void);
 extern long sys_fstat(void);
+extern long sys_fsync(void);
+extern long sys_fdatasync(void);
 extern long sys_utimensat(void);
 extern long sys_fstatat(void);
 extern long sys_statx(void);
 extern long sys_chdir(void);
+extern long sys_fchmod(void);
 extern long sys_fchmodat(void);
 extern long sys_fchownat(void);
 extern long sys_fchown(void);
@@ -417,6 +420,7 @@ static func syscalls[] = {
     [SYS_linkat]    = sys_linkat,               //  37
     [SYS_faccessat] = sys_faccessat,            //  48
     [SYS_chdir]     = sys_chdir,                //  49
+    [SYS_fchmod]    = sys_fchmod,               //  52
     [SYS_fchmodat]  = sys_fchmodat,             //  53
     [SYS_fchownat]  = sys_fchownat,             //  54
     [SYS_fchown]    = sys_fchown,               //  55
@@ -435,6 +439,8 @@ static func syscalls[] = {
     [SYS_readlinkat] = (func)sys_readlinkat,    //  78
     [SYS_newfstatat] = sys_fstatat,             //  79
     [SYS_fstat]     = sys_fstat,                //  80
+    [SYS_fsync]     = sys_fsync,                //  82
+    [SYS_fdatasync] = sys_fdatasync,            //  83
     [SYS_utimensat] = sys_utimensat,            //  88
     [SYS_exit]      = sys_exit,                 //  93
     [SYS_exit_group] = sys_exit_group,          //  94
@@ -475,6 +481,7 @@ static func syscalls[] = {
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
     [SYS_socket]    = sys_socket,               // 198
+//    [SYS_sendto]    = sys_sendto,               // 206
     [SYS_brk]       = sys_brk,                  // 214
     [SYS_munmap]    = sys_munmap,               // 215
 //    [SYS_mremap]    = sys_mremap,               // 216
@@ -513,6 +520,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_mount] = "sys_mount",                    // 40
     [SYS_faccessat] = "sys_faccessat",            // 48
     [SYS_chdir] = "sys_chdir",                    // 49
+    [SYS_fchmod] = "sys_fchmod",                  // 52
     [SYS_fchmodat] = "sys_fchmodat",              // 53
     [SYS_fchownat] = "sys_fchownat",              // 54
     [SYS_fchown] = "sys_fchown",                  // 55
@@ -578,6 +586,7 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_gettid] = "sys_gettid",                  // 178
     [SYS_sysinfo] = "sys_sysinfo",                // 179
     [SYS_socket] = "sys_socket",                  // 198
+    [SYS_sendto] = "sys_sendto",                  // 206
     [SYS_brk] = "sys_brk",                        // 214
     [SYS_munmap] = "sys_munmap",                  // 215
     [SYS_mremap] = "sys_mremap",                  // 216
@@ -619,6 +628,7 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_mount] = 5,                            // 40
     [SYS_faccessat] = 4,                        // 48
     [SYS_chdir] = 1,                            // 49
+    [SYS_fchmod] = 2,                           // 52
     [SYS_fchmodat] = 4,                         // 53
     [SYS_fchownat] = 5,                         // 54
     [SYS_fchown] = 3,                           // 55
@@ -684,6 +694,7 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_gettid] = 0,                           // 178
     [SYS_sysinfo] = 1,                          // 179
     [SYS_socket] = 3,                           // 198
+    [SYS_sendto] = 6,                           // 206
     [SYS_brk] = 1,                              // 214
     [SYS_munmap] = 2,                           // 215
     [SYS_mremap] = 4,                           // 216

@@ -320,8 +320,10 @@ ilock(struct inode *ip)
     struct buf *bp;
     struct dinode *dip;
 
-    if (ip == 0 || ip->ref < 1)
+    if (ip == 0 || ip->ref < 1) {
+        error("inum: %d, ref: %d", ip ? ip->inum : 0, ip ? ip->ref : -1);
         panic("ilock");
+    }
 
     acquiresleep(&ip->lock);
 
@@ -342,8 +344,11 @@ ilock(struct inode *ip)
         memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
         brelse(bp);
         ip->valid = 1;
-        if(ip->type == 0)
+        if(ip->type == 0) {
+            error("ip->inum: %d", ip->inum);
             panic("ilock: no type");
+        }
+
     }
 }
 
@@ -351,8 +356,10 @@ ilock(struct inode *ip)
 void
 iunlock(struct inode *ip)
 {
-    if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
+    if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1) {
+        debug("panic inum: %d, ip->ref: %d", ip ? ip->inum : 0, ip->ref);
         panic("iunlock");
+    }
 
     releasesleep(&ip->lock);
 }
@@ -731,8 +738,10 @@ dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
 
     // Look for an empty dirent.
     for (off = 0; off < dp->size; off += sizeof(de)) {
-        if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de))
-            panic("dirlink read");
+        if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)){
+            error("read error: dp: %d", dp->inum);
+            return -EACCES;
+        }
         if (de.inum == 0)
             break;
     }
@@ -742,7 +751,7 @@ dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
     de.type = type;
     int ret;
     if ((ret = writei(dp, 0, (uint64_t)&de, off, sizeof(de))) != sizeof(de)) {
-        debug("write error: inum: %d, type: %d, name: %s, want: %d, ret: %d",
+        error("write error: inum: %d, type: %d, name: %s, want: %d, ret: %d",
             inum, type, name, sizeof(de), ret);
         return -EACCES;
     }
@@ -843,18 +852,88 @@ nameiparent(char *path, char *name, int dirfd)
     return namex(path, 1, name, dirfd);
 }
 
-int unlink(struct inode *dp, uint32_t off)
+// Is the directory dp empty except for "." and ".." ?
+static int isdirempty(struct inode *dp)
 {
+    int off;
     struct dirent de;
-    // FIXME: 取り詰めとsizeの変更
-    memset(&de, 0, sizeof(de));
-    if (writei(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
-        error("writei error: inum=%d", dp->inum);
-        return -1;
+
+    for (off=2*sizeof(de); off<dp->size; off+=sizeof(de)) {
+        if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+            error("read error");
+            return -EIO;
+        }
+        if (de.inum != 0) {
+            trace("inum: %d", de.inum);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// dpからipをunlinkする, begin_op()されて、dpもipもilock()されていること
+int iunlink(struct inode *dp, struct inode *ip, int flags)
+{
+    if (myproc()->pid == 11)
+        debug("unlink inum %d", ip->inum);
+
+    struct dirent de, de0;
+    memset(&de0, 0, sizeof(de));
+
+    if (ip->nlink < 1) {
+        error("invalid nlink: %d", ip->nlink);
+        return -EPERM;
     }
 
-    // rm -rf 用に設定したが効果なし (flush_dcache_rangeも同様)
-    //invalidate_dcache_range((uint64_t)&de + off, (uint64_t)&de + off + sizeof(de));
+    if (flags & AT_REMOVEDIR) {
+        if (ip->type != T_DIR) {
+            error("invalid type %d", ip->type);
+            return -ENOTDIR;
+        }
+        if (!isdirempty(ip)) {
+            error("dir not empty");
+            return -EPERM;
+        }
+    } else {
+        if (ip->type == T_DIR) {
+            error("is directory");
+            return -EISDIR;
+        }
+    }
+
+    int ok = 0;
+    for (uint32_t off = 0; off < dp->size; off += sizeof(de)) {
+        if (readi(dp, 0, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+            error("readi %d error", ip->inum);
+            return -EIO;
+        }
+        if (de.inum == ip->inum) {
+            if (myproc()->pid == 11)
+                debug("erase inum[%d]: type: %d, name: %s", de.inum, de.type, de.name);
+            if (writei(dp, 0, (uint64_t)&de0, off, sizeof(de0)) != sizeof(de0)) {
+                error("erase %d error", ip->inum);
+                return -EIO;
+            }
+            ok = 1;
+            break;
+        }
+    }
+
+    fence_i();
+    fence_rw();
+
+    //while (dirlookup(dp, name, 0) != 0)     // ファイルが削除されるのを待つ
+    //    delayus(100);
+
+    if (ok) {
+        if (ip->type == T_DIR) {
+            dp->nlink--;
+            iupdate(dp);
+        }
+
+        ip->nlink--;
+        iupdate(ip);
+    }
 
     return 0;
 }
