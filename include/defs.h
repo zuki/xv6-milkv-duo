@@ -214,6 +214,10 @@ int             rtc_settime(const struct timespec *tp);
 void            rtc_strftime(struct tm *tm);
 void            rtc_now(void);
 
+// random.c
+void            randinit(void);
+long            getrandom(uint64_t bufp, size_t buflen);
+
 // sbi.c
 #ifndef CONFIG_RISCV_M_MODE
 void            sbiinit(void);

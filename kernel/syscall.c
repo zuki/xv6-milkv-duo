@@ -316,6 +316,19 @@ long sys_uname(void) {
     return 0;
 }
 
+// ssize_t getrandom(void buf[.buflen], size_t buflen, unsigned int flags);
+long sys_getrandom(void)
+{
+    uint64_t bufp;
+    size_t buflen;
+    uint32_t flags;
+
+    if (argu64(0, &bufp) < 0 || argu64(1, &buflen) < 0 || argint(2, (int *)&flags) < 0)
+        return -EINVAL;
+
+    return getrandom(bufp, buflen);
+}
+
 // socket(int domain, int type, int protocol);
 // 引数のチェック用、当面実装はしない
 long sys_socket(void) {
@@ -552,6 +565,7 @@ static func syscalls[] = {
     [SYS_wait4]     = sys_wait4,                // 260
     [SYS_prlimit64] = sys_prlimit64,            // 261
     [SYS_renameat2] = sys_renameat2,            // 276
+    [SYS_getrandom] = sys_getrandom,            // 278
     [SYS_copy_file_range] = sys_copy_file_range, // 285
     [SYS_statx]     = sys_statx,                // 291
     [SYS_faccessat2] = sys_faccessat2,          // 439

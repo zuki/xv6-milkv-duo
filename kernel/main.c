@@ -42,6 +42,7 @@ main()
         binit();            // buffer cache
         iinit();            // inode table
         fileinit();         // file table
+        randinit();         // random lock
         //virtio_disk_init(); // emulated hard disk
         //ramdiskinit();
         sd_init();
