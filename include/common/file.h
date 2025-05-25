@@ -55,11 +55,14 @@ struct devsw {
 
 extern struct devsw devsw[];
 
+/* メジャー番号 */
 #define CONSOLE 1
-#define GPIO 2
-#define PWM 3
-#define ADC 4
-#define I2C 5
-#define SPI 6
+#define DEVNULL 2
+#define DEVZERO 3
+#define GPIO 4
+#define PWM 5
+#define ADC 6
+#define I2C 7
+#define SPI 8
 
 #endif

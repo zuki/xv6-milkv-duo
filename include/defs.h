@@ -53,6 +53,9 @@ void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
 
+// dev_null.c
+void            devnull_init(void);
+
 // exec.c
 int             execve(char *path, char *const argv[], char *const envp[], int argc, int envc);
 

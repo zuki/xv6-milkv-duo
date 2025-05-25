@@ -21,6 +21,7 @@ main()
         memset(_bss_start, 0, _bss_end - _bss_start);
         main_hartid = cpuid();
         consoleinit();
+        devnull_init();
         printfinit();
         printf("\n");
         printf("xv6 kernel is booting in hart %d\n", cpuid());

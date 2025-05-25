@@ -44,7 +44,8 @@ OBJS = \
   $K/clock.o \
   $K/mmap.o \
   $K/kmalloc.o \
-  $K/random.o
+  $K/random.o \
+  $K/dev_null.o
 
 $K/ramdisk_data.o: fs.img
 
