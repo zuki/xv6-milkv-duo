@@ -201,6 +201,8 @@ extern long sys_getuid(void);
 extern long sys_geteuid(void);
 extern long sys_getgid(void);
 extern long sys_getegid(void);
+extern long sys_getsid(void);
+extern long sys_setsid(void);
 extern long sys_getdents64(void);
 extern long sys_lseek(void);
 extern long sys_brk(void);
@@ -538,6 +540,8 @@ static func syscalls[] = {
     [SYS_setfsgid]  = sys_setfsgid,             // 152
     [SYS_setpgid]   = sys_setpgid,              // 154
     [SYS_getpgid]   = sys_getpgid,              // 155
+    [SYS_getsid]    = sys_getsid,               // 156
+    [SYS_setsid]    = sys_setsid,               // 157
     [SYS_getgroups] = sys_getgroups,            // 158
     [SYS_setgroups] = sys_setgroups,            // 159
     [SYS_uname]     = sys_uname,                // 160
@@ -647,6 +651,8 @@ __attribute__((unused)) static char *syscall_names[] = {
     [SYS_setfsgid] = "sys_setfsgid",              // 152
     [SYS_setpgid] = "sys_setpgid",                // 154
     [SYS_getpgid] = "sys_getpgid",                // 155
+    [SYS_getsid]    = "sys_getsid",               // 156
+    [SYS_setsid]    = "sys_setsid",               // 157
     [SYS_getgroups] = "sys_getgroups",            // 158
     [SYS_setgroups] = "sys_setgroups",            // 159
     [SYS_uname] = "sys_uname",                    // 160
@@ -757,6 +763,8 @@ __attribute__((unused)) static int syscall_params[] = {
     [SYS_setfsgid] = 1,                         // 152
     [SYS_setpgid] = 2,                          // 154
     [SYS_getpgid] = 1,                          // 155
+    [SYS_getsid] = 1,                           // 156
+    [SYS_setsid] = 0,                           // 157
     [SYS_getgroups] = 2,                        // 158
     [SYS_setgroups] = 2,                        // 159
     [SYS_uname] = 1,                            // 160

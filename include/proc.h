@@ -150,6 +150,8 @@ struct proc {
     struct trapframe *oldtf;        // 旧trapframeを保存
 };
 
+extern struct proc proc[NPROC];
+
 typedef struct cpu_set_t { unsigned long __bits[128/sizeof(long)]; } cpu_set_t;
 
 #endif

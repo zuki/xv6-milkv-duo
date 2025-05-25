@@ -886,6 +886,42 @@ long sys_setfsgid()
 
     return old_fsgid;
 }
+
+// pid_t getsid(pid_t pid);
+long sys_getsid(void)
+{
+    pid_t pid;
+    struct proc *p;
+
+    if (argint(0, &pid) < 0)
+        return -EINVAL;
+
+    if (pid) {
+        for (p = proc; p < &proc[NPROC]; p++) {
+            if (p->pid == pid)
+                return p->sid;
+        }
+        return -ESRCH;
+    } else {
+        return myproc()->sid;
+    }
+}
+
+// pid_t setsid(void);
+long sys_setsid(void)
+{
+    struct proc *pp, *p = myproc();
+
+    for (pp = proc; pp < &proc[NPROC]; pp++) {
+        if (pp->pgid == p->pid)
+            return -EPERM;
+    }
+
+    p->pgid = p->sid = p->pid;
+    return p->sid;
+}
+
+
 //  mode_t umask(mode_t mask);
 mode_t sys_umask()
 {
