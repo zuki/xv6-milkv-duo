@@ -357,7 +357,7 @@ void
 iunlock(struct inode *ip)
 {
     if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1) {
-        debug("panic inum: %d, ip->ref: %d", ip ? ip->inum : 0, ip->ref);
+        error("panic inum: %d, ip->ref: %d", ip ? ip->inum : 0, ip->ref);
         panic("iunlock");
     }
 
@@ -692,8 +692,8 @@ namecmp(const char *s, const char *t)
   return strncmp(s, t, DIRSIZ);
 }
 
-// Look for a directory entry in a directory.
-// If found, set *poff to byte offset of entry.
+// 指定ディレクトリから指定のディレクトリエントリを探す。
+// 見つかったらエントリのバイトオフセットを*poffにセットする。
 struct inode*
 dirlookup(struct inode *dp, char *name, uint32_t *poff)
 {
@@ -720,8 +720,8 @@ dirlookup(struct inode *dp, char *name, uint32_t *poff)
     return 0;
 }
 
-// Write a new directory entry (name, inum) into the directory dp.
-// Returns 0 on success, -1 on failure (e.g. out of disk blocks).
+// ディレクトリ dp に新しいディレクトリエントリ(name, inum)を書き込む.
+// 成功したら0, 失敗（ディスクプロック不足）したら-1を返す
 int
 dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
 {
@@ -990,7 +990,7 @@ int getdents64(struct file *f, uint64_t data, size_t size)
         if (dirip->type == T_DEVICE) {
             if (f->major == 0)      // SD
                 de64.d_type = DT_BLK;
-            else // if (f->major == 1) // CONSOLE
+            else // if (f->major == 1/2/3) // CONSOLE/DEVNULL/DEVZERO/
                 de64.d_type = DT_CHR;
         } else if (dirip->type == T_DIR) {
             de64.d_type = DT_DIR;

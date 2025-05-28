@@ -312,7 +312,7 @@ long filelseek(struct file *f, off_t offset, int whence)
     return f->off;
 
 bad:
-    debug("invalid offset %d", offset)
+    error("invalid offset %d", offset)
     return -EINVAL;
 }
 
@@ -637,10 +637,15 @@ loop:
     int readable = FILE_READABLE((int)flags);
     int writable = FILE_WRITABLE((int)flags);
 
-    if (readable && (permission(ip, MAY_READ) < 0))
+    if (readable && (permission(ip, MAY_READ) < 0)){
+        error("ip %d is not readable: 0x%x", ip->inum, readable);
         goto bad;
-    if (writable && (permission(ip, MAY_WRITE) < 0))
+    }
+
+    if (writable && (permission(ip, MAY_WRITE) < 0)) {
+        error("ip %d is not writable: 0x%x", ip->inum, writable);
         goto bad;
+    }
 
     if ((f = filealloc()) == 0 || (fd = fdalloc(f, 0)) < 0) {
         iunlock(ip);
@@ -743,7 +748,7 @@ loop:
 
     if (owner != (uid_t)-1) {
         if (!capable(CAP_CHOWN)) {
-            error("uid %d cant chown", owner);
+            error("[%d] inum: %d, uid %d cant chown: p->cap_effective: 0x%x", p->pid, ip->inum, owner, p->cap_effective);
             goto bad;
         }
         ip->uid = owner;

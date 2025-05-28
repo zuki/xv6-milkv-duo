@@ -24,7 +24,7 @@ acquire(struct spinlock *lk)
 {
     push_off(); // disable interrupts to avoid deadlock.
     if (holding(lk)) {
-        debug("%s", lk->name);
+        error("%s", lk->name);
         panic("acquire");
     }
 
@@ -50,7 +50,7 @@ void
 release(struct spinlock *lk)
 {
     if (!holding(lk)) {
-        debug("%s", lk->name)
+        error("%s", lk->name)
         panic("release");
     }
 

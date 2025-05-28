@@ -205,7 +205,7 @@ kerneltrap()
         panic("kerneltrap: interrupts enabled");
 
     if ((which_dev = devintr()) == 0){
-        debug("scause %d sepc=0x%lx stval=0x%lx", scause, sepc, stval);
+        error("scause %d sepc=0x%lx stval=0x%lx", scause, sepc, stval);
         panic("kerneltrap");
     }
 

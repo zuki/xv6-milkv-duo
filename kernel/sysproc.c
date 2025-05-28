@@ -299,6 +299,14 @@ long sys_sysinfo(void)
 // pid_t set_tid_address(int *tidptr);
 long sys_set_tid_address(void)
 {
+    uint64_t tidptr;
+
+    if (argu64(0, &tidptr) < 0)
+        return -EINVAL;
+
+    if (myproc()->pid == 11)
+        trace("tidptr: 0x%lx", tidptr);
+
     return myproc()->pid;
 }
 
@@ -634,7 +642,7 @@ long sys_setuid()
     p->fsuid = p->euid = uid;
     p->suid = new_suid;
 
-    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
 }
@@ -644,14 +652,14 @@ long sys_setuid()
 long sys_setreuid()
 {
     struct proc *p = myproc();
-    uid_t ruid, euid, old_ruid, old_euid , old_suid, new_ruid, new_euid;
+    uid_t ruid, euid, old_ruid, old_euid ,new_ruid, new_euid; // old_suid,
 
     if (argint(0, (int *)&ruid) < 0 || argint(1, (int *)&euid) < 0)
         return -EINVAL;
 
     new_ruid = old_ruid = p->uid;
     new_euid = old_euid = p->euid;
-    old_suid = p->suid;
+    //old_suid = p->suid;
 
     if (ruid != (uid_t)-1) {
         new_ruid = ruid;
@@ -678,7 +686,7 @@ long sys_setreuid()
         p->suid = p->euid;
     p->fsuid = p->euid;
 
-    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
 }
@@ -689,7 +697,7 @@ long sys_setresuid()
 {
     struct proc *p = myproc();
     uid_t ruid, euid, suid;
-    uid_t old_ruid = p->uid, old_euid = p->euid, old_suid = p->suid;
+    //uid_t old_ruid = p->uid, old_euid = p->euid, old_suid = p->suid;
 
     if (argint(0, (int *)&ruid) < 0 || argint(1, (int *)&euid) < 0
      || argint(2, (int *)&suid) < 0)
@@ -721,7 +729,7 @@ long sys_setresuid()
     if (suid != (uid_t)-1)
         p->suid = suid;
 
-    cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+    //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
     return 0;
 }

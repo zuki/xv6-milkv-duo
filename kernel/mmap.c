@@ -325,7 +325,7 @@ long copy_mmap_regions(struct proc *parent, struct proc *child)
     return 0;
 }
 
-/* startを含むregionを探す */
+/* startを含むregionを返す */
 struct mmap_region *find_mmap_region(struct proc *p, void *start)
 {
     struct mmap_region *region = p->regions;
@@ -721,37 +721,6 @@ long mprotect(void *addr, size_t length, int prot)
     if (addrp <= p->sz) {
         return change_proc(addrp, addrp + length, prot);
     }
-
-#if 0
-    uint64_t addrp = (uint64_t)addr;
-    if (addrp <= p->sz) {
-        for (; addrp < (uint64_t)addr + length; addrp += PGSIZE) {
-            pte_t *pte = walk(p->pagetable, addrp, 0);
-            if (pte == NULL) {
-                error("addr: 0x%lx is not mapping", addrp);
-                return -ENOMEM;
-            }
-            if ((*pte & PTE_RO) && (prot == PROT_WRITE)) {
-                error("wrong prot: prot: 0x%x, *pte: 0x%x", prot, *pte & 0xff);
-                return -EACCES;
-            }
-
-            if (prot == PROT_NONE) {
-                *pte &= ~(PTE_R | PTE_W | PTE_X | PTE_U);
-            } else {
-                if (prot == PROT_READ)
-                    *pte |= PTE_R;
-                if (prot == PROT_WRITE)
-                    *pte |= PTE_W;
-                if (prot == PROT_EXEC)
-                    *pte |= PTE_X;
-                *pte |= PTE_U;
-            }
-        }
-
-        return 0;
-    }
-#endif
 
     if (!is_mmap_region(p, addr, length)) {
         error("invalid region: addr: %p, length: 0x%lx", addr, length);
