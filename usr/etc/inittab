@@ -7,4 +7,4 @@
 /usr/bin/mknod "/dev/console" c 1 1
 /usr/bin/mknod "/dev/null" c 2 0
 /bin/date -s
-/usr/bin/dash
+/usr/bin/login

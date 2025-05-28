@@ -1,1 +1,1 @@
-PATH=/bin:/usr/bin; export PATH
+PATH=/usr/bin:/bin; export PATH

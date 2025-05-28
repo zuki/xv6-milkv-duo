@@ -121,11 +121,13 @@ char *usrbins[] = {
 char *etc_files[] = {
     "usr/etc/passwd",
     "usr/etc/group",
+    "usr/etc/shadow",
     "usr/etc/inittab",
     "usr/etc/login.access",
     "usr/etc/login.defs",
     "usr/etc/limits",
     "usr/etc/profile",
+    "usr/etc/environment",
     "usr/etc/now",
     "usr/etc/ld-musl-riscv64.path",
     NULL
