@@ -141,10 +141,6 @@ UPROGS=\
 	$U/mmaptest3 \
 	$U/forktest \
 	$U/sh \
-	$U/login \
-	$U/passwd \
-	$U/getty \
-	$U/su \
 	$U/mprotecttest \
 	$U/busybox
 DPROGS= \
