@@ -59,7 +59,7 @@ struct {
     uint32_t e;  // Edit index
 } cons;
 
-#define isecho (termios.c_lflag & ECHO)
+#define isecho ((termios.c_lflag & ECHO) || (termios.c_lflag & ECHONL))
 #define islbuf (termios.c_lflag & ICANON)
 
 static void set_default_termios(struct termios *termios)
@@ -247,7 +247,7 @@ consoleintr(int c)
             c = (c == '\r') ? '\n' : c;
 
             // echo back to the user.
-            consputc(c);
+            if (isecho) consputc(c);
 
             // store for consumption by consoleread().
             cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
