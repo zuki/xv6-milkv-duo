@@ -339,8 +339,43 @@ long sys_socket(void) {
     if (argint(0, &domain) < 0 || argint(1, &type) < 0 || argint(2, &protocol) < 0)
         return -EACCES;
 
-    debug("domain: %d, type: 0x%x, protocol: %d", domain, type, protocol);
-    return -EACCES;
+    trace("domain: %d, type: 0x%x, protocol: %d", domain, type, protocol);
+    return -EAFNOSUPPORT;
+}
+
+// TODO: socketを実装したらincludeに移す
+struct sockaddr {
+        sa_family_t sa_family;
+        char sa_data[14];
+};
+
+// ssize_t sendto(int s, const void *msg, size_t len, int flags, const struct sockaddr *to, socklen_t tolen);
+long sys_sendto(void)
+{
+    int s, flags;
+    size_t len;
+    int tolen;
+    uint64_t msgp, top;
+    struct sockaddr to;
+    struct proc *p = myproc();
+
+    if (argint(0, &s) < 0 || argu64(1, &msgp) < 0 || argu64(2, &len) < 0
+     || argint(3, &flags) < 0 || argu64(4, &top) < 0 || argint(5, &tolen) < 0)
+        return -EINVAL;
+
+    char msg[len];
+    if (copyin(p->pagetable, msg, msgp, len) < 0) {
+        error("copyin msg error");
+        return -EBADF;
+    }
+    if (copyin(p->pagetable, (char *)&to, top, sizeof(struct sockaddr)) < 0) {
+        error("copyin msg error");
+        return -EBADF;
+    }
+
+    trace("s: %d, msg: %s, len: %ld, flags=0x%x, sa_family: %d, tolen: %d", s, msg, len, flags, to.sa_family, tolen);
+
+    return -ENOTSOCK;
 }
 
 // 独自実装
@@ -556,7 +591,7 @@ static func syscalls[] = {
     [SYS_gettid]    = sys_gettid,               // 178
     [SYS_sysinfo]   = sys_sysinfo,              // 179
     [SYS_socket]    = sys_socket,               // 198
-//    [SYS_sendto]    = sys_sendto,               // 206
+    [SYS_sendto]    = sys_sendto,               // 206
     [SYS_brk]       = sys_brk,                  // 214
     [SYS_munmap]    = sys_munmap,               // 215
 //    [SYS_mremap]    = sys_mremap,               // 216
