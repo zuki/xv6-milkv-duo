@@ -387,8 +387,9 @@ long sys_debug(void) {
     if (argstr(0, name, MAXPATH) < 0 || argstr(1, tag, MAXPATH) < 0
      || argu64(2, &val) < 0)
         return -EINVAL;
-    //if (myproc()->pid == 11)
-    //    debug("%s: %s = 0x%lx", name, tag, val);
+
+    debug("%s: %s = 0x%lx", name, tag, val);
+
     return 0;
 }
 
@@ -459,12 +460,11 @@ long sys_musl_file(void) {
 long sys_meta(void) {
     char where[MAXPATH];
     uint64_t metap;
-    //struct musl_meta meta;
-    //struct meta_group group;
+    struct musl_meta meta;
+    struct meta_group group;
 
     if (argstr(0, where, MAXPATH) < 0 || argu64(1, &metap) < 0)
         return -EINVAL;
-#if 0
     copyin(myproc()->pagetable, (char *)&meta, metap, sizeof(struct musl_meta));
 
     debug("'%s': 0x%lx", where, metap);
@@ -481,13 +481,13 @@ long sys_meta(void) {
     if (meta.mem != NULL) {
         copyin(myproc()->pagetable, (char *)&group, (uint64_t)meta.mem, sizeof(*(meta.mem)));
 
-        debug("'meta->mem': %p", meta.mem);
-        printf("  meta   : 0x%lx\n", group.meta);
-        printf("  av_idx : %d\n", group.active_idx);
-        printf("  pad    : 0x%lx\n", group.pad);
-        printf("  storage: 0x%lx\n\n", group.storage);
+        debug("group(.mem): %p", meta.mem);
+        printf("  meta    : 0x%lx\n", group.meta);
+        printf("  av_idx  : %d\n", group.active_idx);
+        printf("  pad     : 0x%lx\n", group.pad);
+        printf("  storage : 0x%lx\n\n", group.storage);
     }
-#endif
+
     return 0;
 }
 
@@ -500,14 +500,13 @@ long sys_dump(void) {
     if (argstr(0, where, MAXPATH) < 0 || argu64(1, &bufp) < 0
         || argu64(2, &size) < 0)
         return -EINVAL;
-#if 0
+
     if (bufp) {
         char buf[size];
         copyin(myproc()->pagetable, buf, bufp, size);
-        debug("%s: 0x%lx", where, bufp);
+        //debug("%s: 0x%lx", where, bufp);
         debug_bytes(where, buf, size, bufp);
     }
-#endif
 
     return 0;
 }
@@ -608,7 +607,7 @@ static func syscalls[] = {
     [SYS_copy_file_range] = sys_copy_file_range, // 285
     [SYS_statx]     = sys_statx,                // 291
     [SYS_faccessat2] = sys_faccessat2,          // 439
-    [SYS_dump]      = sys_dump,                 // 995
+    [SYS_dump]      = sys_dump,                 // 994
     [SYS_meta]      = sys_meta,                 // 995
     [SYS_musl_file] = sys_musl_file,            // 996
     [SYS_dso]       = sys_dso,                  // 997
@@ -856,7 +855,7 @@ void syscall(void)
         // and store its return value in p->trapframe->a0
 #if 0
         //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
-        if (p->pid == 15) {
+        if (p->pid == 12 && num != SYS_debug && num != SYS_meta) {
             switch(syscall_params[num]) {
             case 6:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx, a5: 0x%lx", p->pid, syscall_names[num],
