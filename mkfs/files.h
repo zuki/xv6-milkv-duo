@@ -108,9 +108,6 @@ char *usrbins[] = {
     "usr/bin/yes",
     "usr/bin/[",
     "usr/bin/dash",
-    "usr/bin/login",
-    "usr/bin/passwd",
-    "usr/bin/su",
     "usr/bin/readelf",
     "usr/bin/objdump",
     "usr/bin/nm",
@@ -120,14 +117,15 @@ char *usrbins[] = {
 
 char *etc_files[] = {
     "usr/etc/passwd",
-    "usr/etc/group",
     "usr/etc/shadow",
+    "usr/etc/group",
     "usr/etc/inittab",
     "usr/etc/login.access",
     "usr/etc/login.defs",
     "usr/etc/limits",
     "usr/etc/profile",
     "usr/etc/environment",
+    "usr/etc/nsswitch.conf",
     "usr/etc/now",
     "usr/etc/ld-musl-riscv64.path",
     NULL
