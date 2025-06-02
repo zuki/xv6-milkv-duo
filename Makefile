@@ -118,6 +118,9 @@ mkfs/mkfs: mkfs/mkfs.c
 $U/sh: obj/usr/bin/sh
 # $U/busybox: obj/usr/bin/busybox
 $D/myadd: obj/dyn/bin/myadd
+$D/login: obj/dyn/bin/login
+$D/passwd: obj/dyn/bin/passwd
+$D/su: obj/dyn/bin/su
 
 UPROGS=\
 	$U/cat\
@@ -145,6 +148,9 @@ UPROGS=\
 	$U/busybox
 DPROGS= \
 	$D/hello_dyn \
+	$D/login \
+	$D/passwd \
+	$D/su \
 	$D/myadd
 
 $(DPROGS):

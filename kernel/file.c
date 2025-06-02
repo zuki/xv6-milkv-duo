@@ -982,7 +982,7 @@ static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip
         goto bad;
     }
 
-    //de.inum = new_ip->inum;
+    de.inum = new_ip->inum;
     de.type = new_ip->type;
     strncpy(de.name, name, DIRSIZ);
 
@@ -998,17 +998,18 @@ static long reinode(struct inode *dp, struct inode *old_ip, struct inode *new_ip
     iupdate(old_ip);
     iupdate(new_ip);
 
-    error = iunlink(dp, new_ip, new_ip->type == T_DIR ? AT_REMOVEDIR : 0);
+    error = iunlink(dp, old_ip, old_ip->type == T_DIR ? AT_REMOVEDIR : 0);
 
 bad:
     iunlockput(new_ip);
 
+    sd_flush();
     fence_i();
     fence_rw();
 
-    direntlookup(dp, old_ip->inum, &de, 0);
-    if (myproc()->pid == 11)
-        debug("new inum[%d] name %s", de.inum, de.name);
+    direntlookup(dp, new_ip->inum, &de, 0);
+    if (myproc()->pid >= 15)
+        trace("new inum[%d] name %s", de.inum, de.name);
     iunlockput(old_ip);
     iunlockput(dp);
 
@@ -1025,17 +1026,19 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
     long error;
 
     begin_op();
+    // rename の newpath を上書きしない。newpathが既存の場合はエラーを返す。
     if (flags & RENAME_NOREPLACE) {
         if ((ip2 = namei(newpath, newdirfd)) != 0) {
-            iunlock(ip2);
+            iput(ip2);
             end_op();
+            error("RENAME_NOREPLACE & newpath exist");
             return -EEXIST;
         }
     }
 
     if ((ip1 = namei(oldpath, olddirfd)) == 0) {
         end_op();
-        warn("oldpath %s not exits", oldpath);
+        error("oldpath %s not exits", oldpath);
         return -ENOENT;
     }
     dp1 = nameiparent(oldpath, name1, olddirfd);
@@ -1059,16 +1062,28 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
     if (dp1 == dp2) {
         // name2はなし: 単なる改名(name1はdirectoryでもfileでも可)
         if (ip2 == 0) {
+rename1:
+            if (myproc()->pid >= 15)
+                trace("rename dirent at %d from %s (%d) to %s (%d)", dp1->inum, name1, ip1->inum, name2, ip2->inum);
             if ((error = rename(dp1, name1, name2)) < 0) {
-                warn("rename failed");
+                error("rename %s to %s failed", name1, name2);
                 goto bad;
             }
             iput(ip1);
             iput(dp2);
         // name2あり: ip1 を残して、内容はip2 とする。ip2をunlink
         } else {
-            error = reinode(dp2, ip2, ip1, name2);
-            iput(dp1);
+            if (myproc()->pid >= 15)
+                trace("replace dirent at %d with %d (type: %d, name: %s) and unlink %d", ip1->inum, ip2->inum, ip2->type, name2, ip2->inum);
+            ilock(dp2);
+            ilock(ip2);
+            if ((error = iunlink(dp2, ip2, 0)) < 0) {
+                error("unlink %s failed", name2);
+                goto bad;
+            }
+            iunlockput(ip2);
+            iunlock(dp2);
+            goto rename1;
         }
     // 異なるディレクトリへのmove
     } else {
@@ -1093,6 +1108,13 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
 
 bad:
     end_op();
+
+    sd_flush();
+    fence_i();
+    fence_rw();
+
+    if (myproc()->pid == 13)
+        trace("%s", error ? "ng" : "ok");
 
     return error;
 }
