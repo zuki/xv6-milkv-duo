@@ -342,6 +342,7 @@ uint64_t        emmc_seek(struct emmc *self, uint64_t off);
 void            sd_init(void);
 void            sd_intr(void);
 void            sd_rw(struct buf *);
+void            sd_flush(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

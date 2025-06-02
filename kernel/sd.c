@@ -126,3 +126,10 @@ void sd_rw(struct buf *b)
 
     release(&sdlock);
 }
+
+void sd_flush(void)
+{
+    acquire(&sdlock);
+    sd_start();
+    release(&sdlock);
+}

@@ -1554,6 +1554,10 @@ long sys_fsync(void)
     if (f->type == FD_PIPE || IFTODT(f->ip->mode) == DT_FIFO || IFTODT(f->ip->mode) == DT_SOCK)
         return -EINVAL;
 
+    if (p->pid == 13 && f->ip->inum == 201)
+        trace("fd: %d, inum: %d", fd, f->ip->inum);
+    sd_flush();
+
     return 0;
 }
 
@@ -1573,8 +1577,10 @@ long sys_fdatasync(void)
     if (f->type == FD_PIPE || IFTODT(f->ip->mode) == DT_FIFO || IFTODT(f->ip->mode) == DT_SOCK)
         return -EINVAL;
 
-    if (p->pid == 11)
+    if (p->pid == 13 && f->ip->inum == 201)
         trace("fd: %d, inum: %d", fd, f->ip->inum);
     // FIXME
+    sd_flush();
+
     return 0;
 }
