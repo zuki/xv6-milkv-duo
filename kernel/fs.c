@@ -319,6 +319,8 @@ ilock(struct inode *ip)
 {
     struct buf *bp;
     struct dinode *dip;
+    if ((myproc()->pid == 11 || myproc()->pid == 12) && (ip->inum == 203 || ip->inum == 180))
+        trace("inum[%d]: ref=%d, nlink=%d", ip->inum, ip->ref, ip->nlink);
 
     if (ip == 0 || ip->ref < 1) {
         error("inum: %d, ref: %d", ip ? ip->inum : 0, ip ? ip->ref : -1);
@@ -375,6 +377,8 @@ void
 iput(struct inode *ip)
 {
     acquire(&itable.lock);
+    if (myproc()->pid == 11 && ip->inum == 203)
+        trace("inum[203]: ref=%d, nlink=%d", ip->ref, ip->nlink);
 
     if (ip->ref == 1 && ip->valid && ip->nlink == 0) {
         // inode has no links and no other references: truncate and free.
@@ -389,7 +393,8 @@ iput(struct inode *ip)
         ip->type = 0;
         iupdate(ip);
         ip->valid = 0;
-        trace("ip %d was freed", ip->inum);
+        if (myproc()->pid == 11)
+            trace("ip %d was freed", ip->inum);
         releasesleep(&ip->lock);
 
         acquire(&itable.lock);
@@ -573,6 +578,8 @@ void stati(struct inode *ip, struct stat *st)
     if (ip->type == T_DEVICE)
         st->st_rdev = mkdev(ip->major, ip->minor);
 
+    if (myproc()->pid == 1)
+        trace("inum: %d, type: %d, mode: 0x%x", ip->inum, ip->type, ip->mode);
     switch (ip->type) {
     case T_FILE:
     case T_DIR:
@@ -674,6 +681,9 @@ int permission(struct inode *ip, int mask)
     else if (p->fsgid == ip->gid)
         mode >>= 3;
 
+    if (p->pid >= 12)
+        trace("inum: %d, ip->mode: 0x%x, mode: 0x%x, mask: 0x%x, p->fsuid: %d, ip->uid: %d, p->fsgid: %d, ip->gid: %d",
+            ip->inum, ip->mode, mode, mask, p->fsuid, ip->uid, p->fsgid, ip->gid);
     if (((mode & mask & (MAY_READ|MAY_WRITE|MAY_EXEC)) == mask))
         return 0;
 
@@ -732,7 +742,7 @@ dirlink(struct inode *dp, char *name, uint32_t inum, uint16_t type)
     // Check that name is not present.
     if ((ip = dirlookup(dp, name, 0)) != 0) {
         iput(ip);
-        debug("name: %s exits", name);
+        trace("name: %s exits", name);
         return -ENOENT;
     }
 
@@ -874,8 +884,8 @@ static int isdirempty(struct inode *dp)
 // dpからipをunlinkする, begin_op()されて、dpもipもilock()されていること
 int iunlink(struct inode *dp, struct inode *ip, int flags)
 {
-    if (myproc()->pid == 11)
-        debug("unlink inum %d", ip->inum);
+    if (myproc()->pid >= 15)
+        trace("unlink inum %d", ip->inum);
 
     struct dirent de, de0;
     memset(&de0, 0, sizeof(de));
@@ -908,8 +918,8 @@ int iunlink(struct inode *dp, struct inode *ip, int flags)
             return -EIO;
         }
         if (de.inum == ip->inum) {
-            if (myproc()->pid == 11)
-                debug("erase inum[%d]: type: %d, name: %s", de.inum, de.type, de.name);
+            if (myproc()->pid == 15)
+                trace("erase inum[%d]: type: %d, name: %s", de.inum, de.type, de.name);
             if (writei(dp, 0, (uint64_t)&de0, off, sizeof(de0)) != sizeof(de0)) {
                 error("erase %d error", ip->inum);
                 return -EIO;
@@ -950,7 +960,7 @@ int getdents64(struct file *f, uint64_t data, size_t size)
 
     while (1) {
         n = fileread(f, (uint64_t)&de, sizeof(struct dirent), 0);
-        //debug("n: %kd, de: de.inum: %d, name: %s", n, de.inum, de.name);
+        //trace("n: %kd, de: de.inum: %d, name: %s", n, de.inum, de.name);
 
         if (n == 0) {
             trace("read 0");
@@ -1009,12 +1019,12 @@ int getdents64(struct file *f, uint64_t data, size_t size)
             error("failed copyout");
             return -EFAULT;
         }
-        if (myproc()->pid == 6)
+        if (myproc()->pid == 11)
             trace("tlen: %d, de64: ino: %d, off: %ld, reclen: %d, type: %d, name: %s", tlen, de64.d_ino, de64.d_off, de64.d_reclen, de64.d_type, de64.d_name);
         tlen += reclen;
         off = f->off;
     }
-    //debug_bytes("data:", data, tlen, 0);
+    //trace_bytes("data:", data, tlen, 0);
     return tlen;
 }
 

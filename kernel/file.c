@@ -129,7 +129,7 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
     } else if(f->type == FD_INODE){
         ilock(f->ip);
         if ((r = readi(f->ip, user, addr, f->off, n)) > 0) {
-            //debug("inum: %d, off: %d, read: %d", f->ip->inum, f->off, r);
+            //trace("inum: %d, off: %d, read: %d", f->ip->inum, f->off, r);
             f->off += r;
         }
         clock_gettime(0, CLOCK_REALTIME, &f->ip->atime);
@@ -146,7 +146,8 @@ int fileread(struct file *f, uint64_t addr, int n, int user)
 int
 filewrite(struct file *f, volatile uint64_t addr, int n, int user)
 {
-    trace("ip: %d, addr: 0x%lx, n: %d", f->ip->inum, addr, n);
+    if (myproc()->pid == 13 && f->ip->inum == 201)
+        trace("ip: %d, addr: 0x%lx, n: %d", f->ip->inum, addr, n);
     int r, ret = 0;
     struct timespec ts;
 
@@ -457,7 +458,7 @@ ssize_t filereadlink(char *path, int dirfd, uint64_t buf, size_t bufsize)
 long fileunlink(char *path, int dirfd, int flags)
 {
     if (myproc()->pid == 11)
-        debug("path: %s, dirfd: %d, delete %s", path, dirfd, (flags & AT_REMOVEDIR) ? "dir" : "file");
+        trace("path: %s, dirfd: %d, delete %s", path, dirfd, (flags & AT_REMOVEDIR) ? "dir" : "file");
     struct inode *ip, *dp;
     char name[DIRSIZ];
     uint32_t off;
@@ -503,7 +504,8 @@ struct inode *create(char *path, int dirfd, short type, short major, short minor
     struct timespec ts;
     long err = -EINVAL;
 
-    //debug("path: %s, type: %d, major: %d, minor: %s, mode: %x", path, type, major, minor, mode);
+    if (myproc()->pid == 11)
+        trace("path: %s, type: %d, major: %d, minor: %d, mode: 0x%x", path, type, major, minor, mode);
 
     if ((dp = nameiparent(path, name, dirfd)) == 0)
         return (void *)-ENOENT;
@@ -579,7 +581,7 @@ long fileopen(char *path, int dirfd, int flags, mode_t mode)
     struct file *f;
     char buf[512];
     int fd, n;
-    if (myproc()->pid == 9)
+    if (myproc()->pid == 12 || myproc()->pid == 12)
         trace("path: %s, flags: 0x%x, mod: 0x%lx", path, flags, mode);
 
     begin_op();
@@ -607,12 +609,10 @@ long fileopen(char *path, int dirfd, int flags, mode_t mode)
 loop:
         if ((ip = namei(path, dirfd)) == 0) {
             end_op();
-            error("%s is not found", path);
+            trace("%s is not found", path);
             return -ENOENT;
         }
         ilock(ip);
-        if (myproc()->pid == 7)
-            trace("path ip: num: %d, type: %d", ip->inum, ip->type);
         if (ip->type == T_DIR && (flags & O_ACCMODE) != 0) {
             iunlockput(ip);
             end_op();
@@ -655,9 +655,6 @@ loop:
         return -ENOSPC;
     }
 
-    if (myproc()->pid == 7)
-        trace("process ip: num: %d, type: %d", ip->inum, ip->type);
-
     if (ip->type == T_DEVICE) {
         f->type = FD_DEVICE;
         f->major = ip->major;
@@ -673,8 +670,9 @@ loop:
     if (flags & O_CLOEXEC)
         bit_add(myproc()->fdflag, fd);
 
-    trace("inum: %d, fd: %d", ip->inum, fd);
-
+    if (myproc()->pid == 13 && ip->inum == 201)
+        trace("path: %s, fd: %d, inum: %d, flags: 0x%x, mode: 0x%x",
+            path, fd, ip->inum, flags, mode);
     iunlock(ip);
     end_op();
 
@@ -1045,8 +1043,10 @@ long filerename(char *oldpath, int olddirfd, char *newpath, int newdirfd, uint32
 
     ip2 = namei(newpath, newdirfd);
     dp2 = nameiparent(newpath, name2, newdirfd);
-    trace("oldpath: %s, dp1: %d, ip1: %d, name1: %s", oldpath, dp1->inum, ip1->inum, name1);
-    trace("newpath: %s, dp2: %d, ip2: %d, name2: %s", newpath, dp2 ? dp2->inum : -1, ip2 ? ip2->inum : -1, name2);
+    if (myproc()->pid >= 15) {
+        trace("oldpath: %s, dp1: %d, ip1: %d, name1: %s", oldpath, dp1->inum, ip1->inum, name1);
+        trace("newpath: %s, dp2: %d, ip2: %d, name2: %s", newpath, dp2 ? dp2->inum : -1, ip2 ? ip2->inum : -1, name2);
+    }
 
     // 同一ファイルのhard link
     if (ip1 == ip2) {

@@ -255,7 +255,7 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
     }
     ilock(ip);
 
-    trace("path: %s, ip: %d", path, ip->inum);
+    trace("[%d]: path: %s, ip: %d", p->pid, path, ip->inum);
     // Check ELF header
     if (readi(ip, 0, (uint64_t)&elf, 0, sizeof(elf)) != sizeof(elf)) {
         warn("readi elf error: inum=%d", ip->inum);
@@ -289,6 +289,10 @@ int execve(char *path, char *const argv[], char *const envp[], int argc, int env
 
     // 親プロセスから受け継いだ情報を破棄する
     flush_parent_data(p);
+
+    if (p->pid >= 12)
+        trace("[%d]: path: %s, inum: %d, uid: %d, euid: %d, fsuid: %d, fsgid: %d, isuid : %s, cap_effective: 0x%x, cap_permitted: 0x%x",
+            p->pid, path, ip->inum, p->uid, p->euid, p->fsuid, p->fsgid, (ip->mode & S_ISUID) ? "yes" : "no", p->cap_effective, p->cap_permitted);
 
     // pagetableを設定する
     oldpagetable = p->pagetable;

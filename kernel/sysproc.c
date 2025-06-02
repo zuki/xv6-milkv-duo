@@ -46,7 +46,8 @@ long sys_exit_group(void)
 long sys_getpid(void)
 {
     pid_t pid = myproc()->pid;
-    trace("pid: %d", pid)
+    if (pid == 11)
+        trace("pid: %d", pid);
     return pid;
 }
 
@@ -117,7 +118,8 @@ long sys_brk(void)
     if (newsz < 0)
         return oldsz;
 
-    trace("name: %s, newsz: 0x%lx, oldsz: 0x%lx", p->name, newsz, oldsz);
+    if (p->pid == 11)
+        trace("name: %s, newsz: 0x%lx, oldsz: 0x%lx", p->name, newsz, oldsz);
 
     if (newsz == 0)
         return oldsz;
@@ -223,8 +225,16 @@ long sys_mprotect(void)
     if (end == addr)
         return 0;
 
-    trace("addr: 0x%lx, len: 0x%lx, prot: 0x%x", addr, len, prot);
-
+#if 0
+    struct proc *p = myproc();
+    if (p->pid == 11) {
+        trace("addr: 0x%lx, len: 0x%lx, prot: 0x%x", addr, len, prot);
+        if ((uint64_t)addr <= p->sz) {
+            //uvmdump(p->pagetable,p->pid, p->name);
+            print_mmap_list(p, "sys_mprotect");
+        }
+    }
+#endif
     return mprotect((void *)addr, len, prot);
 }
 
@@ -458,6 +468,9 @@ cap_emulate_setxuid(int old_ruid, int old_euid, int old_suid)
 {
     struct proc *p = myproc();
 
+    trace("[%d] old_ruid: %d, euid: %d, suid: %d", p->pid, old_ruid, old_euid, old_suid);
+    trace("     p->uid  : %d, euid: %d, suid: %d, cap_effective: 0x%x, cap_permitted: 0x%x", p->uid, p->euid, p->suid, p->cap_effective, p->cap_permitted);
+
     if ((old_ruid == 0 || old_euid == 0 || old_suid == 0) &&
         (p->uid != 0 && p->euid != 0 && p->suid != 0)) {
         cap_clear(p->cap_permitted);
@@ -469,6 +482,7 @@ cap_emulate_setxuid(int old_ruid, int old_euid, int old_suid)
     if (old_euid != 0 && p->euid == 0) {
         p->cap_effective = p->cap_permitted;
     }
+    trace("  after p->cap_effective: 0x%x", p->cap_effective);
 }
 
 // pid_t getpgid(pid_t pid);
@@ -588,6 +602,8 @@ long sys_setgroups()
         return -EINVAL;
 
     if (size > NGROUPS || size == 0) return -EINVAL;
+    trace("p[%d]: uid : %d, euid: %d, gid: %d, egid: %d, cap_effective: 0x%x",
+        p->pid, p->uid, p->euid, p->gid, p->egid, p->cap_effective);
     if (!capable(CAP_SETGID)) return -EPERM;
 
     memset(p->groups, 0, sizeof(p->groups));
@@ -600,7 +616,7 @@ long sys_setgroups()
 
     if (p->pid == 15) {
         for (i = 0; i < size; i++)
-            debug("groups[%d]=%d", i, p->groups[i]);
+            trace("groups[%d]=%d", i, p->groups[i]);
     }
 
     p->ngroups = size;
@@ -622,10 +638,6 @@ long sys_setuid()
     old_ruid = new_ruid = p->uid;
     new_suid = old_suid = p->suid;
 
-    trace("uid: %d, old: euid=%d ruid=%d suid=%d, new: ruid=%d suid=%d",
-        uid, old_euid, old_ruid, old_suid, new_ruid, new_suid);
-    trace("p[%d] cap_effective=%d", p->pid, p->cap_effective);
-
     if (capable(CAP_SETUID)) {
         if (uid != old_ruid) {
             p->uid = uid;
@@ -641,6 +653,15 @@ long sys_setuid()
     }
     p->fsuid = p->euid = uid;
     p->suid = new_suid;
+
+#if 0
+    if (p->pid >= 12) {
+        debug("[%d] uid: %d", uid, p->pid);
+        debug("old: euid=%d ruid=%d suid=%d", old_euid, old_ruid, old_suid);
+        debug("new: euid=%d ruid=%d suid=%d fsuid=%d", p->euid, new_ruid, p->suid, p->fsuid);
+        debug("cap_effective=%d", p->cap_effective);
+    }
+#endif
 
     //cap_emulate_setxuid(old_ruid, old_euid, old_suid);
 
@@ -759,6 +780,7 @@ long sys_setfsuid()
     if (old_fsuid != 0 && p->fsuid == 0)
         cap_t(p->cap_effective) |= (cap_t(p->cap_permitted) & CAP_FS_MASK);
 
+    trace("[%d] p->cap_effective: 0x%x", p->cap_effective);
     return old_fsuid;
 }
 
@@ -934,13 +956,16 @@ long sys_setsid(void)
 mode_t sys_umask()
 {
     mode_t umask;
-    mode_t oumask = myproc()->umask;
+    struct proc *p = myproc();
+    mode_t oumask = p->umask;
 
     if ((argint(0, (int *)&umask)) < 0) {
         return -EINVAL;
     }
 
-    myproc()->umask = (umask & S_IRWXUGO);
+    p->umask = (umask & S_IRWXUGO);
+    if (p->pid >= 12)
+        trace("oumask: 0x%x, p->umask: 0x%x", oumask, p->umask);
     return oumask;
 }
 
@@ -984,6 +1009,8 @@ long sys_prlimit64(void)
     if (new_limit_p) {
         if (copyin(myproc()->pagetable, (char *)&new_limit, new_limit_p, sizeof(struct rlimit)) < 0)
             return -EFAULT;
+        if (myproc()->pid >= 12)
+            trace("new_limit: cur: 0x%lx, max: 0x%lx", new_limit.rlim_cur, new_limit.rlim_max);
     }
 
     if (old_limit_p) {
@@ -991,6 +1018,8 @@ long sys_prlimit64(void)
         old_limit.rlim_max = RLIM_SAVED_MAX;
         if (copyout(myproc()->pagetable, old_limit_p, (char *)&old_limit, sizeof(struct rlimit)) < 0)
             return -EFAULT;
+        if (myproc()->pid >= 12)
+            trace("old_limit: cur: 0x%lx, max: 0x%lx", old_limit.rlim_cur, old_limit.rlim_max);
     }
 
     return 0;

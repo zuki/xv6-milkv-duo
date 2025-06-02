@@ -43,7 +43,8 @@ static int argfd(int n, int *pfd, struct file **pf)
 static int check_fdcwd(const char *path, int dirfd)
 {
     struct proc *p = myproc();
-
+    if (p->pid >= 15)
+        trace("path: %s, dirfd: %d", path, dirfd);
     if (*path != '/' && dirfd != AT_FDCWD) {
         if (p->ofile[dirfd] == 0) {
             error("pid[%d] path: %s (ofile[%d]) is not open", p->pid, path, dirfd);
@@ -103,7 +104,7 @@ long sys_dup(void)
     if ((fd = fdalloc(f, 0)) < 0)
         return -EBADF;
     filedup(f);
-    debug("fd: %d, f.inum: %d, f.type: %d, f.major: %d", fd, f->ip->inum, f->type, f->major);
+    trace("fd: %d, f.inum: %d, f.type: %d, f.major: %d", fd, f->ip->inum, f->type, f->major);
     return fd;
 #endif
 }
@@ -146,7 +147,7 @@ long sys_read(void)
         return -EINVAL;
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    if (myproc()->pid == 8)
+    if (myproc()->pid == 11)
         trace("fd: %d, ip: %d, buf: 0x%lx, count: %d", fd, f->ip->inum, p, n);
     return fileread(f, p, n, 1);
 }
@@ -187,15 +188,16 @@ long sys_write(void)
     //if (argfd(0, 0, &f) < 0)
         return -EBADF;
 #if 0
-    if (myproc()->pid == 6)
-        if (fd == 1 || fd == 2) {
+    if (myproc()->pid == 13)
+        if (fd == 3 || fd == 4) {
             char buf[n+1];
             copyin(myproc()->pagetable, buf, p, n);
             buf[n] = 0;
-            debug("s = '%s'", buf);
+            trace("s = '%s'", buf);
         }
 #endif
-    trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
+    if (myproc()->pid == 13)
+        trace("fd: %d, ip: %d, p: 0x%lx, n: %d", fd, f->ip->inum, p, n);
     return filewrite(f, p, n, 1);
 }
 
@@ -270,7 +272,8 @@ ssize_t sys_writev(void)
     trace("n: 1, iov: %p", iov);
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    trace("fd: %d, ip: %d, iovp: 0x%lx, iovcnt: %d", fd, f->ip->inum, iovp, iovcnt);
+    if (myproc()->pid == 13 && f->ip->inum == 201)
+        trace("fd: %d, ip: %d, iovp: 0x%lx, iovcnt: %d", fd, f->ip->inum, iovp, iovcnt);
     ssize_t tot = 0;
 
     for (i = 0; i < iovcnt; i++) {
@@ -278,25 +281,23 @@ ssize_t sys_writev(void)
             return -EIO;
 #if 0
         iobytes += iov.iov_len;
-        if (myproc()->pid == 6) {
-            if (fd == 1 || fd ==2) {
-                blen = iov.iov_len > 128 ? 128 : iov.iov_len;
-                base = (uint64_t)iov.iov_base;
-                copyin(p->pagetable, buf, base, blen);
-                trace("iov[%d] base: %p, len: %ld", i, iov.iov_base, iov.iov_len);
-                buf[blen] = '\0';
-                if (buf[0] == '\n') {
-                    debug("iov[%d] buf='LF'", i);
-                } else {
-                    printf("[DEBUG] sys_writev: buf=");
-                    for (int j=0; j < blen; j++) {
-                        if (buf[j] < 0x20 || buf[j] > 0x7e)
-                            printf(" %02x", buf[j]);
-                        else
-                            printf("%c", buf[j]);
-                    }
-                    printf("\n");
+        if (myproc()->pid == 13 && f->ip->inum == 201) {
+            blen = iov.iov_len > 128 ? 128 : iov.iov_len;
+            base = (uint64_t)iov.iov_base;
+            copyin(p->pagetable, buf, base, blen);
+            trace("iov[%d] base: %p, len: %ld", i, iov.iov_base, iov.iov_len);
+            buf[blen] = '\0';
+            if (buf[0] == '\n') {
+                debug("iov[%d] buf='LF'", i);
+            } else {
+                printf("[DEBUG] sys_writev: buf= ");
+                for (int j=0; j < blen; j++) {
+                    if (buf[j] < 0x20 || buf[j] > 0x7e)
+                        printf(" %02x", buf[j]);
+                    else
+                        printf("%c", buf[j]);
                 }
+                printf("\n");
             }
         }
 #endif
@@ -340,12 +341,12 @@ long sys_close(void)
     struct file *f;
 
     if (argfd(0, &fd, &f) < 0) {
-        error("invalid arg");
+        trace("invalid fd: %d", fd);
         return -EBADF;
     }
 
-    if (myproc()->pid == 15)
-        debug("pid[%d] fd: %d", myproc()->pid, fd);
+    if (myproc()->pid == 13 && f->ip->inum == 201)
+        trace("fd: %d, inum: %d", fd, f->ip->inum);
 
     myproc()->ofile[fd] = 0;
     bit_remove(myproc()->fdflag, fd);
@@ -364,7 +365,8 @@ long sys_fstat(void)
         return -EINVAL;
     if (argfd(0, &fd, &f) < 0)
         return -EBADF;
-    trace("fd: %d, st: %p", fd, (struct st *)st);
+    if (myproc()->pid == 11)
+        trace("fd: %d, st: %p", fd, (struct st *)st);
     return filestat(f, st);
 }
 
@@ -384,7 +386,8 @@ long sys_fstatat(void)
     if ((ret = argstr(1, path, MAXPATH)) < 0)
         return -EFAULT;
 
-    trace("dirfd: %d, path: %s, staddr: 0x%lx, flags: 0x%x", dirfd, path, staddr, flags);
+    if (myproc()->pid >= 15)
+        trace("dirfd: %d, path: %s, staddr: 0x%lx, flags: 0x%x", dirfd, path, staddr, flags);
 
     if (flags != 0 && (flags & ~AT_SYMLINK_NOFOLLOW) != 0) {
         warn("unimplemented flags=0x%x", flags);
@@ -450,7 +453,8 @@ long sys_statx(void)
     if ((ret = argstr(1, path, MAXPATH)) < 0)
         return -EFAULT;
 
-    trace("dirfd: %d, path: %s, flags: 0x%x, mask: 0x%x, statx: 0x%lx", dirfd, path == NULL ? "null" : path, flags, mask, statxbufp);
+    if (p->pid == 11)
+        trace("dirfd: %d, path: %s, flags: 0x%x, mask: 0x%x, statx: 0x%lx", dirfd, path == NULL ? "null" : path, flags, mask, statxbufp);
 
     // AT_FDCWD, AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW, AT_STATX_SYNC_AS_STAT
 
@@ -569,7 +573,7 @@ ip_lock:
         return -EFAULT;
     }
 
-    if (myproc()->pid == 6)
+    if (myproc()->pid == 11)
         trace("path: %s, mask: 0x%x, stax mask: 0x%x, nlink: %d, uid: %d, gid: %d, mode: 0%03o, ino: %d, size: %ld, block: %ld", path == NULL ? "null" : path, mask,
         statx.stx_mask, statx.stx_nlink, statx.stx_uid, statx.stx_gid,
         statx.stx_mode, statx.stx_ino, statx.stx_size, statx.stx_blocks);
@@ -592,7 +596,9 @@ long sys_linkat(void)
      || argstr(3, newpath, MAXPATH) < 0)
         return -EINVAL;
 
-    trace("olddirfd: %d, oldpath: %s, newdirfd: %d, newpath: %s, flags: %d", olddirfd, oldpath, newdirfd, newpath, flags);
+    if (myproc()->pid == 11)
+        trace("oldpath: %s, olddirfd: %d, newpath: %s, newdirfd: %d, flags: %d",
+            oldpath, olddirfd, newpath, newdirfd, flags);
 
     if ((ret = check_fdcwd(oldpath, olddirfd)) < 0)
         return ret;
@@ -635,7 +641,8 @@ long sys_symlinkat(void)
     if (argstr(0, target, MAXPATH) < 0 || argint(1, &dirfd) < 0 || argstr(2, linkpath, MAXPATH) < 0)
         return -EINVAL;
 
-    trace("dirfd: %d, target: %s, path: %s", dirfd, target, linkpath);
+    if (myproc()->pid == 11)
+        trace("target: %s, dirfd: %d, linkpath: %s", target, dirfd, linkpath);
 
     if (strncmp(target, "", 1) == 0 || strncmp(linkpath, "", 1) == 0)
         return -ENOENT;
@@ -656,7 +663,8 @@ long sys_unlinkat(void)
      || argstr(1, path, MAXPATH) < 0)
         return -EINVAL;
 
-    trace("pid[%d] path: %s, fd: %d, flags: %d", myproc()->pid, path, dirfd, flags);
+    if (myproc()->pid == 11)
+        trace("path: %s, dirfd: %d, flags: %d", path, dirfd, flags);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;
@@ -686,7 +694,8 @@ ssize_t sys_readlinkat()
     if ((ssize_t)bufsiz <= 0)
         return -EINVAL;
 
-    trace("dirfd=%d, path=%s, bufp=0x%lx, bufsiz=%lld", dirfd, path, bufp, bufsiz);
+    if (myproc()->pid == 11)
+        trace("path=%s, dirfd=%d, bufp=0x%lx, bufsiz=%lld", path, dirfd, bufp, bufsiz);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;
@@ -706,9 +715,9 @@ ssize_t sys_readlinkat()
         char link[lsize + 1];
         copyin(myproc()->pagetable, link, bufp, lsize);
         link[lsize] = 0;
-        debug("buf: %s, bufsiz: %ld", link, lsize);
+        trace("buf: %s, bufsiz: %ld", link, lsize);
     } else {
-        debug("error: %ld", lsize);
+        trace("error: %ld", lsize);
     }
 
     return lsize;
@@ -734,8 +743,8 @@ long sys_openat(void)
         return -EINVAL;
     }
 
-    if (myproc()->pid == 15)
-        debug("dirfd: %d, path: '%s', mode: 0x%08x, flags: 0x%08x", dirfd, path, mode, flags);
+    if (myproc()->pid == 13)
+        trace("path: '%s', dirfd: %d, mode: 0x%08x, flags: 0x%08x", path, dirfd, mode, flags);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0) {
         error("check_fdcwd error: %d", ret);
@@ -920,7 +929,7 @@ long sys_execve(void)
 
 #if 0
             //if (p->pid <= 2) {
-                debug("argv[%d] (0x%lx) = %s", argc, argv[argc], argv[argc]);
+                trace("argv[%d] (0x%lx) = %s", argc, argv[argc], argv[argc]);
                 //for (int j=0; j < strlen(argv[argc]); j++) {
                 //    printf("%02x ", argv[argc][j]);
                 //}
@@ -965,7 +974,7 @@ long sys_execve(void)
             memcpy(envp[envc], buf, ret+1);
 #if 0
             //if (p->pid >= 9) {
-                debug("envp[%d] (0x%lx) = %s", envc, envp[envc], envp[envc]);
+                trace("envp[%d] (0x%lx) = %s", envc, envp[envc], envp[envc]);
                 //for (int j=0; j < strlen(envp[envc]); j++) {
                 //    printf("%02x ", envp[envc][j]);
                 //}
@@ -1060,7 +1069,7 @@ long sys_ioctl(void)
      || argfd(0, &fd, &f) < 0)
         return -EINVAL;
 
-    if (myproc()->pid == 9)
+    if (myproc()->pid == 12)
         trace("pid[%d] fd: %d, f.type: %d, f.major: %d, req: 0x%lx, argp: %p", myproc()->pid, fd, f->type, f->major, req, argp);
 
     if (f->type != FD_INODE && f->ip->type != T_DEVICE) {
@@ -1083,7 +1092,8 @@ long sys_fcntl(void)
      || argint(1, &cmd) < 0 || argint(2, &args) < 0)
         return -EINVAL;
 
-    trace("fd=%d, cmd=0x%x, args=%d", fd, cmd, args);
+    if (p->pid == 12)
+        trace("fd=%d, cmd=0x%x, args=%d", fd, cmd, args);
 
     switch (cmd) {
         case F_DUPFD:
@@ -1101,7 +1111,7 @@ long sys_fcntl(void)
 
         case F_GETFL:
             ret = f->flags & (FILE_STATUS_FLAGS | O_ACCMODE);
-            if (p->pid == 6)
+            if (p->pid == 11)
                 trace("fd[%d] flag = 0x%0x, ret = 0x%lx", fd, f->flags, ret);
             return ret;
             //return (f->flags & (FILE_STATUS_FLAGS | O_ACCMODE));
@@ -1143,13 +1153,14 @@ long sys_getdents64(void)
     if (argu64(1, &dirp) < 0 || argu64(2, &count) <0)
         return -EINVAL;
 
+
+    if (myproc()->pid == 11)
+        trace("fd: %d, ino: %d, type: %d, dirp: 0x%lx, count: %ld", fd, f->ip->inum, f->ip->type, dirp, count);
 #if 0
-    if (myproc()->pid == 6)
-        debug("fd: %d, ino: %d, type: %d, dirp: 0x%lx, count: %ld", fd, f->ip->inum, f->ip->type, dirp, count);
         if (copyin(myproc()->pagetable, (char *)&dirtop, dirp - 24, 24) < 0) {
             error("copyin error: addr=0x%lx", dirp - 24);
         } else {
-            debug("dirtop: fd: %d, pos: %d, end: %d", dirtop.fd, dirtop.buf_pos, dirtop.buf_end);
+            trace("dirtop: fd: %d, pos: %d, end: %d", dirtop.fd, dirtop.buf_pos, dirtop.buf_end);
         }
 #endif
 
@@ -1164,16 +1175,21 @@ long sys_getdents64(void)
 
 #if 0
     int ret = getdents64(f, dirp, count);
-    if (myproc()->pid == 6) {
+    if (myproc()->pid == 11) {
         if (copyin(myproc()->pagetable, (char *)&dirtop, dirp - 24, 24) < 0) {
             error("copyin error: addr=0x%lx", dirp - 24);
         } else {
-            debug("dirtop: fd: %d, pos: %d, end: %d", dirtop.fd, dirtop.buf_pos, dirtop.buf_end);
+            trace("dirtop: fd: %d, pos: %d, end: %d", dirtop.fd, dirtop.buf_pos, dirtop.buf_end);
         }
     }
     return ret;
 #endif
 
+#if 0
+    int ret = getdents64(f, dirp, count);
+    trace("return: %d", ret);
+    return ret;
+#endif
     return getdents64(f, dirp, count);
 }
 
@@ -1291,7 +1307,7 @@ long sys_fchmod(void)
         return -EINVAL;
 
     if (myproc()->pid == 11)
-        debug("fd: %d, f->inum: %d, mode: 0x%x", fd, f->ip->inum, mode);
+        trace("fd: %d, f->inum: %d, mode: 0x%x", fd, f->ip->inum, mode);
 
     return filechmod(f, NULL, 0, mode);
 }
@@ -1306,6 +1322,9 @@ long sys_fchmodat()
     if (argint(0, &dirfd) < 0 || argstr(1, path, MAXPATH) < 0
      || argint(2, (int *)&mode) < 0 || argint(3, &flags) < 0)
         return -EINVAL;
+
+    if (myproc()->pid == 11)
+        trace("path: %s, dirfd: %d, mode: 0x%x", path, dirfd, mode);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;
@@ -1325,6 +1344,9 @@ long sys_fchown()
      || argint(2, (int *)&group) < 0)
         return -EINVAL;
 
+    if (myproc()->pid >= 12)
+        trace("fd: %d, inum: %d, owner: %d, group: %d", fd, f->ip->inum, owner, group);
+
     return filechown(f, 0, AT_FDCWD, owner, group, 0);
 }
 
@@ -1342,7 +1364,8 @@ long sys_fchownat()
      || argint(4, &flags) < 0)
         return -EINVAL;
 
-    trace("dirfd=%d, path=%s, uid=%d, gid=%d, flags=%d\n", dirfd, path, owner, group, flags);
+    if (myproc()->pid >= 12)
+        trace("path=%s, dirfd=%d, uid=%d, gid=%d, flags=%d\n", path, dirfd, owner, group, flags);
 
     if ((ret = check_fdcwd(path, dirfd)) < 0)
         return ret;
@@ -1496,6 +1519,9 @@ long sys_renameat2(void)
 
     if (strncmp(oldpath, newpath, MAX(strlen(oldpath), strlen(newpath))) == 0) return 0;
 
+    if (myproc()->pid >= 15)
+        trace("oldpath: %s, olddirfd: %d, newpath: %s, newdirfd: %d, flags: 0x%x",
+            oldpath, olddirfd, newpath, newdirfd, flags);
     return filerename(oldpath, olddirfd, newpath, newdirfd, flags);
 }
 

@@ -188,7 +188,7 @@ static long map_file_pages(struct proc *p, void *addr, uint64_t length, uint64_t
         }
 
         // メモリをユーザプロセスにマッピング
-        if (p->pid == 7)
+        if (p->pid == 11)
             trace("pid[%d] mapping: addr=%p, mem=%p, offset: 0x%x, len: 0x%x", p->pid, addr+cur, mem, offset, len);
         if ((ret = mappages(p->pagetable, (uint64_t)addr + cur, (uint64_t)len, (uint64_t)mem, perm)) < 0) {
             kfree(mem);
@@ -223,7 +223,7 @@ static long map_anon_pages(struct proc *p, void *addr, uint64_t length, uint64_t
             goto err;
         }
         memset(page, 0, PGSIZE);
-        if (p->pid == 7)
+        if (p->pid == 11)
             trace("pid[%d] map addr %p to page %p with perm 0x%lx", p->pid, addr+cur, page, perm);
         if (mappages(p->pagetable, (uint64_t)addr + cur, PGSIZE, (uint64_t)page, perm) < 0) {
             kfree(page);
@@ -569,10 +569,10 @@ load_pages:
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
 #if 1
-    if (p->pid == 15) {
-        debug("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
+    if (p->pid == 12) {
+        trace("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
         region->addr, region->length, region->prot, region->flags, region->f ? region->f->ip->inum : 0, region->offset);
-        print_mmap_list(p, "mmap");
+        //print_mmap_list(p, "mmap");
     }
 #endif
     fence_i();
@@ -590,7 +590,7 @@ long munmap(void *addr, size_t length)
 {
     struct proc *p = myproc();
 
-    if (p->pid == 15)
+    if (p->pid == 12)
         trace("addr: %p, length: 0x%lx", addr, length);
 
     // addrはページ境界になければならない
@@ -599,7 +599,8 @@ long munmap(void *addr, size_t length)
     // lengthは境界になくてもよいが、処理は境界に合わせる
     length = PGROUNDUP(length);
 
-    trace("pid[%d] addr=%p, length=0x%x", p->pid, addr, length);
+    if (p->pid == 11)
+        trace("pid[%d] addr=%p, length=0x%x", p->pid, addr, length);
 
     struct mmap_region *region = find_mmap_region(p, addr);
     if (region == NULL) {
@@ -714,7 +715,7 @@ long mprotect(void *addr, size_t length, int prot)
     struct mmap_region *region, *new1, *new2;
     int newprot;
 
-    if (p->pid == 8)
+    if (p->pid == 12)
         trace("addr: %p, length: 0x%lx, prot: 0x%x", addr, length, prot);
 
     uint64_t addrp = (uint64_t)addr;
