@@ -2,7 +2,7 @@
 #include <common/param.h>
 #include <common/memlayout.h>
 #include <common/riscv.h>
-#include "defs.h"
+#include <defs.h>
 
 void main();
 void timerinit();

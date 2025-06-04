@@ -215,7 +215,8 @@ freeproc(struct proc *p)
     p->gid = p->egid = p->sgid = p->fsgid = -1;
     p->ngroups = 0;
     memset(p->groups, 0, sizeof(gid_t)*NGROUPS);
-
+    p->it_real_value = p->it_real_incr = 0;
+    memset(&p->real_timer, 0, sizeof(struct timer_list));
     p->cap_effective = p->cap_inheritable = p->cap_permitted = 0;
     p->umask = 0;
     p->fdflag = 0;
@@ -331,7 +332,8 @@ userinit(void)
     p->gid = p->egid = p->sgid = p->fsgid = 0;
     p->ngroups = 0;
     memset(p->groups, 0, sizeof(gid_t)*NGROUPS);
-
+    p->it_real_value = p->it_real_incr = 0;
+    memset(&p->real_timer, 0, sizeof(struct timer_list));
     p->cap_effective = p->cap_inheritable = p->cap_permitted = CAP_INIT_EFF_SET;
 
     p->state = RUNNABLE;
@@ -424,6 +426,11 @@ int fork(void)
     np->cwd = idup(p->cwd);
     memmove(&np->signal, &p->signal, sizeof(struct signal));
     np->signal.pending = 0UL;
+
+    np->it_real_value = np->it_real_incr = 0;
+    init_timer(&np->real_timer);
+    np->real_timer.data = (uint64_t) np;
+    np->real_timer.fn = it_real_fn;
 
     safestrcpy(np->name, p->name, sizeof(p->name));
 

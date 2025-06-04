@@ -141,6 +141,10 @@ struct proc {
     struct trapframe *trapframe;    // trampoline.S用のデータページへのポインタ
     struct context context;         // プロセスを実行するにはここにswtch()
     mode_t umask;                   // umask
+    struct spinlock time_lock;      // timer関連のフィールドを保護
+    uint64_t it_real_value;         // timer interval値
+    uint64_t it_real_incr;          // timer increment値
+    struct timer_list real_timer;   // Real timerリスト
     int fdflag;                     // fdフラグ（1ビット/ファイル）
     struct file *ofile[NOFILE];     // オープンしているフィル
     struct inode *cwd;              // カレントワーキングディレクトリ

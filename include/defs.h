@@ -2,7 +2,6 @@
 #define INC_DEFS_H
 
 #include <common/riscv.h>
-#include <linux/time.h>
 
 struct buf;
 struct context;
@@ -24,6 +23,8 @@ struct pollfd;
 struct tm;
 struct mmap_region;
 struct siginfo;
+struct timer_list;
+struct timespec;
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 
@@ -111,6 +112,12 @@ int             permission(struct inode *ip, int mask);
 void            ramdiskinit(void);
 void            ramdiskintr(void);
 void            ramdiskrw(struct buf*, int write);
+
+// itimer.c
+void            timer_init(void);
+long            getitimer(int which, uint64_t valuep);
+long            setitimer(int which, uint64_t new_valuep, uint64_t old_valuep);
+void            it_real_fn(uint64_t __data);
 
 // kalloc.c
 void*           kalloc(void);
@@ -289,6 +296,11 @@ int             fetchstr(uint64_t addr, char *buf, int max);
 int             fetchaddr(uint64_t addr, uint64_t *ip);
 int             fdalloc(struct file *f, int from);
 void            syscall(void);
+
+// timer.c
+void            add_timer(struct timer_list *timer);
+int             del_timer(struct timer_list *timer);
+void            run_timer_list(void);
 
 // trap.c
 void            trapinit(void);

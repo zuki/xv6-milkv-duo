@@ -331,6 +331,36 @@ long sys_getrandom(void)
     return getrandom(bufp, buflen);
 }
 
+// int getitimer(int which, struct itimerval *value);
+long sys_getitimer(void)
+{
+    int which;
+    uint64_t valuep;
+
+    if (argint(0, &which) < 0 || argu64(1, &valuep) < 0)
+        return -EINVAL;
+
+    if (myproc()->pid == 12)
+        debug("which: %d, valuep: 0x%lx", which, valuep);
+
+    return getitimer(which, valuep);
+}
+
+// int setitimer(int which, const struct itimerval *value, struct itimerval *ovalue);
+long sys_setitimer(void)
+{
+    int which;
+    uint64_t new_valuep, old_valuep;
+
+    if (argint(0, &which) < 0 || argu64(1, &new_valuep) < 0 || argu64(2, &old_valuep) < 0)
+        return -EINVAL;
+
+    if (myproc()->pid == 12)
+        debug("which: %d, new_valuep: 0x%lx, old_valuep: 0x%lx", which, new_valuep, old_valuep);
+
+    return setitimer(which, new_valuep, old_valuep);
+}
+
 // socket(int domain, int type, int protocol);
 // 引数のチェック用、当面実装はしない
 long sys_socket(void) {
@@ -554,6 +584,8 @@ static func syscalls[] = {
     [SYS_set_tid_address] = sys_set_tid_address,    //  96
     [SYS_futex]     = sys_futex,                //  98
     [SYS_nanosleep] = sys_nanosleep,            // 101
+    [SYS_getitimer] = sys_getitimer,            // 102
+    [SYS_setitimer] = sys_setitimer,            // 103
     [SYS_clock_settime] = sys_clock_settime,    // 112
     [SYS_clock_gettime] = sys_clock_gettime,    // 113
     [SYS_sched_getaffinity] = sys_sched_getaffinity, // 123

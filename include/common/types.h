@@ -67,6 +67,10 @@ typedef int         bool;
 
 #define NULL        ((void *)0)
 
+#define LONG_MIN    (-LONG_MAX-1)
+#define LONG_MAX    0x7fffffffffffffffL
+#define ULONG_MAX   (2UL*LONG_MAX+1)
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #define uswap_16(x) \

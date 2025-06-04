@@ -6,10 +6,7 @@
 #include <spinlock.h>
 #include <errno.h>
 #include <printf.h>
-
-#define HZ        (100)                 // 10 ms = 1 / 25 MHz
-#define TICK_USEC (10000UL)
-#define TICK_NSEC (10000000UL)
+#include <linux/time.h>
 
 uint64_t tick_usec = TICK_USEC;        /* USER_HZ period (usec) */
 uint64_t tick_nsec = TICK_NSEC;        /* ACTHZ period (nsec) */
@@ -63,7 +60,7 @@ void clockintr(void)
     acquire(&clocklock);
     jiffies++;
     update_times();
-    //run_timer_list();
+    run_timer_list();
     //clock_reset();
     wakeup(&jiffies);
     release(&clocklock);
