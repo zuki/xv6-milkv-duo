@@ -14,6 +14,7 @@
 
 char *sh_argv[] = { "sh", "/etc/inittab", NULL };
 char *sh_envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", "TZ=JST-9", NULL };
+char *dash_argv[] = { "dash", "-", NULL };
 
 int main(int argc, char **argv)
 {
@@ -46,7 +47,7 @@ int main(int argc, char **argv)
                 //execve("/bin/sh", 0, sh_envp);
             else
                 //execve("/usr/bin/dash", 0, 0);
-                execve("/bin/sh", 0, 0);
+                execve("/usr/bin/dash", dash_argv, 0);
             printf("init: exec sh failed\n");
             exit(1);
         }
