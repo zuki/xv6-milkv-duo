@@ -169,6 +169,7 @@ extern long sys_pipe2(void);
 extern long sys_read(void);
 extern long sys_readv(void);
 extern long sys_kill(void);
+extern long sys_tkill(void);
 extern long sys_execve(void);
 extern long sys_fstat(void);
 extern long sys_fsync(void);
@@ -590,6 +591,7 @@ static func syscalls[] = {
     [SYS_clock_gettime] = sys_clock_gettime,    // 113
     [SYS_sched_getaffinity] = sys_sched_getaffinity, // 123
     [SYS_kill]      = sys_kill,                 // 129
+    [SYS_tkill]     = sys_tkill,                // 130
     [SYS_rt_sigsuspend] = sys_rt_sigsuspend,    // 133
     [SYS_rt_sigaction] = sys_rt_sigaction,      // 134
     [SYS_rt_sigprocmask] = sys_rt_sigprocmask,  // 135

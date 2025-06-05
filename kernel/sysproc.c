@@ -300,6 +300,24 @@ long sys_kill(void)
     return kill(pid, sig);
 }
 
+// int tkill(int tid, int sig);
+long sys_tkill(void)
+{
+    pid_t tid;
+    int sig;
+
+    if (argint(0, &tid) < 0 || argint(1, &sig) < 0)
+        return -EINVAL;
+
+    if (sig < 1 || sig >= NSIG)
+        return -EINVAL;
+
+    trace("tid=%d, sig=%d", tid, sig);
+
+    return kill(tid, sig);
+}
+
+
 //  int sysinfo(struct sysinfo *info);
 long sys_sysinfo(void)
 {
