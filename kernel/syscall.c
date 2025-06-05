@@ -342,7 +342,7 @@ long sys_getitimer(void)
         return -EINVAL;
 
     if (myproc()->pid == 12)
-        debug("which: %d, valuep: 0x%lx", which, valuep);
+        trace("which: %d, valuep: 0x%lx", which, valuep);
 
     return getitimer(which, valuep);
 }
@@ -357,7 +357,7 @@ long sys_setitimer(void)
         return -EINVAL;
 
     if (myproc()->pid == 12)
-        debug("which: %d, new_valuep: 0x%lx, old_valuep: 0x%lx", which, new_valuep, old_valuep);
+        trace("which: %d, new_valuep: 0x%lx, old_valuep: 0x%lx", which, new_valuep, old_valuep);
 
     return setitimer(which, new_valuep, old_valuep);
 }
@@ -889,7 +889,7 @@ void syscall(void)
         // and store its return value in p->trapframe->a0
 #if 0
         //if (p->pid == 4 && num != SYS_writev && num != SYS_read) {
-        if (p->pid == 14 && num != SYS_debug && num != SYS_meta) {
+        if (p->pid == 12) {
             switch(syscall_params[num]) {
             case 6:
                 debug("pid[%d] (%s) a0: 0x%lx, a1: 0x%lx, a2: 0x%lx, a3: 0x%lx, a4: 0x%lx, a5: 0x%lx", p->pid, syscall_names[num],

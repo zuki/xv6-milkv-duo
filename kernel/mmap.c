@@ -429,8 +429,8 @@ long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t 
     struct mmap_region *node, *dev_region;
     long error = -EINVAL;
 
-    if (p->pid == 8)
-        trace("addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, off: 0x%lx",
+    if (p->pid == 12)
+        trace("option addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, off: 0x%lx",
         addr, length, prot, flags, f ? f->ip->inum : 0, offset);
 
     // MAP_FIXEDの指定アドレスはページ境界にあり、割り当て領域がMMAPエリア内に入ること
@@ -482,7 +482,7 @@ long mmap(void *addr, size_t length, int prot, int flags, struct file *f, off_t 
     // 1.2. アドレスが指定されていない場合
     } else {
         // 1.2.1 最初のアドレス候補
-        if (p->regions)
+        if (p->regions && (uint64_t)p->regions->addr >= MMAPBASE)
             addr = p->regions->addr;
         else
             addr = (void *)MMAPBASE;
@@ -490,16 +490,16 @@ select_addr:
         node = p->regions;
         while (node) {
             trace("- addr=0x%x, node->addr=0x%x, node->next->addr=0x%x", addr, node->addr, node->next ? node->next->addr : NULL);
-            // 1.2.31 作成マッピングが現在のノードアドレスより小さい場合はこの候補を使用する
+            // 1.2.1 作成マッピングが現在のノードアドレスより小さい場合はこの候補を使用する
             if (addr + PGROUNDUP(length) <= node->addr)
                 break;
             // 1.2.2 次のマッピングがない、または次のマッピングとの間に置ける場合はこの候補を使用する
             if (node->addr + node->length <= addr && (node->next == 0 || addr + PGROUNDUP(length) <= node->next->addr))
                 break;
-            // 1.2.5 それ以外は、現在のマッピングの右端をアドレス候補とする
+            // 1.2.3 それ以外は、現在のマッピングの右端をアドレス候補とする
             if (addr <= node->addr + node->length)
                 addr = node->addr + node->length;
-            // 1.2.6 次のマッピングと比較する
+            // 1.2.4 次のマッピングと比較する
             node = node->next;
         }
     }
@@ -568,9 +568,9 @@ load_pages:
     region->addr = addr;
     // ファイルオフセットを正しく処理するためにlengthはここで切り上げる
     region->length = PGROUNDUP(length);
-#if 1
+#if 0
     if (p->pid == 12) {
-        trace("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
+        debug("return addr: %p, length: 0x%lx, prot: 0x%x, flags: 0x%x, f: %d, offset: 0x%x",
         region->addr, region->length, region->prot, region->flags, region->f ? region->f->ip->inum : 0, region->offset);
         //print_mmap_list(p, "mmap");
     }
@@ -591,7 +591,7 @@ long munmap(void *addr, size_t length)
     struct proc *p = myproc();
 
     if (p->pid == 12)
-        trace("addr: %p, length: 0x%lx", addr, length);
+        trace("     addr: %p, length: 0x%lx", addr, length);
 
     // addrはページ境界になければならない
     if ((uint64_t)addr & (PGSIZE - 1))
@@ -599,7 +599,7 @@ long munmap(void *addr, size_t length)
     // lengthは境界になくてもよいが、処理は境界に合わせる
     length = PGROUNDUP(length);
 
-    if (p->pid == 11)
+    if (p->pid == 12)
         trace("pid[%d] addr=%p, length=0x%x", p->pid, addr, length);
 
     struct mmap_region *region = find_mmap_region(p, addr);

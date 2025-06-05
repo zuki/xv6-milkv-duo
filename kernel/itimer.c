@@ -114,7 +114,7 @@ long setitimer(int which, uint64_t new_valuep, uint64_t old_valuep)
     interval = tvtojiffies(&new_value.it_interval);
     value = tvtojiffies(&new_value.it_value);
     if (p->pid == 12)
-        debug("jiffies: 0x%lx, val->interval: 0x%x, val->value: 0x%lx, interval: 0x%x, value: 0x%x",
+        trace("jiffies: 0x%lx, val->interval: 0x%x, val->value: 0x%lx, interval: 0x%x, value: 0x%x",
             jiffies, new_value.it_interval.tv_sec, new_value.it_value.tv_sec, interval, value);
 
     // 現在のtimerをセット
