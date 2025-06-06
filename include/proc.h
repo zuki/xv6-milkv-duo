@@ -1,9 +1,9 @@
 #ifndef INC_PROC_H
 #define INC_PROC_H
 
-#include <common/types.h>
-#include <common/param.h>
-#include <common/file.h>
+#include <types.h>
+#include <param.h>
+#include <file.h>
 #include <linux/signal.h>
 #include <spinlock.h>
 

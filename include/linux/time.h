@@ -1,7 +1,7 @@
 #ifndef INC_LINUX_TIME_H
 #define INC_LINUX_TIME_H
 
-#include <common/types.h>
+#include <types.h>
 #include <list.h>
 
 #define HZ        (100)                 // 10 ms = 1 / 25 MHz

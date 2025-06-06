@@ -1,4 +1,4 @@
-#include <common/types.h>
+#include <types.h>
 
 void*
 memset(void *dst, int c, uint32_t n)

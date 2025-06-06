@@ -8,17 +8,17 @@
 // このファイルは低レベルのファイルシステム操作関数を含んでいる。
 // （高レベルな）システムコールの実装はsysfile.c にある。
 
-#include <common/types.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <riscv.h>
 #include <defs.h>
-#include <common/param.h>
+#include <param.h>
 #include <linux/stat.h>
 #include <spinlock.h>
 #include <proc.h>
 #include <sleeplock.h>
-#include <common/fs.h>
+#include <fs.h>
 #include <buf.h>
-#include <common/file.h>
+#include <file.h>
 #include <sd.h>
 #include <printf.h>
 #include <errno.h>

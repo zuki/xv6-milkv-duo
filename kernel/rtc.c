@@ -1,4 +1,4 @@
-#include <common/types.h>
+#include <types.h>
 #include <defs.h>
 #include <riscv-mmio.h>
 #include <printf.h>

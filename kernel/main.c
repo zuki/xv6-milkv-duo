@@ -1,7 +1,7 @@
-#include <common/types.h>
-#include <common/param.h>
-#include <common/memlayout.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <param.h>
+#include <memlayout.h>
+#include <riscv.h>
 #include <defs.h>
 #include <mmc.h>
 #include <printf.h>

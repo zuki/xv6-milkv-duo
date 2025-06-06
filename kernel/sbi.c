@@ -1,8 +1,8 @@
-#include <common/types.h>
-#include <common/riscv.h>
-#include "defs.h"
-#include "sbi.h"
-#include <common/param.h>
+#include <types.h>
+#include <riscv.h>
+#include <defs.h>
+#include <sbi.h>
+#include <param.h>
 
 void _entry();
 

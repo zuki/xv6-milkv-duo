@@ -10,8 +10,8 @@
         # kernel.ldはこのコードをページ境界で開始させる。
         #
 
-#include <common/riscv.h>
-#include <common/memlayout.h>
+#include <riscv.h>
+#include <memlayout.h>
 
 .section trampsec
 .globl trampoline

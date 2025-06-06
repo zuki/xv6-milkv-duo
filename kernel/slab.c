@@ -16,7 +16,7 @@ limitations under the License.
 
 /** @file slab.c */
 
-#include <common/types.h>
+#include <types.h>
 #include <defs.h>
 #include <page.h>
 #include <printf.h>

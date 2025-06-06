@@ -1,18 +1,18 @@
 /* Copyright (C) 2024 Jisheng Zhang <jszhang@kernel.org> */
 
 
-#include "config.h"
-#include <common/gpio.h>
-#include "io.h"
-#include <common/types.h>
-#include <common/param.h>
-#include <common/riscv.h>
-#include "spinlock.h"
-#include "sleeplock.h"
-#include <common/fs.h>
-#include <common/file.h>
-#include "defs.h"
-#include "proc.h"
+#include <config.h>
+#include <gpio.h>
+#include <io.h>
+#include <types.h>
+#include <param.h>
+#include <riscv.h>
+#include <spinlock.h>
+#include <sleeplock.h>
+#include <fs.h>
+#include <file.h>
+#include <defs.h>
+#include <proc.h>
 
 #ifdef GPIO_DRIVER
 

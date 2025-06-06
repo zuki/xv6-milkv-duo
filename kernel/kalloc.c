@@ -2,15 +2,15 @@
 // kernel stacks, page-table pages,
 // and pipe buffers. Allocates whole 4096-byte pages.
 
-//#include <common/types.h>
-//#include <common/param.h>
-//#include <common/memlayout.h>
-//#include "spinlock.h"
-//#include <common/riscv.h>
-#include "defs.h"
-#include "page.h"
-#include "common/riscv.h"
-#include "printf.h"
+//#include <types.h>
+//#include <param.h>
+//#include <memlayout.h>
+//#include <spinlock.h>
+//#include <riscv.h>
+#include <defs.h>
+#include <page.h>
+#include <riscv.h>
+#include <printf.h>
 
 #if 0
 void freerange(void *pa_start, void *pa_end);

@@ -1,6 +1,6 @@
-#include <common/types.h>
+#include <types.h>
 #include <defs.h>
-#include <common/riscv.h>
+#include <riscv.h>
 #include <printf.h>
 
 // Memory allocator by Kernighan and Ritchie,

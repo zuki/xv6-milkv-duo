@@ -20,7 +20,7 @@ limitations under the License.
 #define INC_PAGE_H
 
 #include <list.h>
-#include <common/memlayout.h>
+#include <memlayout.h>
 #include <spinlock.h>
 
 /**

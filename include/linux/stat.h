@@ -1,7 +1,7 @@
 #ifndef INC_LINUX_STAT_H
 #define INC_LINUX_STAT_H
 
-#include <common/types.h>
+#include <types.h>
 #include <linux/time.h>
 
 #define S_IFMT   00170000

@@ -1,8 +1,8 @@
 #ifndef INC_EXEC_H
 #define INC_EXEC_H
 
-#include <common/types.h>
-#include <common/memlayout.h>
+#include <types.h>
+#include <memlayout.h>
 #include <elf.h>
 #include <linux/capability.h>
 

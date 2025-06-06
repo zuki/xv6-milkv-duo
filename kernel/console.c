@@ -10,15 +10,15 @@
 //
 
 #include <stdarg.h>
-#include <common/types.h>
-#include <common/param.h>
+#include <types.h>
+#include <param.h>
 #include <spinlock.h>
 #include <sleeplock.h>
 #include <linux/stat.h>
-#include <common/fs.h>
-#include <common/file.h>
-#include <common/memlayout.h>
-#include <common/riscv.h>
+#include <fs.h>
+#include <file.h>
+#include <memlayout.h>
+#include <riscv.h>
 #include <defs.h>
 #include <proc.h>
 #include <linux/ioctl.h>

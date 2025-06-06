@@ -13,17 +13,17 @@
 // * brelse 呼び出したらそのバッファを使用しない
 // * 一度に1つのプロセスしかバッファは使用できない。そのため、必要以上に
 //   長くバッファを保持しない
-#include <common/types.h>
-#include <common/param.h>
+#include <types.h>
+#include <param.h>
 #include <spinlock.h>
 #include <sleeplock.h>
-#include <common/riscv.h>
+#include <riscv.h>
 #include <defs.h>
-#include <common/fs.h>
+#include <fs.h>
 #include <buf.h>
 #include <printf.h>
 #include <memalign.h>
-#include <common/fs.h>
+#include <fs.h>
 
 static struct slab_cache *BUFDATA;
 

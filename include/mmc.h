@@ -9,7 +9,7 @@
 #ifndef INC_MMC_H
 #define INC_MMC_H
 
-#include <common/types.h>
+#include <types.h>
 #include <dma-mapping.h>
 
 /* SD/MMC version bits; 8 flags, 8 major, 8 minor, 8 change */

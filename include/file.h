@@ -1,7 +1,7 @@
 #ifndef INC_COMMON_FILE_H
 #define INC_COMMON_FILE_H
 
-#include <common/fs.h>
+#include <fs.h>
 #include <linux/fcntl.h>
 #include <linux/termios.h>
 #include <sleeplock.h>

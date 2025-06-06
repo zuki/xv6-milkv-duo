@@ -13,7 +13,7 @@
 #ifndef INC_LINUX_CAPABILITY_H
 #define INC_LINUX_CAPABILITY_H
 
-#include <common/types.h>
+#include <types.h>
 #include <proc.h>
 #include <defs.h>
 

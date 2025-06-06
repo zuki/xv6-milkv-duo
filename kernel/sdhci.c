@@ -11,7 +11,7 @@
 #include <mmc.h>
 #include <sdhci.h>
 #include <dma-mapping.h>
-#include <common/types.h>
+#include <types.h>
 #include <printf.h>
 #include <memalign.h>
 #include <errno.h>

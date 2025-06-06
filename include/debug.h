@@ -1,7 +1,7 @@
 #ifndef INC_DEBUG_H
 #define INC_DEBUG_H
 
-#include <common/types.h>
+#include <types.h>
 #include <elf.h>
 
 struct tls_module {

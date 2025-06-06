@@ -1,8 +1,8 @@
-#include <common/types.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <riscv.h>
 #include <defs.h>
-#include <common/file.h>
-#include <common/memlayout.h>
+#include <file.h>
+#include <memlayout.h>
 #include <errno.h>
 #include <printf.h>
 #include <proc.h>

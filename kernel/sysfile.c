@@ -4,17 +4,17 @@
 // user code, and calls into file.c and fs.c.
 //
 
-#include <common/types.h>
-#include <common/riscv.h>
-#include <common/fs.h>
+#include <types.h>
+#include <riscv.h>
+#include <fs.h>
 #include <defs.h>
-#include <common/param.h>
+#include <param.h>
 #include <linux/stat.h>
 #include <spinlock.h>
 #include <proc.h>
-#include <common/fs.h>
+#include <fs.h>
 #include <sleeplock.h>
-#include <common/file.h>
+#include <file.h>
 #include <linux/fcntl.h>
 #include <linux/time.h>
 #include <printf.h>

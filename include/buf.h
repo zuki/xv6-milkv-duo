@@ -1,8 +1,8 @@
 #ifndef INC_BUF_H
 #define INC_BUF_H
 
-#include <common/types.h>
-#include <common/fs.h>
+#include <types.h>
+#include <fs.h>
 #include <list.h>
 
 #define DSIZE   BSIZE

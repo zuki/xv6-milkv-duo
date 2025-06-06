@@ -1,13 +1,13 @@
-#include <common/types.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <riscv.h>
 #include <defs.h>
-#include <common/param.h>
+#include <param.h>
 #include <pipe.h>
 #include <spinlock.h>
 #include <proc.h>
-#include <common/fs.h>
-#include "sleeplock.h"
-#include <common/file.h>
+#include <fs.h>
+#include <sleeplock.h>
+#include <file.h>
 
 int
 pipealloc(struct file **f0, struct file **f1, int flags)

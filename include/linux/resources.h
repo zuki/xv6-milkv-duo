@@ -1,7 +1,7 @@
 #ifndef INC_LINUX_RESOURCES_H
 #define INC_LINUX_RESOURCES_H
 
-#include <common/types.h>
+#include <types.h>
 #include <linux/time.h>
 
 typedef unsigned long long rlim_t;

@@ -1,7 +1,7 @@
 #ifndef INC_LINUX_SIGNAL_H
 #define INC_LINUX_SIGNAL_H
 
-#include <common/types.h>
+#include <types.h>
 
 #define NSIG   32
 

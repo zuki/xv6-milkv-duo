@@ -1,7 +1,7 @@
 // from https://kobayashi.hub.hit-u.ac.jp/topics/rand.html
 
-#include <common/types.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <riscv.h>
 #include <defs.h>
 #include <errno.h>
 #include <proc.h>

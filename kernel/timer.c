@@ -1,5 +1,5 @@
 #include <linux/time.h>
-#include <common/riscv.h>
+#include <riscv.h>
 #include <printf.h>
 #include <proc.h>
 #include <list.h>

@@ -2,10 +2,10 @@
 #include <mmc.h>
 #include <defs.h>
 #include <list.h>
-#include <common/riscv.h>
+#include <riscv.h>
 #include <spinlock.h>
 #include <buf.h>
-#include <common/types.h>
+#include <types.h>
 #include <printf.h>
 #include <riscv-barrier.h>
 

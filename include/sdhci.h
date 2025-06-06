@@ -9,7 +9,7 @@
 #ifndef INC_SDHCI_H
 #define INC_SDHCI_H
 
-#include <common/types.h>
+#include <types.h>
 #include <mmc.h>
 #include <riscv-mmio.h>
 #include <config.h>

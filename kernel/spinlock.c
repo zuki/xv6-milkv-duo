@@ -1,10 +1,10 @@
 // Mutual exclusion spin locks.
 
-#include <common/types.h>
-#include <common/param.h>
-#include <common/memlayout.h>
+#include <types.h>
+#include <param.h>
+#include <memlayout.h>
 #include <spinlock.h>
-#include <common/riscv.h>
+#include <riscv.h>
 #include <proc.h>
 #include <defs.h>
 #include <printf.h>

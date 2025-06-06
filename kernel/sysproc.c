@@ -1,8 +1,8 @@
-#include <common/types.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <riscv.h>
 #include <defs.h>
-#include <common/param.h>
-#include <common/memlayout.h>
+#include <param.h>
+#include <memlayout.h>
 #include <spinlock.h>
 #include <proc.h>
 #include <printf.h>
@@ -11,7 +11,7 @@
 #include <linux/mman.h>
 #include <linux/ppoll.h>
 #include <linux/signal.h>
-#include <common/file.h>
+#include <file.h>
 #include <linux/stat.h>
 #include <linux/capability.h>
 #include <linux/resources.h>

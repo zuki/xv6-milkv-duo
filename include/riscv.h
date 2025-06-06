@@ -3,7 +3,7 @@
 
 #ifndef __ASSEMBLER__
 
-#include <common/types.h>
+#include <types.h>
 
 // これはどのhart (core) か?
 static inline uint64_t

@@ -5,7 +5,7 @@
  */
 
 /* These are all the functions necessary to implement itimers */
-#include <common/types.h>
+#include <types.h>
 #include <errno.h>
 #include <spinlock.h>
 #include <proc.h>

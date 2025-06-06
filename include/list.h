@@ -1,7 +1,7 @@
 #ifndef INC_LIST_H
 #define INC_LIST_H
 
-#include <common/types.h>
+#include <types.h>
 #include <printf.h>
 
 #define offsetof(st, m) __builtin_offsetof(st, m)

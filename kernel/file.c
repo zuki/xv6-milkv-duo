@@ -2,14 +2,14 @@
 // Support functions for system calls that involve file descriptors.
 //
 
-#include <common/types.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <riscv.h>
 #include <defs.h>
-#include <common/param.h>
-#include <common/fs.h>
+#include <param.h>
+#include <fs.h>
 #include <spinlock.h>
 #include <sleeplock.h>
-#include <common/file.h>
+#include <file.h>
 #include <linux/fcntl.h>
 #include <linux/stat.h>
 #include <linux/time.h>

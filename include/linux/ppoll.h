@@ -1,7 +1,7 @@
 #ifndef INC_LINUX_POLL_H
 #define INC_LINUX_POLL_H
 
-#include <common/types.h>
+#include <types.h>
 
 #define POLLIN     0x001
 #define POLLPRI    0x002

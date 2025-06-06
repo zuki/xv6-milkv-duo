@@ -1,7 +1,7 @@
 #ifndef INC_COMMON_FS_H
 #define INC_COMMON_FS_H
 
-#include <common/types.h>
+#include <types.h>
 #include <linux/time.h>
 #include <linux/fcntl.h>
 #include <sd.h>

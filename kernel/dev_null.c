@@ -1,6 +1,6 @@
-#include <common/types.h>
+#include <types.h>
 #include <defs.h>
-#include <common/file.h>
+#include <file.h>
 
 static int devnull_read(int user_dst, uint64_t dst, int n)
 {

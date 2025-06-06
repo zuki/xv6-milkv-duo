@@ -17,11 +17,11 @@ limitations under the License.
  * @file buddy.c
 */
 
-#include "defs.h"
-#include "common/types.h"
-#include "page.h"
-#include "printf.h"
-#include "spinlock.h"
+#include <defs.h>
+#include <types.h>
+#include <page.h>
+#include <printf.h>
+#include <spinlock.h>
 
 extern char _end[]; // kernel.ldで定義sれているカーネル後の最初のアドレス
 

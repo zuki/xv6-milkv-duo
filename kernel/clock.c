@@ -1,5 +1,5 @@
 #include <defs.h>
-#include <common/types.h>
+#include <types.h>
 #include <linux/time.h>
 #include <linux/capability.h>
 #include <proc.h>

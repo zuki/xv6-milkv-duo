@@ -2,7 +2,7 @@
 #define INC_SD_H
 
 #include "buf.h"
-#include <common/types.h>
+#include <types.h>
 
 #define PARTITIONS      4       // 最大パーティション数
 #define SECTOR_SIZE     512     // セクタサイズ（バイト）

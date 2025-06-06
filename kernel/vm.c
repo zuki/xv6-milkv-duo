@@ -1,11 +1,11 @@
-#include <common/param.h>
-#include <common/types.h>
-#include <common/memlayout.h>
+#include <param.h>
+#include <types.h>
+#include <memlayout.h>
 #include <elf.h>
-#include <common/riscv.h>
+#include <riscv.h>
 #include <defs.h>
 #include <proc.h>
-#include <common/fs.h>
+#include <fs.h>
 #include <linux/mman.h>
 #include <config.h>
 #include <printf.h>

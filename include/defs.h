@@ -1,7 +1,7 @@
 #ifndef INC_DEFS_H
 #define INC_DEFS_H
 
-#include <common/riscv.h>
+#include <riscv.h>
 
 struct buf;
 struct context;

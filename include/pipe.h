@@ -1,7 +1,7 @@
 #ifndef INC_PIPE_H
 #define INC_PIPE_H
 
-#include <common/types.h>
+#include <types.h>
 #include <linux/fcntl.h>
 #include <spinlock.h>
 

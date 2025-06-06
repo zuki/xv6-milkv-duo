@@ -7,7 +7,7 @@
 #ifndef RISCV_MMIO_H
 #define RISCV_MMIO_H
 
-#include <common/types.h>
+#include <types.h>
 #include <riscv-barrier.h>
 
 static inline void mmio_write_8(uintptr_t addr, uint8_t value)

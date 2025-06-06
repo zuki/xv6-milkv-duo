@@ -1,9 +1,9 @@
-#include <common/types.h>
-#include <common/param.h>
-#include <common/memlayout.h>
-#include <common/riscv.h>
+#include <types.h>
+#include <param.h>
+#include <memlayout.h>
+#include <riscv.h>
 #include <exec.h>
-#include <common/file.h>
+#include <file.h>
 #include <spinlock.h>
 #include <proc.h>
 #include <defs.h>

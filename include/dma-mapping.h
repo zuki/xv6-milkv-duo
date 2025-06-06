@@ -2,7 +2,7 @@
 #ifndef INC_DMA_MAPPING_H
 #define INC_DMA_MAPPING_H
 
-#include <common/types.h>
+#include <types.h>
 #include <memalign.h>
 
 #define dma_mapping_error(x, y)	    0
