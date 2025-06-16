@@ -211,4 +211,23 @@
 #define TIME_RECORDS_FIELD_DECOMPRESS_KERNEL_START (TIME_RECORDS_ADDR + 0x14)
 #define TIME_RECORDS_FIELD_KERNEL_START (TIME_RECORDS_ADDR + 0x16)
 
+/* TRNG (True Random Number Generator) */
+#define TRNG_BASE       0x02070000
+#define TRNG_CTRL       (TRNG_BASE + 0x000)
+#define     TRNG_CMD_NOP            (0x0)
+#define     TRNG_CMD_GEN_NOISE      (0x1)
+#define     TRNG_CMD_CREATE_STATE   (0x3)
+#define     TRNG_CMD_GEN_RANDOM     (0x6)
+#define TRNG_STAT       (TRNG_BASE + 0x00c)
+#define     TRNG_STAT_BUSY  (1U << 31)
+#define TRNG_ISTAT      (TRNG_BASE + 0x014)
+#define     TRNG_DONE_R0    (0U << 4)
+#define     TRNG_DONE_R1    (1U << 4)
+#define     TRNG_DONE_W0    (0U << 4)
+#define     TRNG_DONE_W1    (1U << 4)
+#define TRNG_RAND0      (TRNG_BASE + 0x024)
+#define TRNG_RAND1      (TRNG_BASE + 0x028)
+#define TRNG_RAND2      (TRNG_BASE + 0x02c)
+#define TRNG_RAND3      (TRNG_BASE + 0x030)
+
 #endif /* INC_CV181X_REG_H */

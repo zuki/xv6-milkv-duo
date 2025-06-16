@@ -37,6 +37,7 @@ kvmmake(void)
 
     // 各種IOレジスタをマップする
     kvmmap(kpgtbl, UART0, UART0_PHY, PGSIZE, PTE_DEVICE);
+    kvmmap(kpgtbl, TRNG_BASE, TRNG_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, MMIO_BASE, MMIO_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, CLKGEN_BASE, CLKGEN_BASE, PGSIZE, PTE_DEVICE);
     kvmmap(kpgtbl, PINMUX_BASE, PINMUX_BASE, PGSIZE, PTE_DEVICE);
